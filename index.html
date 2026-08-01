@@ -231,11 +231,12 @@ select.pole:focus{outline:none;border-color:var(--zielen-jasna);background:#fff}
     </div>
     <div class="ikony">
       <div id="sync" title="Stan synchronizacji">☁</div>
+      <button id="btnInstaluj" title="Zainstaluj aplikację" hidden>📲</button>
       <button id="btnOdswiez" title="Odśwież">⟳</button>
       <button id="btnUstawienia" title="Ustawienia">⚙</button>
       <button id="btnBackup" title="Kopia zapasowa">⬇</button>
       <button id="btnInfo" title="Informacje">ⓘ</button>
-      <button id="btnWyloguj" title="Wyloguj">⏻</button>
+      <button id="btnWyloguj" title="Wyloguj" style="width:auto;padding:0 10px;font-size:13px;font-weight:600">Wyloguj</button>
     </div>
   </header>
   <div class="baner" id="banerLokalny" hidden>TRYB LOKALNY — brak konfiguracji Firebase. Dane zapisują się tylko w tej przeglądarce.</div>
@@ -1038,9 +1039,12 @@ function oknoInfo(){
         <thead><tr><th>Zakładka</th><th>Dostęp</th></tr></thead>
         <tbody>${zakl}</tbody>
       </table>
-      <p class="podpis" style="margin-bottom:0">Dane: ${Object.keys(store.surowce).length} surowców · ${Object.keys(store.dawki).length} dawek · ${Object.keys(store.mieszanki).length} mieszanek</p>`,
+      <p class="podpis" style="margin-bottom:0">Dane: ${Object.keys(store.surowce).length} surowców · ${Object.keys(store.dawki).length} dawek · ${Object.keys(store.mieszanki).length} mieszanek</p>
+      ${deferredPrompt ? '<hr style="border:none;border-top:1px solid var(--linia);margin:14px 0"><button class="btn" id="btnInstalujInfo">📲 Zainstaluj aplikację na tym urządzeniu</button>' : '<p class="podpis">Aby zainstalować jako aplikację: w Chrome kliknij menu ⋮ → „Zainstaluj aplikację" (komputer) lub „Dodaj do ekranu głównego" (Android).</p>'}`,
     przyciski:[{tekst:'Zamknij'}]
   });
+  const btnII = document.getElementById('btnInstalujInfo');
+  if(btnII) btnII.onclick = ()=>{ zamknijModal(); document.getElementById('btnInstaluj').click(); };
 }
 
 /* ===================== PODPIĘCIE NAGŁÓWKA ================================= */
@@ -1049,6 +1053,30 @@ document.getElementById('btnUstawienia').onclick= oknoUstawienia;
 document.getElementById('btnBackup').onclick    = oknoBackup;
 document.getElementById('btnInfo').onclick      = oknoInfo;
 document.getElementById('btnWyloguj').onclick   = ()=> potwierdz('Wylogować?','Wrócisz do ekranu logowania.', wyloguj, 'Wyloguj');
+
+/* ===================== INSTALACJA PWA ===================================== */
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('btnInstaluj').hidden = false;
+});
+window.addEventListener('appinstalled', () => {
+  deferredPrompt = null;
+  document.getElementById('btnInstaluj').hidden = true;
+  toast('Aplikacja zainstalowana.');
+});
+document.getElementById('btnInstaluj').onclick = async () => {
+  if (!deferredPrompt) {
+    toast('Otwórz stronę w Chrome i wybierz „Zainstaluj" z menu przeglądarki.');
+    return;
+  }
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  if (outcome === 'accepted') toast('Instalowanie…');
+  deferredPrompt = null;
+  document.getElementById('btnInstaluj').hidden = true;
+};
 
 /* ===================== REAKCJA NA ZMIANY DANYCH =========================== */
 ['surowce','dawki','mieszanki'].forEach(kol=>{
