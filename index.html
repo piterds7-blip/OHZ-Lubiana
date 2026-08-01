@@ -197,6 +197,45 @@ select.pole:focus{outline:none;border-color:var(--zielen-jasna);background:#fff}
   .pasek select{flex:1 1 100%}
   thead th,tbody td{padding-left:8px;padding-right:8px}
 }
+
+/* ---------- MACIERZ DAWEK ---------- */
+.macierz{overflow:auto;max-height:calc(100vh - 220px);-webkit-overflow-scrolling:touch;position:relative}
+.macierz table{min-width:800px}
+.macierz thead th{position:sticky;top:0;z-index:4;padding:6px 4px;font-size:11.5px;text-align:center;min-width:90px;vertical-align:bottom}
+.macierz thead th.lipka{z-index:6;min-width:180px;text-align:left;padding-left:10px}
+.macierz thead th .nazwa-kol{writing-mode:horizontal-tb;max-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;margin:0 auto}
+.macierz thead th .kol-akcje{display:flex;gap:2px;justify-content:center;margin-top:3px}
+.macierz thead th .kol-akcje button{color:rgba(255,255,255,.7);font-size:11px;width:18px;height:18px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;padding:0}
+.macierz thead th .kol-akcje button:hover{color:#fff;background:rgba(255,255,255,.2)}
+.macierz tbody td{padding:2px 3px}
+.macierz tbody td.lipka{padding-left:6px;font-size:13px;white-space:nowrap}
+.macierz tbody td.lipka .nazwaS{display:inline-block;max-width:150px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+.macierz input.komorka{
+  width:80px;padding:4px 6px;border:1px solid transparent;border-radius:5px;
+  background:transparent;text-align:right;font-size:13px;font-variant-numeric:tabular-nums;
+}
+.macierz input.komorka:hover{border-color:var(--linia);background:#fff}
+.macierz input.komorka:focus{outline:none;border-color:var(--zielen-jasna);background:#fff;box-shadow:0 0 0 2px rgba(27,107,58,.12)}
+.macierz input.komorka.puste{color:var(--tekst-slaby)}
+.macierz .suma-wiersz td{background:#d4edda !important;font-weight:700;font-size:13px;border-top:2px solid var(--zielen)}
+.macierz .koszt-wiersz td{background:#f0faf3 !important;font-size:12px;color:var(--zielen);font-weight:600}
+.macierz .strzalki{display:inline-flex;flex-direction:column;gap:0;vertical-align:middle;margin-right:3px}
+.macierz .strzalki button{width:16px;height:13px;font-size:9px;line-height:1;color:var(--tekst-slaby);padding:0;display:flex;align-items:center;justify-content:center;border-radius:3px}
+.macierz .strzalki button:hover{background:var(--zielen-bardzo-jasna);color:var(--zielen)}
+.macierz .strzalki button:disabled{opacity:.2}
+.macierz .mix-badge{font-size:10px;color:var(--zolty);cursor:pointer;margin-left:2px;vertical-align:middle}
+.macierz .wiersz-rozw td{background:#fffdf0 !important;padding:2px 6px 6px 36px;font-size:12px;color:var(--tekst-slaby)}
+.dawki-kart{display:none}
+@media(max-width:720px){
+  .macierz{display:none}
+  .dawki-kart{display:block}
+  .dk-karta{background:var(--karta);border-radius:var(--r);box-shadow:var(--cien);margin-bottom:10px;overflow:hidden}
+  .dk-karta-tyt{padding:10px 12px;background:var(--zielen);color:#fff;font-weight:600;font-size:14px;display:flex;justify-content:space-between;align-items:center}
+  .dk-karta-row{padding:6px 12px;border-bottom:1px solid var(--linia);display:flex;justify-content:space-between;align-items:center;font-size:13px}
+  .dk-karta-row:nth-child(even){background:#fafcfa}
+  .dk-karta-sum{padding:8px 12px;background:#d4edda;font-weight:700;font-size:13px;display:flex;justify-content:space-between}
+  .dk-karta-koszt{padding:6px 12px;background:#f0faf3;font-size:12px;color:var(--zielen);font-weight:600;display:flex;justify-content:space-between}
+}
 </style>
 </head>
 <body>
@@ -836,6 +875,7 @@ function przejdz(id){
 function render(){
   const w = document.getElementById('widok');
   if(zakladkaAkt==='surowce'){ renderSurowce(w); return; }
+  if(zakladkaAkt==='dawki'){ renderDawki(w); return; }
   w.innerHTML = `<div class="panel">
       <div class="panel-tyt">${esc(ZAKLADKI.find(z=>z.id===zakladkaAkt)?.etykieta||'')}</div>
       <div class="pusto">Moduł w przygotowaniu — zbudujemy go w kolejnym kroku.</div>
@@ -1093,6 +1133,340 @@ function usunSurowiec(id){
   potwierdz('Usunąć surowiec?', `„${esc(s.nazwa)}”${ostrz}`, ()=>{ DB.usun('surowce', id); toast('Usunięto surowiec.'); });
 }
 
+/* ===================== ZAKŁADKA: DAWKI (macierz) ========================== */
+let dRozwiniete = new Set();     // surowce z rozwiniętym składem mieszanki
+let dRenderOdlozony = false;
+
+function dawkiSorted(){
+  return Object.values(store.dawki).sort((a,b)=>(a.kolejnosc??99)-(b.kolejnosc??99));
+}
+
+function wierszeDawek(){
+  // Zbierz unikalne surowiecId ze wszystkich dawek, zachowaj globalną kolejność
+  const map = new Map();
+  for(const d of dawkiSorted()){
+    for(const sk of (d.skladniki||[])){
+      if(!map.has(sk.surowiecId)){
+        map.set(sk.surowiecId, map.size);
+      }
+    }
+  }
+  // Sortuj po pozycji dodania (w przyszłości config/ukladDawki nadpisze)
+  const uklad = store.config.ukladDawki?.wiersze;
+  if(uklad && uklad.length){
+    const ids = uklad.filter(id=>map.has(id) || store.surowce[id]);
+    // Dodaj te, których brakuje w uładzie
+    for(const id of map.keys()) if(!ids.includes(id)) ids.push(id);
+    return ids;
+  }
+  return [...map.keys()];
+}
+
+function kgWDawce(dawka, surowiecId){
+  const sk = (dawka.skladniki||[]).find(s=>s.surowiecId===surowiecId);
+  return sk ? sk.kg : 0;
+}
+
+function sumaDawki(dawka){
+  return (dawka.skladniki||[]).reduce((s,sk)=>s+sk.kg, 0);
+}
+
+function kosztDawki(dawka){
+  return (dawka.skladniki||[]).reduce((s,sk)=>{
+    const sur = store.surowce[sk.surowiecId];
+    const cenaKg = (sur?.cenaTona||0)/1000;
+    return s + sk.kg * cenaKg;
+  }, 0);
+}
+
+function zapiszKomorke(dawkaId, surowiecId, wartoscStr){
+  const dawka = store.dawki[dawkaId]; if(!dawka) return;
+  const v = liczba(wartoscStr);
+  let skladniki = [...(dawka.skladniki||[])];
+  const i = skladniki.findIndex(s=>s.surowiecId===surowiecId);
+  if(v > 0){
+    if(i>=0) skladniki[i] = {...skladniki[i], kg:v};
+    else skladniki.push({surowiecId, kg:v});
+  } else {
+    if(i>=0) skladniki.splice(i,1);
+  }
+  DB.zapisz('dawki', dawkaId, {skladniki});
+}
+
+function zapiszUkladWierszy(wiersze){
+  DB.zapisz('config','ukladDawki',{wiersze});
+}
+
+function renderDawki(w){
+  const edycja = mozeEdytowac('dawki');
+  const dawki = dawkiSorted();
+  const wiersze = wierszeDawek();
+
+  if(dawki.length===0){
+    w.innerHTML = `<div class="panel">
+      <div class="panel-tyt">Dawki <span style="flex:1"></span>${edycja?'<button class="btn maly" id="btnNowaDawka">+ Grupa żywieniowa</button>':''}</div>
+      <div class="pusto">Brak grup żywieniowych. ${edycja?'Dodaj pierwszą przyciskiem powyżej.':''}</div>
+    </div>`;
+    if(edycja) w.querySelector('#btnNowaDawka').onclick=()=>oknoDawka();
+    return;
+  }
+
+  // --- MACIERZ (desktop) ---
+  let thKols = dawki.map((d,ci)=>`
+    <th>
+      <span class="nazwa-kol" title="${esc(d.nazwa)}">${esc(d.nazwa)}</span>
+      ${d.suchyTMR?'<span style="font-size:9px;opacity:.7;display:block">(suchy TMR)</span>':''}
+      ${edycja?`<div class="kol-akcje">
+        <button title="Edytuj" data-edkol="${d.id}">✎</button>
+        <button title="Usuń" data-usunkol="${d.id}">✕</button>
+      </div>`:''}
+    </th>`).join('');
+
+  let tbWiersze = wiersze.map((sid, ri)=>{
+    const sur = store.surowce[sid];
+    if(!sur) return '';
+    const mieszanka = sur.zMieszalni || sur.kategoria==='Mieszanka własna';
+    const rozw = dRozwiniete.has(sid);
+    let komorki = dawki.map(d=>{
+      const v = kgWDawce(d, sid);
+      if(!edycja) return `<td class="num">${v?fmt(v,1):'—'}</td>`;
+      return `<td><input class="komorka ${v?'':'puste'}" data-d="${d.id}" data-s="${sid}"
+        value="${v?fmt(v,1):''}" placeholder="—" inputmode="decimal"></td>`;
+    }).join('');
+
+    let html = `<tr class="${rozw?'rozwiniety':''}">
+      <td class="lipka">
+        ${edycja?`<span class="strzalki">
+          <button data-wgora="${sid}" ${ri===0?'disabled':''}>▲</button>
+          <button data-wdol="${sid}" ${ri===wiersze.length-1?'disabled':''}>▼</button>
+        </span>`:''}
+        <span class="nazwaS" title="${esc(sur.nazwa)}">${esc(sur.nazwa)}</span>
+        ${mieszanka?`<span class="mix-badge" data-rozmix="${sid}" title="Pokaż skład mieszanki">⊕</span>`:''}
+        ${edycja?`<button class="ikonka usun" data-usunwiersz="${sid}" title="Usuń wiersz" style="float:right;width:22px;height:22px;font-size:12px">✕</button>`:''}
+      </td>
+      ${komorki}
+    </tr>`;
+
+    // Rozwinięty skład mieszanki
+    if(mieszanka && rozw){
+      const m = store.mieszanki[sur.mieszankaId] || Object.values(store.mieszanki).find(x=>x.nazwa===sur.nazwa);
+      const cols = dawki.length+1;
+      let tresc='Brak receptury.';
+      if(m && (m.skladniki||[]).length){
+        tresc = (m.skladniki||[]).map(sk=>{
+          const s2=store.surowce[sk.surowiecId];
+          return `${esc(s2?.nazwa||'?')} ${fmt(sk.procent,1)}%`;
+        }).join(' · ');
+      }
+      html += `<tr class="wiersz-rozw"><td colspan="${cols}">↳ Skład: ${tresc}</td></tr>`;
+    }
+    return html;
+  }).join('');
+
+  // Wiersz sumy
+  let sumyKomorki = dawki.map(d=>`<td class="num">${fmt(sumaDawki(d),1)}</td>`).join('');
+  // Wiersz kosztu
+  let kosztyKomorki = dawki.map(d=>`<td class="num">${fmt(kosztDawki(d),2)} zł</td>`).join('');
+
+  // --- WIDOK KARTOWY (mobilny) ---
+  let karty = dawki.map(d=>{
+    const skladniki = (d.skladniki||[]).filter(sk=>sk.kg>0).sort((a,b)=>b.kg-a.kg);
+    return `<div class="dk-karta">
+      <div class="dk-karta-tyt">${esc(d.nazwa)} ${d.suchyTMR?'<span style="font-size:11px;opacity:.7">(suchy TMR)</span>':''}</div>
+      ${skladniki.map(sk=>{
+        const sur=store.surowce[sk.surowiecId];
+        return `<div class="dk-karta-row"><span>${esc(sur?.nazwa||'?')}</span><span>${fmt(sk.kg,1)} kg</span></div>`;
+      }).join('')}
+      <div class="dk-karta-sum"><span>Całość kg/szt</span><span>${fmt(sumaDawki(d),1)} kg</span></div>
+      <div class="dk-karta-koszt"><span>Koszt zł/szt/dobę</span><span>${fmt(kosztDawki(d),2)} zł</span></div>
+    </div>`;
+  }).join('');
+
+  w.innerHTML = `
+  <div class="panel">
+    <div class="panel-tyt">
+      Dawki
+      <span class="licznik">${dawki.length} grup żywieniowych · ${wiersze.length} surowców</span>
+      <span style="flex:1"></span>
+      ${edycja?`<button class="btn maly szary" id="btnDodWiersz">+ Surowiec</button>
+                <button class="btn maly" id="btnNowaDawka">+ Grupa żywieniowa</button>`
+              :'<span class="podpis">tryb podglądu</span>'}
+    </div>
+    <div class="macierz" id="macierzDawek">
+      <table>
+        <thead><tr><th class="lipka">Surowiec</th>${thKols}</tr></thead>
+        <tbody>
+          ${tbWiersze || '<tr><td colspan="'+(dawki.length+1)+'"><div class="pusto">Dodaj surowce przyciskiem „+ Surowiec".</div></td></tr>'}
+          <tr class="suma-wiersz"><td class="lipka">Całość kg/szt</td>${sumyKomorki}</tr>
+          <tr class="koszt-wiersz"><td class="lipka">Koszt zł/szt/dobę</td>${kosztyKomorki}</tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="dawki-kart">${karty}</div>
+  </div>
+  <div class="podpis" style="padding:4px 4px 10px">
+    Wartości w <b>kg świeżej masy / sztukę / dobę</b>. Koszty wyliczane z cen w zakładce Surowce (zł/t → zł/kg).
+    ${edycja?'Kliknij ✎ w nagłówku kolumny, żeby zmienić nazwę grupy lub ✕ żeby ją usunąć.':''}
+  </div>`;
+
+  // --- PODPIĘCIA ---
+  if(edycja){
+    // Komórki
+    w.querySelectorAll('.komorka').forEach(inp=>{
+      inp.onfocus = ()=>{ const v=liczba(inp.value); inp.value = v||''; inp.classList.remove('puste'); };
+      inp.onblur  = ()=>{
+        const v=liczba(inp.value);
+        inp.value = v ? fmt(v,1) : '';
+        inp.classList.toggle('puste', !v);
+        zapiszKomorke(inp.dataset.d, inp.dataset.s, inp.value);
+        setTimeout(()=>{ if(!document.activeElement?.closest?.('#macierzDawek')) odswiezSumy(); }, 80);
+      };
+      inp.onkeydown = e=>{
+        if(e.key==='Enter'){ inp.blur(); return; }
+        if(e.key==='Tab'){
+          // nawigacja Tab w macierzy
+          e.preventDefault();
+          const all = [...w.querySelectorAll('.komorka')];
+          const idx = all.indexOf(inp);
+          const next = e.shiftKey ? all[idx-1] : all[idx+1];
+          if(next){ next.focus(); next.select(); }
+        }
+      };
+    });
+    // Strzałki wierszy
+    w.querySelectorAll('[data-wgora]').forEach(b=> b.onclick=()=>przesunWiersz(b.dataset.wgora,-1));
+    w.querySelectorAll('[data-wdol]').forEach(b=> b.onclick=()=>przesunWiersz(b.dataset.wdol,1));
+    // Usuń wiersz
+    w.querySelectorAll('[data-usunwiersz]').forEach(b=> b.onclick=()=>usunWiersz(b.dataset.usunwiersz));
+    // Edytuj/usuń kolumnę
+    w.querySelectorAll('[data-edkol]').forEach(b=> b.onclick=()=>oknoDawka(b.dataset.edkol));
+    w.querySelectorAll('[data-usunkol]').forEach(b=> b.onclick=()=>usunDawke(b.dataset.usunkol));
+    // + Surowiec
+    const btnDW = w.querySelector('#btnDodWiersz');
+    if(btnDW) btnDW.onclick = oknoDodajWiersz;
+    // + Grupa
+    const btnND = w.querySelector('#btnNowaDawka');
+    if(btnND) btnND.onclick = ()=>oknoDawka();
+  }
+  // Rozwiń skład mieszanki
+  w.querySelectorAll('[data-rozmix]').forEach(b=>{
+    b.onclick=()=>{ const id=b.dataset.rozmix; dRozwiniete.has(id)?dRozwiniete.delete(id):dRozwiniete.add(id); renderDawki(w); };
+  });
+}
+
+function odswiezSumy(){
+  // Lekki re-render sum i kosztów bez przebudowy całej macierzy
+  const dawki = dawkiSorted();
+  const sumTds = document.querySelectorAll('.suma-wiersz td:not(.lipka)');
+  const kosTds = document.querySelectorAll('.koszt-wiersz td:not(.lipka)');
+  dawki.forEach((d,i)=>{
+    if(sumTds[i]) sumTds[i].textContent = fmt(sumaDawki(d),1);
+    if(kosTds[i]) kosTds[i].textContent = fmt(kosztDawki(d),2)+' zł';
+  });
+}
+
+function przesunWiersz(sid, kier){
+  const w = wierszeDawek();
+  const i = w.indexOf(sid);
+  const j = i+kier;
+  if(i<0 || j<0 || j>=w.length) return;
+  [w[i], w[j]] = [w[j], w[i]];
+  zapiszUkladWierszy(w);
+}
+
+function usunWiersz(sid){
+  const sur = store.surowce[sid];
+  potwierdz('Usunąć wiersz?', `Surowiec „${esc(sur?.nazwa||'?')}" zostanie usunięty ze wszystkich dawek.\nSam surowiec pozostanie w zakładce Surowce.`,
+    async ()=>{
+      // Usuń z wszystkich dawek
+      for(const d of Object.values(store.dawki)){
+        const sk = (d.skladniki||[]).filter(s=>s.surowiecId!==sid);
+        if(sk.length !== (d.skladniki||[]).length) await DB.zapisz('dawki', d.id, {skladniki:sk});
+      }
+      // Usuń z układu
+      const w = wierszeDawek().filter(id=>id!==sid);
+      zapiszUkladWierszy(w);
+      toast('Usunięto wiersz z macierzy.');
+    }, 'Usuń');
+}
+
+function oknoDodajWiersz(){
+  const juzW = new Set(wierszeDawek());
+  const dostepne = Object.values(store.surowce).filter(s=>!juzW.has(s.id)).sort((a,b)=>(a.nazwa||'').localeCompare(b.nazwa||'','pl'));
+  if(!dostepne.length){ toast('Wszystkie surowce są już w macierzy.'); return; }
+  modal({
+    tytul:'Dodaj surowiec do macierzy',
+    tresc:`
+      <div class="pole-grupa">
+        <label>Surowiec</label>
+        <select id="dwSur" size="${Math.min(dostepne.length,12)}" style="width:100%;padding:6px">
+          ${dostepne.map(s=>`<option value="${s.id}">${esc(s.nazwa)} (${esc(s.kategoria||'')})</option>`).join('')}
+        </select>
+      </div>
+      <div class="podpis">Surowiec pojawi się jako nowy wiersz we wszystkich kolumnach z wartością 0.</div>`,
+    przyciski:[
+      {tekst:'Anuluj'},
+      {tekst:'Dodaj', klasa:'', akcja:(n)=>{
+        const sel = n.querySelector('#dwSur');
+        const ids = [...sel.selectedOptions].map(o=>o.value);
+        if(!ids.length){ toast('Wybierz surowiec.', true); return false; }
+        const w = wierszeDawek();
+        ids.forEach(id=>{ if(!w.includes(id)) w.push(id); });
+        zapiszUkladWierszy(w);
+        toast(`Dodano ${ids.length} surowiec(ów) do macierzy.`);
+      }}
+    ]
+  });
+  // Wielokrotny wybór
+  const sel = document.getElementById('dwSur');
+  sel.multiple = true;
+}
+
+function oknoDawka(edId){
+  const isEdit = !!edId;
+  const d = isEdit ? store.dawki[edId] : null;
+  modal({
+    tytul: isEdit ? 'Edytuj grupę żywieniową' : 'Nowa grupa żywieniowa',
+    tresc:`
+      <div class="pole-grupa">
+        <label>Nazwa</label>
+        <input id="dnNazwa" value="${esc(d?.nazwa||'')}" placeholder="np. Krowy laktacja" autocomplete="off">
+      </div>
+      <div class="pole-grupa">
+        <label><input type="checkbox" id="dnSuchy" ${d?.suchyTMR?'checked':''}> Suchy TMR (receptura suchej mieszanki)</label>
+      </div>`,
+    przyciski:[
+      {tekst:'Anuluj'},
+      {tekst: isEdit?'Zapisz':'Dodaj', klasa:'', akcja:(n)=>{
+        const nazwa = n.querySelector('#dnNazwa').value.trim();
+        if(!nazwa){ toast('Podaj nazwę grupy.', true); return false; }
+        if(!isEdit){
+          const dubel = Object.values(store.dawki).find(x=>(x.nazwa||'').toLowerCase()===nazwa.toLowerCase());
+          if(dubel){ toast('Grupa o tej nazwie już istnieje.', true); return false; }
+        }
+        const suchyTMR = n.querySelector('#dnSuchy').checked;
+        if(isEdit){
+          DB.zapisz('dawki', edId, {nazwa, suchyTMR});
+          toast('Zapisano.');
+        }else{
+          const maxK = Object.values(store.dawki).reduce((m,x)=>Math.max(m, x.kolejnosc??0), 0);
+          DB.zapisz('dawki', null, {nazwa, suchyTMR, skladniki:[], kolejnosc:maxK+1});
+          toast('Dodano grupę żywieniową.');
+        }
+      }}
+    ]
+  });
+  document.getElementById('dnNazwa').focus();
+}
+
+function usunDawke(id){
+  const d = store.dawki[id]; if(!d) return;
+  const ileSk = (d.skladniki||[]).filter(s=>s.kg>0).length;
+  potwierdz('Usunąć grupę żywieniową?',
+    `„${esc(d.nazwa)}"\n${ileSk?`Zawiera ${ileSk} surowców z wartościami — zostaną utracone.`:'Grupa jest pusta.'}`,
+    ()=>{ DB.usun('dawki', id); toast('Usunięto grupę.'); }, 'Usuń');
+}
+
 /* ===================== USTAWIENIA ========================================= */
 function oknoUstawienia(){
   const st = store.config.settings || {};
@@ -1278,18 +1652,21 @@ document.getElementById('btnInstaluj').onclick = async () => {
   nasluchuj(kol, ()=>{
     if(!rolaAkt) return;
     const akt = document.activeElement;
-    if(akt && akt.closest && akt.closest('#tabSurowce')){ renderOdlozony=true; return; }  // nie wyrywaj kursora z pola
+    if(akt && akt.closest && akt.closest('#tabSurowce')){ renderOdlozony=true; return; }
+    if(akt && akt.closest && akt.closest('#macierzDawek')){ dRenderOdlozony=true; return; }
     render();
   });
 });
 nasluchuj('config', ()=>{
   if(!rolaAkt) return;
   document.getElementById('hNazwa').textContent = store.config.settings?.nazwaGospodarstwa || 'OHZ Lubiana';
-  // jeżeli Twórca odebrał komuś hasło — nic tu nie robimy; sesja wygaśnie przy kolejnym logowaniu
 });
 document.addEventListener('focusout', e=>{
   if(renderOdlozony && e.target.closest && e.target.closest('#tabSurowce')){
     renderOdlozony=false; setTimeout(()=>{ if(!document.activeElement?.closest?.('#tabSurowce')) render(); }, 120);
+  }
+  if(dRenderOdlozony && e.target.closest && e.target.closest('#macierzDawek')){
+    dRenderOdlozony=false; setTimeout(()=>{ if(!document.activeElement?.closest?.('#macierzDawek')) render(); }, 120);
   }
 });
 
