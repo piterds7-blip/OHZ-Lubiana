@@ -574,6 +574,188 @@ async function zasiej(){
     await DB.zapisz('config','passwords',{hasla, zmienione:dzisiaj()});
     console.info('Zasiano hasła startowe:', HASLA_STARTOWE);
   }
+  // Dane przykładowe — tylko gdy baza jest pusta
+  if(Object.keys(store.surowce).length===0) await zasiejPrzykladowe();
+}
+
+async function zasiejPrzykladowe(){
+  console.info('Zasiewam dane przykładowe…');
+  const d = dzisiaj();
+
+  /* ===== SUROWCE ===== */
+  const S = [
+    // Pasze objętościowe
+    {id:'sur_01', nazwa:'Kiszonka z kukurydzy',          kategoria:'Pasze objętościowe', cenaTona:180},
+    {id:'sur_02', nazwa:'Kiszonka z traw',               kategoria:'Pasze objętościowe', cenaTona:160},
+    {id:'sur_03', nazwa:'Sianokiszonka z lucerny',       kategoria:'Pasze objętościowe', cenaTona:350},
+    {id:'sur_04', nazwa:'Siano łąkowe',                  kategoria:'Pasze objętościowe', cenaTona:500},
+    {id:'sur_05', nazwa:'Słoma pszenna',                 kategoria:'Pasze objętościowe', cenaTona:250},
+    // Zboża
+    {id:'sur_06', nazwa:'Śruta kukurydziana',            kategoria:'Zboża', cenaTona:1100},
+    {id:'sur_07', nazwa:'Śruta jęczmienna',              kategoria:'Zboża', cenaTona:1050},
+    {id:'sur_08', nazwa:'Pszenica (śruta)',              kategoria:'Zboża', cenaTona:1150},
+    {id:'sur_24', nazwa:'Owies (śruta)',                 kategoria:'Zboża', cenaTona:950},
+    // Śruty i białkowe
+    {id:'sur_09', nazwa:'Śruta rzepakowa',               kategoria:'Śruty i białkowe', cenaTona:1600},
+    {id:'sur_10', nazwa:'Śruta sojowa 46%',              kategoria:'Śruty i białkowe', cenaTona:2200},
+    {id:'sur_11', nazwa:'Makuch rzepakowy',              kategoria:'Śruty i białkowe', cenaTona:1400},
+    // Produkty uboczne
+    {id:'sur_12', nazwa:'Wysłodki buraczane mokre',      kategoria:'Produkty uboczne', cenaTona:120},
+    {id:'sur_13', nazwa:'Młóto browarniane mokre',       kategoria:'Produkty uboczne', cenaTona:100},
+    {id:'sur_14', nazwa:'DDGS kukurydziany',             kategoria:'Produkty uboczne', cenaTona:1300},
+    {id:'sur_23', nazwa:'Gliceryna',                     kategoria:'Produkty uboczne', cenaTona:1800},
+    // Mineralne i dodatki
+    {id:'sur_15', nazwa:'Kreda pastewna',                kategoria:'Mineralne i dodatki', cenaTona:450},
+    {id:'sur_16', nazwa:'Sól pastewna',                  kategoria:'Mineralne i dodatki', cenaTona:600},
+    {id:'sur_17', nazwa:'Tłuszcz chroniony',             kategoria:'Mineralne i dodatki', cenaTona:5500},
+    {id:'sur_18', nazwa:'Mocznik',                       kategoria:'Mineralne i dodatki', cenaTona:2800},
+    {id:'sur_19', nazwa:'Soda oczyszczona',              kategoria:'Mineralne i dodatki', cenaTona:2400},
+    {id:'sur_20', nazwa:'Tlenek magnezu',                kategoria:'Mineralne i dodatki', cenaTona:3200},
+    {id:'sur_21', nazwa:'Premiks mleczny 2%',            kategoria:'Mineralne i dodatki', cenaTona:6500},
+    {id:'sur_22', nazwa:'Drożdże żywe',                  kategoria:'Mineralne i dodatki', cenaTona:12000},
+  ];
+  for(let i=0; i<S.length; i++){
+    const s=S[i];
+    await DB.zapisz('surowce', s.id, {
+      nazwa:s.nazwa, kategoria:s.kategoria, cenaTona:s.cenaTona,
+      dataCeny:d, kolejnosc:i+1, zMieszalni:false, mieszankaId:null, lokalizacja:null
+    });
+  }
+
+  /* ===== MIESZANKI (receptury w %) ===== */
+  const M = [
+    {id:'mix_01', nazwa:'Mineralna', surId:'sur_m1', skladniki:[
+      {surowiecId:'sur_15', procent:30}, {surowiecId:'sur_16', procent:15},
+      {surowiecId:'sur_21', procent:20}, {surowiecId:'sur_20', procent:15},
+      {surowiecId:'sur_19', procent:20}
+    ]},
+    {id:'mix_02', nazwa:'Mineralna R', surId:'sur_m2', skladniki:[
+      {surowiecId:'sur_15', procent:35}, {surowiecId:'sur_16', procent:15},
+      {surowiecId:'sur_21', procent:20}, {surowiecId:'sur_20', procent:20},
+      {surowiecId:'sur_19', procent:10}
+    ]},
+    {id:'mix_03', nazwa:'Pasza cielak', surId:'sur_m3', skladniki:[
+      {surowiecId:'sur_06', procent:30}, {surowiecId:'sur_07', procent:25},
+      {surowiecId:'sur_10', procent:25}, {surowiecId:'sur_24', procent:14},
+      {surowiecId:'sur_21', procent:3},  {surowiecId:'sur_15', procent:2},
+      {surowiecId:'sur_16', procent:1}
+    ]},
+    {id:'mix_04', nazwa:'Mineralna jałowizna + mocznik', surId:'sur_m4', skladniki:[
+      {surowiecId:'sur_15', procent:25}, {surowiecId:'sur_16', procent:15},
+      {surowiecId:'sur_21', procent:15}, {surowiecId:'sur_18', procent:20},
+      {surowiecId:'sur_20', procent:15}, {surowiecId:'sur_19', procent:10}
+    ]},
+    {id:'mix_05', nazwa:'CJ powyżej 2 miesięcy', surId:'sur_m5', skladniki:[
+      {surowiecId:'sur_06', procent:35}, {surowiecId:'sur_07', procent:25},
+      {surowiecId:'sur_10', procent:20}, {surowiecId:'sur_24', procent:10},
+      {surowiecId:'sur_09', procent:5},  {surowiecId:'sur_21', procent:2},
+      {surowiecId:'sur_15', procent:2},  {surowiecId:'sur_16', procent:1}
+    ]},
+    {id:'mix_06', nazwa:'Pasza adaptacyjna', surId:'sur_m6', skladniki:[
+      {surowiecId:'sur_06', procent:25}, {surowiecId:'sur_07', procent:20},
+      {surowiecId:'sur_09', procent:20}, {surowiecId:'sur_10', procent:15},
+      {surowiecId:'sur_14', procent:10}, {surowiecId:'sur_21', procent:3},
+      {surowiecId:'sur_15', procent:3},  {surowiecId:'sur_19', procent:3},
+      {surowiecId:'sur_16', procent:1}
+    ]},
+    {id:'mix_07', nazwa:'Mieszanka owca karmiąca', surId:'sur_m7', skladniki:[
+      {surowiecId:'sur_07', procent:30}, {surowiecId:'sur_24', procent:25},
+      {surowiecId:'sur_09', procent:20}, {surowiecId:'sur_10', procent:15},
+      {surowiecId:'sur_15', procent:4},  {surowiecId:'sur_21', procent:3},
+      {surowiecId:'sur_16', procent:2},  {surowiecId:'sur_20', procent:1}
+    ]},
+    {id:'mix_08', nazwa:'Mieszanka owca dorosła', surId:'sur_m8', skladniki:[
+      {surowiecId:'sur_07', procent:35}, {surowiecId:'sur_24', procent:30},
+      {surowiecId:'sur_09', procent:15}, {surowiecId:'sur_11', procent:10},
+      {surowiecId:'sur_15', procent:4},  {surowiecId:'sur_21', procent:3},
+      {surowiecId:'sur_16', procent:2},  {surowiecId:'sur_20', procent:1}
+    ]}
+  ];
+
+  // Oblicz koszt mieszanki i dodaj jako surowiec
+  const cenySur = {};
+  S.forEach(s=> cenySur[s.id]=s.cenaTona);
+
+  for(let i=0; i<M.length; i++){
+    const m = M[i];
+    // Koszt zł/t = Σ (procent/100 × cenaTona składnika)
+    const kosztTona = m.skladniki.reduce((sum,sk)=> sum + (sk.procent/100)*(cenySur[sk.surowiecId]||0), 0);
+    const kosztKg = kosztTona / 1000;
+
+    await DB.zapisz('mieszanki', m.id, {
+      nazwa:m.nazwa, skladniki:m.skladniki, kosztKg:Math.round(kosztKg*10000)/10000
+    });
+    // Dodaj mieszankę jako surowiec
+    await DB.zapisz('surowce', m.surId, {
+      nazwa:m.nazwa, kategoria:'Mieszanka własna', cenaTona:Math.round(kosztTona*100)/100,
+      dataCeny:d, kolejnosc:S.length+i+1, zMieszalni:true, mieszankaId:m.id, lokalizacja:null
+    });
+  }
+
+  /* ===== DAWKI (10 grup żywieniowych — kg świeżej masy / szt / dobę) ===== */
+  const D = [
+    {id:'daw_01', nazwa:'Krowy laktacja', suchyTMR:false, kolejnosc:1, skladniki:[
+      {surowiecId:'sur_01', kg:22},   {surowiecId:'sur_02', kg:8},
+      {surowiecId:'sur_03', kg:5},    {surowiecId:'sur_12', kg:8},
+      {surowiecId:'sur_06', kg:3},    {surowiecId:'sur_09', kg:2.5},
+      {surowiecId:'sur_10', kg:1.5},  {surowiecId:'sur_17', kg:0.3},
+      {surowiecId:'sur_m1', kg:0.25}, {surowiecId:'sur_19', kg:0.15},
+      {surowiecId:'sur_22', kg:0.01}
+    ]},
+    {id:'daw_02', nazwa:'Pierwiastki laktacja', suchyTMR:false, kolejnosc:2, skladniki:[
+      {surowiecId:'sur_01', kg:20},   {surowiecId:'sur_02', kg:8},
+      {surowiecId:'sur_03', kg:5},    {surowiecId:'sur_12', kg:6},
+      {surowiecId:'sur_06', kg:2.5},  {surowiecId:'sur_09', kg:2},
+      {surowiecId:'sur_10', kg:1.2},  {surowiecId:'sur_17', kg:0.2},
+      {surowiecId:'sur_m1', kg:0.25}, {surowiecId:'sur_19', kg:0.1}
+    ]},
+    {id:'daw_03', nazwa:'Koniec laktacji', suchyTMR:false, kolejnosc:3, skladniki:[
+      {surowiecId:'sur_01', kg:20},   {surowiecId:'sur_02', kg:10},
+      {surowiecId:'sur_03', kg:4},    {surowiecId:'sur_12', kg:5},
+      {surowiecId:'sur_06', kg:2},    {surowiecId:'sur_09', kg:1.5},
+      {surowiecId:'sur_m1', kg:0.2},  {surowiecId:'sur_19', kg:0.1}
+    ]},
+    {id:'daw_04', nazwa:'Zasuszenie', suchyTMR:false, kolejnosc:4, skladniki:[
+      {surowiecId:'sur_02', kg:12},   {surowiecId:'sur_04', kg:4},
+      {surowiecId:'sur_05', kg:3},    {surowiecId:'sur_m2', kg:0.2}
+    ]},
+    {id:'daw_05', nazwa:'Przygotowanie', suchyTMR:false, kolejnosc:5, skladniki:[
+      {surowiecId:'sur_01', kg:10},   {surowiecId:'sur_02', kg:8},
+      {surowiecId:'sur_04', kg:2},    {surowiecId:'sur_05', kg:2},
+      {surowiecId:'sur_m6', kg:2},    {surowiecId:'sur_m2', kg:0.25},
+      {surowiecId:'sur_23', kg:0.3}
+    ]},
+    {id:'daw_06', nazwa:'Cielęta (suchy TMR)', suchyTMR:true, kolejnosc:6, skladniki:[
+      {surowiecId:'sur_m3', kg:1.5},  {surowiecId:'sur_04', kg:0.3}
+    ]},
+    {id:'daw_07', nazwa:'Jałówki cielne', suchyTMR:false, kolejnosc:7, skladniki:[
+      {surowiecId:'sur_01', kg:12},   {surowiecId:'sur_02', kg:8},
+      {surowiecId:'sur_04', kg:2},    {surowiecId:'sur_m4', kg:0.15}
+    ]},
+    {id:'daw_08', nazwa:'Jałówki powyżej roku', suchyTMR:false, kolejnosc:8, skladniki:[
+      {surowiecId:'sur_01', kg:8},    {surowiecId:'sur_02', kg:8},
+      {surowiecId:'sur_04', kg:2},    {surowiecId:'sur_m5', kg:1},
+      {surowiecId:'sur_m4', kg:0.1}
+    ]},
+    {id:'daw_09', nazwa:'Jałówki do roku', suchyTMR:false, kolejnosc:9, skladniki:[
+      {surowiecId:'sur_01', kg:5},    {surowiecId:'sur_02', kg:5},
+      {surowiecId:'sur_04', kg:2},    {surowiecId:'sur_m5', kg:1.5},
+      {surowiecId:'sur_m4', kg:0.1}
+    ]},
+    {id:'daw_10', nazwa:'Owce', suchyTMR:false, kolejnosc:10, skladniki:[
+      {surowiecId:'sur_02', kg:3},    {surowiecId:'sur_04', kg:1},
+      {surowiecId:'sur_m7', kg:0.5}
+    ]}
+  ];
+
+  for(const daw of D){
+    await DB.zapisz('dawki', daw.id, {
+      nazwa:daw.nazwa, suchyTMR:daw.suchyTMR,
+      skladniki:daw.skladniki, kolejnosc:daw.kolejnosc
+    });
+  }
+
+  console.info('Zasiano:', S.length, 'surowców,', M.length, 'mieszanek,', D.length, 'dawek');
 }
 
 /* ===================== LOGOWANIE ========================================== */
@@ -1045,9 +1227,17 @@ function oknoInfo(){
         <tbody>${zakl}</tbody>
       </table>
       <p class="podpis" style="margin-bottom:0">Dane: ${Object.keys(store.surowce).length} surowców · ${Object.keys(store.dawki).length} dawek · ${Object.keys(store.mieszanki).length} mieszanek</p>
+      ${rolaAkt==='tworca' ? '<hr style="border:none;border-top:1px solid var(--linia);margin:14px 0"><button class="btn szary" id="btnZasiej">🌱 Wgraj dane przykładowe (surowce, mieszanki, dawki)</button><div class="podpis" style="margin-top:6px">Jednorazowy zasiew — nie nadpisze istniejących dokumentów o tych samych ID.</div>' : ''}
       ${deferredPrompt ? '<hr style="border:none;border-top:1px solid var(--linia);margin:14px 0"><button class="btn" id="btnInstalujInfo">📲 Zainstaluj aplikację na tym urządzeniu</button>' : '<p class="podpis">Aby zainstalować jako aplikację: w Chrome kliknij menu ⋮ → „Zainstaluj aplikację" (komputer) lub „Dodaj do ekranu głównego" (Android).</p>'}`,
     przyciski:[{tekst:'Zamknij'}]
   });
+  const btnZ = document.getElementById('btnZasiej');
+  if(btnZ) btnZ.onclick = async()=>{
+    btnZ.disabled=true; btnZ.textContent='Trwa zasiewanie…';
+    await zasiejPrzykladowe();
+    zamknijModal(); render();
+    toast('Wgrano dane przykładowe: 24 surowce, 8 mieszanek, 10 dawek.');
+  };
   const btnII = document.getElementById('btnInstalujInfo');
   if(btnII) btnII.onclick = ()=>{ zamknijModal(); document.getElementById('btnInstaluj').click(); };
 }
