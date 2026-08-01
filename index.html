@@ -236,6 +236,44 @@ select.pole:focus{outline:none;border-color:var(--zielen-jasna);background:#fff}
   .dk-karta-sum{padding:8px 12px;background:#d4edda;font-weight:700;font-size:13px;display:flex;justify-content:space-between}
   .dk-karta-koszt{padding:6px 12px;background:#f0faf3;font-size:12px;color:var(--zielen);font-weight:600;display:flex;justify-content:space-between}
 }
+
+/* ---------- LOKALIZACJE (grupy technologiczne) ---------- */
+.gt-tabela{width:100%;font-size:13.5px}
+.gt-tabela th{text-align:left;padding:8px 10px;font-size:12px}
+.gt-tabela td{padding:6px 10px;border-bottom:1px solid var(--linia);cursor:pointer}
+.gt-tabela tr:hover td{background:var(--zielen-bardzo-jasna)}
+.gt-tabela tr.podgrupa td{padding-left:30px}
+.gt-tabela tr.podgrupa td:first-child::before{content:'↳ ';color:var(--tekst-slaby)}
+.gt-tabela tr.suma td{background:#d4edda !important;font-weight:700;border-top:2px solid var(--zielen);cursor:default}
+.gt-tabela .blad-udzial{color:var(--czerwony);font-size:11px;font-weight:600}
+.gt-det{background:#fafcfa;border:1px solid var(--linia);border-radius:var(--r);margin:8px 0;padding:12px 14px}
+.gt-det h4{margin:0 0 8px;font-size:13px;color:var(--zielen)}
+.gt-det table{width:100%;font-size:12.5px;margin-bottom:10px}
+.gt-det table th{text-align:left;padding:4px 8px;font-size:11px;background:var(--zielen-bardzo-jasna)}
+.gt-det table td{padding:3px 8px;border-bottom:1px solid var(--linia)}
+.gt-det table td.num{text-align:right;font-variant-numeric:tabular-nums}
+.gt-det .wwozie{font-weight:600;color:var(--zielen)}
+.gt-dawki-lista{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.gt-dawki-lista .chip{background:var(--zielen-bardzo-jasna);padding:3px 10px;border-radius:20px;font-size:12px;display:flex;align-items:center;gap:4px}
+.gt-dawki-lista .chip b{color:var(--zielen)}
+.zapot-panel{margin-top:12px}
+.zapot-panel table{width:100%;max-width:500px;font-size:13px}
+.zapot-panel th{text-align:left;padding:5px 8px;font-size:11.5px}
+.zapot-panel td{padding:4px 8px;border-bottom:1px solid var(--linia)}
+
+/* ---------- MIESZALNIA ---------- */
+.mix-karta{background:var(--karta);border-radius:var(--r);box-shadow:var(--cien);margin-bottom:10px;overflow:hidden}
+.mix-karta-tyt{padding:10px 14px;border-bottom:1px solid var(--linia);display:flex;align-items:center;gap:10px;cursor:pointer}
+.mix-karta-tyt:hover{background:#fafcfa}
+.mix-karta-tyt b{flex:1}
+.mix-karta-tyt .koszt{font-size:13px;color:var(--zielen);font-weight:600}
+.mix-tresc{padding:12px 14px;border-top:1px solid var(--linia)}
+.mix-tresc table{width:100%;max-width:500px;font-size:13px}
+.mix-tresc th{text-align:left;padding:4px 8px;font-size:11px;background:var(--zielen-bardzo-jasna)}
+.mix-tresc td{padding:3px 8px;border-bottom:1px solid var(--linia)}
+.hist-row{padding:8px 14px;border-bottom:1px solid var(--linia);font-size:13px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.hist-row:nth-child(even){background:#fafcfa}
+.hist-row .data{font-weight:600;min-width:80px}
 </style>
 </head>
 <body>
@@ -392,7 +430,7 @@ const KATEGORIE_START = ['Pasze objętościowe','Zboża','Śruty i białkowe','P
 
 /* ===================== WARSTWA DANYCH ===================================== */
 /* Jedno API dla dwóch trybów: Firestore (źródło prawdy) albo localStorage (tryb lokalny). */
-const KOLEKCJE = ['config','surowce','dawki','mieszanki','produkcja','snapshoty'];
+const KOLEKCJE = ['config','surowce','dawki','mieszanki','produkcja','snapshoty','grupyTech'];
 const store = {config:{},surowce:{},dawki:{},mieszanki:{},produkcja:{},snapshoty:{}};
 const sluchacze = {};
 const pierwszySnapshot = {}; // kol -> true po pierwszym snapshocie z Firestore
@@ -795,6 +833,50 @@ async function zasiejPrzykladowe(){
   }
 
   console.info('Zasiano:', S.length, 'surowców,', M.length, 'mieszanek,', D.length, 'dawek');
+
+  /* ===== GRUPY TECHNOLOGICZNE ===== */
+  const GT = [
+    // NADARZYN
+    {id:'gtn01',lok:'nadarzyn',nazwa:'GR 8',sztuk:60,kol:1,dawki:[{dawkaId:'daw_01',udzial:100}]},
+    {id:'gtn02',lok:'nadarzyn',nazwa:'GR 9',sztuk:40,kol:2,dawki:[{dawkaId:'daw_02',udzial:100}]},
+    {id:'gtn03',lok:'nadarzyn',nazwa:'Porodówka',sztuk:12,kol:3,parentId:'gtn02',dawki:[{dawkaId:'daw_02',udzial:100}]},
+    {id:'gtn04',lok:'nadarzyn',nazwa:'GR 1',sztuk:55,kol:4,dawki:[{dawkaId:'daw_01',udzial:50},{dawkaId:'daw_02',udzial:50}]},
+    {id:'gtn05',lok:'nadarzyn',nazwa:'GR 12',sztuk:45,kol:5,dawki:[{dawkaId:'daw_03',udzial:40},{dawkaId:'daw_01',udzial:60}]},
+    {id:'gtn06',lok:'nadarzyn',nazwa:'GR 7',sztuk:50,kol:6,dawki:[{dawkaId:'daw_01',udzial:100}]},
+    {id:'gtn07',lok:'nadarzyn',nazwa:'GR 11',sztuk:35,kol:7,dawki:[{dawkaId:'daw_03',udzial:100}]},
+    {id:'gtn08',lok:'nadarzyn',nazwa:'GR 6',sztuk:58,kol:8,dawki:[{dawkaId:'daw_01',udzial:100}]},
+    {id:'gtn09',lok:'nadarzyn',nazwa:'GR 10',sztuk:30,kol:9,dawki:[{dawkaId:'daw_03',udzial:100}]},
+    {id:'gtn10',lok:'nadarzyn',nazwa:'Owczarnia – KZ',sztuk:80,kol:10,dawki:[{dawkaId:'daw_10',udzial:100}]},
+    {id:'gtn11',lok:'nadarzyn',nazwa:'0 – przygotowanie',sztuk:20,kol:11,dawki:[{dawkaId:'daw_05',udzial:100}]},
+    {id:'gtn12',lok:'nadarzyn',nazwa:'Klatki',sztuk:15,kol:12,dawki:[{dawkaId:'daw_06',udzial:100}]},
+    {id:'gtn13',lok:'nadarzyn',nazwa:'Okólnik',sztuk:25,kol:13,dawki:[{dawkaId:'daw_09',udzial:100}]},
+    {id:'gtn14',lok:'nadarzyn',nazwa:'Cielęta',sztuk:10,kol:14,dawki:[{dawkaId:'daw_06',udzial:100}]},
+    {id:'gtn15',lok:'nadarzyn',nazwa:'Jałówki cielne',sztuk:18,kol:15,dawki:[{dawkaId:'daw_07',udzial:100}]},
+    {id:'gtn16',lok:'nadarzyn',nazwa:'Jałówki powyżej roku',sztuk:22,kol:16,dawki:[{dawkaId:'daw_08',udzial:100}]},
+    {id:'gtn17',lok:'nadarzyn',nazwa:'Jałówki do roku',sztuk:20,kol:17,dawki:[{dawkaId:'daw_09',udzial:100}]},
+    // BOGUSZYN
+    {id:'gtb01',lok:'boguszyn',nazwa:'Owce',sztuk:120,kol:1,dawki:[{dawkaId:'daw_10',udzial:100}]},
+    {id:'gtb02',lok:'boguszyn',nazwa:'1',sztuk:50,kol:2,dawki:[{dawkaId:'daw_01',udzial:100}]},
+    {id:'gtb03',lok:'boguszyn',nazwa:'2',sztuk:48,kol:3,dawki:[{dawkaId:'daw_01',udzial:100}]},
+    {id:'gtb04',lok:'boguszyn',nazwa:'3',sztuk:35,kol:4,dawki:[{dawkaId:'daw_02',udzial:100}]},
+    {id:'gtb05',lok:'boguszyn',nazwa:'6',sztuk:30,kol:5,dawki:[{dawkaId:'daw_03',udzial:100}]},
+    {id:'gtb06',lok:'boguszyn',nazwa:'Porodówka',sztuk:10,kol:6,dawki:[{dawkaId:'daw_02',udzial:100}]},
+    {id:'gtb07',lok:'boguszyn',nazwa:'Świeżo wycielone',sztuk:15,kol:7,dawki:[{dawkaId:'daw_02',udzial:50},{dawkaId:'daw_01',udzial:50}]},
+    {id:'gtb08',lok:'boguszyn',nazwa:'Klatki',sztuk:12,kol:8,dawki:[{dawkaId:'daw_06',udzial:100}]},
+    {id:'gtb09',lok:'boguszyn',nazwa:'Zasuszone',sztuk:25,kol:9,dawki:[{dawkaId:'daw_04',udzial:100}]},
+    {id:'gtb10',lok:'boguszyn',nazwa:'Przygotowanie',sztuk:15,kol:10,dawki:[{dawkaId:'daw_05',udzial:100}]},
+    {id:'gtb11',lok:'boguszyn',nazwa:'Cielęta (suchy TMR)',sztuk:8,kol:11,dawki:[{dawkaId:'daw_06',udzial:100}]},
+    {id:'gtb12',lok:'boguszyn',nazwa:'Jałówki cielne',sztuk:14,kol:12,dawki:[{dawkaId:'daw_07',udzial:100}]},
+    {id:'gtb13',lok:'boguszyn',nazwa:'Jałówki powyżej roku',sztuk:18,kol:13,dawki:[{dawkaId:'daw_08',udzial:100}]},
+    {id:'gtb14',lok:'boguszyn',nazwa:'Jałówki do roku',sztuk:16,kol:14,dawki:[{dawkaId:'daw_09',udzial:100}]},
+  ];
+  for(const g of GT){
+    await DB.zapisz('grupyTech', g.id, {
+      lokalizacja:g.lok, nazwa:g.nazwa, sztuk:g.sztuk,
+      parentId:g.parentId||null, dawki:g.dawki, kolejnosc:g.kol
+    });
+  }
+  console.info('Zasiano grupy technologiczne:', GT.length);
 }
 
 /* ===================== LOGOWANIE ========================================== */
@@ -876,6 +958,9 @@ function render(){
   const w = document.getElementById('widok');
   if(zakladkaAkt==='surowce'){ renderSurowce(w); return; }
   if(zakladkaAkt==='dawki'){ renderDawki(w); return; }
+  if(zakladkaAkt==='nadarzyn'){ renderLokalizacja(w,'nadarzyn'); return; }
+  if(zakladkaAkt==='boguszyn'){ renderLokalizacja(w,'boguszyn'); return; }
+  if(zakladkaAkt==='mieszalnia'){ renderMieszalnia(w); return; }
   w.innerHTML = `<div class="panel">
       <div class="panel-tyt">${esc(ZAKLADKI.find(z=>z.id===zakladkaAkt)?.etykieta||'')}</div>
       <div class="pusto">Moduł w przygotowaniu — zbudujemy go w kolejnym kroku.</div>
@@ -1467,6 +1552,393 @@ function usunDawke(id){
     ()=>{ DB.usun('dawki', id); toast('Usunięto grupę.'); }, 'Usuń');
 }
 
+/* ===================== ZAKŁADKI: NADARZYN / BOGUSZYN ====================== */
+let gtRozwiniete = new Set();
+
+function grupyLok(lok){
+  return Object.values(store.grupyTech).filter(g=>g.lokalizacja===lok)
+    .sort((a,b)=>(a.kolejnosc??99)-(b.kolejnosc??99));
+}
+
+function obliczGrupe(gr){
+  const surMap = {};
+  for(const pd of (gr.dawki||[])){
+    const daw = store.dawki[pd.dawkaId]; if(!daw) continue;
+    const u = (pd.udzial||0)/100;
+    for(const sk of (daw.skladniki||[])){
+      surMap[sk.surowiecId] = (surMap[sk.surowiecId]||0) + u * sk.kg;
+    }
+  }
+  const skladniki = Object.entries(surMap).map(([id,kg])=>({surowiecId:id,kg:Math.round(kg*10000)/10000})).filter(s=>s.kg>0.0001);
+  skladniki.sort((a,b)=>b.kg-a.kg);
+  const kgSzt = skladniki.reduce((s,x)=>s+x.kg,0);
+  const kgGrupa = (gr.sztuk||0)*kgSzt;
+  const koszt = skladniki.reduce((s,x)=>{
+    const sur=store.surowce[x.surowiecId]; return s + x.kg*((sur?.cenaTona||0)/1000);
+  },0);
+  const sumaUdzialow = (gr.dawki||[]).reduce((s,d)=>s+(d.udzial||0),0);
+  return {skladniki, kgSzt, kgGrupa, kosztSzt:koszt, kosztGrupa:koszt*(gr.sztuk||0), sumaUdzialow};
+}
+
+function renderLokalizacja(w, lok){
+  const edycja = mozeEdytowac(lok);
+  const grupy = grupyLok(lok);
+  const nazwaLok = lok==='nadarzyn'?'Nadarzyn':'Boguszyn';
+  let sumaSzt=0, sumaKg=0, sumaKoszt=0;
+  const zapotrzebowanie = {};
+  const dane = grupy.map(gr=>{
+    const o = obliczGrupe(gr);
+    sumaSzt += (gr.sztuk||0);
+    sumaKg += o.kgGrupa;
+    sumaKoszt += o.kosztGrupa;
+    o.skladniki.forEach(sk=>{
+      const kgGr = sk.kg * (gr.sztuk||0);
+      zapotrzebowanie[sk.surowiecId] = (zapotrzebowanie[sk.surowiecId]||0) + kgGr;
+    });
+    return {gr, ...o};
+  });
+
+  w.innerHTML = `
+  <div class="panel">
+    <div class="panel-tyt">
+      ${esc(nazwaLok)} — grupy technologiczne
+      <span class="licznik">${grupy.length} grup · ${sumaSzt} szt</span>
+      <span style="flex:1"></span>
+      ${edycja?'<button class="btn maly" id="btnNowaGrupa">+ Grupa</button>':''}
+    </div>
+    <div class="przewijak">
+      <table class="gt-tabela" id="tabelaGT">
+        <thead><tr>
+          <th>Grupa</th><th class="num">Sztuk</th><th>Dawki (udziały %)</th>
+          <th class="num">kg/szt</th><th class="num">kg/grupę</th>
+          <th class="num">zł/szt</th><th class="num">zł/grupę</th>
+          ${edycja?'<th class="akcje"></th>':''}
+        </tr></thead>
+        <tbody>
+          ${dane.map(({gr,kgSzt,kgGrupa,kosztSzt,kosztGrupa,sumaUdzialow})=>{
+            const jestPodgrupa = !!gr.parentId;
+            const parent = jestPodgrupa ? store.grupyTech[gr.parentId] : null;
+            const opis = (gr.dawki||[]).map(d=>{
+              const daw=store.dawki[d.dawkaId]; return `${daw?.nazwa||'?'} ${d.udzial}%`;
+            }).join(' + ');
+            const bladU = sumaUdzialow!==100 && (gr.dawki||[]).length>0;
+            const rozw = gtRozwiniete.has(gr.id);
+            return `
+            <tr class="${jestPodgrupa?'podgrupa':''} ${rozw?'rozwiniety':''}" data-rozgt="${gr.id}">
+              <td><b>${esc(gr.nazwa)}</b>${jestPodgrupa?' <span class="podpis">('+esc(parent?.nazwa||'')+')</span>':''}</td>
+              <td class="num">${edycja?`<input class="pole num" data-sztuki="${gr.id}" value="${gr.sztuk||0}" style="width:60px" inputmode="numeric">`:(gr.sztuk||0)}</td>
+              <td>${esc(opis)}${bladU?` <span class="blad-udzial">\u26a0 ${sumaUdzialow}%</span>`:''}</td>
+              <td class="num">${fmt(kgSzt,1)}</td>
+              <td class="num">${fmt(kgGrupa,0)}</td>
+              <td class="num">${fmt(kosztSzt,2)}</td>
+              <td class="num">${fmt(kosztGrupa,0)}</td>
+              ${edycja?`<td class="akcje">
+                <button class="ikonka" data-edgt="${gr.id}" title="Edytuj">\u270e</button>
+                <button class="ikonka usun" data-usungt="${gr.id}" title="Usu\u0144">\u2715</button>
+              </td>`:''}
+            </tr>
+            ${rozw?'<tr><td colspan="'+(edycja?8:7)+'">'+renderGTDet(gr, {kgSzt,kgGrupa,kosztSzt,kosztGrupa,skladniki:dane.find(d=>d.gr.id===gr.id).skladniki})+'</td></tr>':''}`;
+          }).join('')}
+          <tr class="suma">
+            <td>SUMA ${esc(nazwaLok)}</td><td class="num">${sumaSzt}</td><td></td>
+            <td class="num"></td><td class="num">${fmt(sumaKg,0)}</td>
+            <td class="num"></td><td class="num">${fmt(sumaKoszt,0)}</td>
+            ${edycja?'<td></td>':''}
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="panel zapot-panel">
+    <div class="panel-tyt">Zapotrzebowanie dobowe \u2014 ${esc(nazwaLok)}</div>
+    <div style="padding:10px 14px">
+      <table>
+        <thead><tr><th>Surowiec</th><th class="num">kg/dob\u0119</th><th class="num">t/dob\u0119</th></tr></thead>
+        <tbody>
+          ${Object.entries(zapotrzebowanie).sort((a,b)=>b[1]-a[1]).map(([sid,kg])=>{
+            const sur=store.surowce[sid];
+            return `<tr><td>${esc(sur?.nazwa||'?')}</td><td class="num">${fmt(kg,1)}</td><td class="num">${fmt(kg/1000,3)}</td></tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+  // Podpi\u0119cia
+  w.querySelectorAll('[data-rozgt]').forEach(tr=>{
+    tr.onclick=e=>{
+      if(e.target.closest('input,button,.ikonka')) return;
+      const id=tr.dataset.rozgt;
+      gtRozwiniete.has(id)?gtRozwiniete.delete(id):gtRozwiniete.add(id);
+      renderLokalizacja(w,lok);
+    };
+  });
+  if(edycja){
+    w.querySelectorAll('[data-sztuki]').forEach(inp=>{
+      inp.onclick=e=>e.stopPropagation();
+      inp.onchange=()=>{DB.zapisz('grupyTech',inp.dataset.sztuki,{sztuk:Math.max(0,parseInt(inp.value)||0)});};
+    });
+    w.querySelectorAll('[data-edgt]').forEach(b=>{
+      b.onclick=e=>{e.stopPropagation();oknoEdGrupa(lok,b.dataset.edgt);};
+    });
+    w.querySelectorAll('[data-usungt]').forEach(b=>{
+      b.onclick=e=>{e.stopPropagation();const g=store.grupyTech[b.dataset.usungt];
+        potwierdz('Usun\u0105\u0107 grup\u0119?',`\u201e${esc(g?.nazwa)}\u201d \u2014 dane zostan\u0105 utracone.`,()=>{DB.usun('grupyTech',b.dataset.usungt);toast('Usuni\u0119to.');}, 'Usu\u0144');
+      };
+    });
+    const btn=w.querySelector('#btnNowaGrupa');
+    if(btn) btn.onclick=()=>oknoEdGrupa(lok);
+  }
+}
+
+function renderGTDet(gr, obl){
+  if(!obl) return '';
+  const {skladniki,kgSzt,kgGrupa} = obl;
+  let wWozie = 0;
+  const wiersze = skladniki.map(sk=>{
+    const sur = store.surowce[sk.surowiecId];
+    const kgGr = sk.kg * (gr.sztuk||0);
+    wWozie += kgGr;
+    return `<tr><td>${esc(sur?.nazwa||'?')}</td><td class="num">${fmt(sk.kg,1)}</td><td class="num">${fmt(kgGr,1)}</td><td class="num wwozie">${fmt(wWozie,1)}</td></tr>`;
+  }).join('');
+  return `<div class="gt-det">
+    <h4>Karta za\u0142adunku \u2014 ${esc(gr.nazwa)} (${gr.sztuk||0} szt)</h4>
+    <div class="gt-dawki-lista">${(gr.dawki||[]).map(d=>{
+      const daw=store.dawki[d.dawkaId];
+      return `<span class="chip"><b>${d.udzial}%</b> ${esc(daw?.nazwa||'?')}</span>`;
+    }).join('')}</div>
+    <table>
+      <thead><tr><th>Surowiec</th><th class="num">kg/szt</th><th class="num">kg na grup\u0119</th><th class="num">W wozie</th></tr></thead>
+      <tbody>${wiersze}
+        <tr style="font-weight:700;border-top:2px solid var(--zielen)"><td>RAZEM</td><td class="num">${fmt(kgSzt,1)}</td><td class="num">${fmt(kgGrupa,1)}</td><td></td></tr>
+      </tbody>
+    </table>
+    <div class="podpis">Koszt: ${fmt(obl.kosztSzt,2)} z\u0142/szt/dob\u0119 \u00b7 ${fmt(obl.kosztGrupa,0)} z\u0142/grup\u0119/dob\u0119</div>
+  </div>`;
+}
+
+function oknoEdGrupa(lok, edId){
+  const isEdit = !!edId;
+  const g = isEdit ? store.grupyTech[edId] : null;
+  const dawkiList = dawkiSorted();
+  const grupy = grupyLok(lok).filter(x=>x.id!==edId);
+  let dawkiGrupy = isEdit ? [...(g.dawki||[])] : [];
+  if(dawkiGrupy.length===0) dawkiGrupy.push({dawkaId:dawkiList[0]?.id||'', udzial:100});
+
+  function renderDawkiEdycja(){
+    return dawkiGrupy.map((d,i)=>`
+      <div class="wiersz2" style="margin-bottom:6px;align-items:end">
+        <div class="pole-grupa" style="margin:0;flex:2">
+          ${i===0?'<label>Dawka</label>':''}
+          <select data-di="${i}" data-pole="dawkaId">
+            ${dawkiList.map(dl=>`<option value="${dl.id}" ${dl.id===d.dawkaId?'selected':''}>${esc(dl.nazwa)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="pole-grupa" style="margin:0;flex:1">
+          ${i===0?'<label>Udzia\u0142 %</label>':''}
+          <input data-di="${i}" data-pole="udzial" type="number" value="${d.udzial||0}" min="0" max="100" style="width:80px">
+        </div>
+        <button class="ikonka usun" data-usundaw="${i}" title="Usu\u0144">\u2715</button>
+      </div>`).join('');
+  }
+
+  modal({
+    tytul: isEdit?`Edytuj: ${g.nazwa}`:'Nowa grupa technologiczna',
+    tresc:`
+      <div class="wiersz2">
+        <div class="pole-grupa"><label>Nazwa</label><input id="gnNazwa" value="${esc(g?.nazwa||'')}" autocomplete="off"></div>
+        <div class="pole-grupa"><label>Liczba sztuk</label><input id="gnSztuk" type="number" value="${g?.sztuk||0}" min="0"></div>
+      </div>
+      <div class="pole-grupa">
+        <label>Podgrupa (opcjonalnie)</label>
+        <select id="gnParent">
+          <option value="">\u2014 brak (grupa g\u0142\u00f3wna) \u2014</option>
+          ${grupy.filter(x=>!x.parentId).map(x=>`<option value="${x.id}" ${g?.parentId===x.id?'selected':''}>${esc(x.nazwa)}</option>`).join('')}
+        </select>
+      </div>
+      <hr style="border:none;border-top:1px solid var(--linia);margin:12px 0">
+      <div style="font-weight:600;margin-bottom:8px">Przypisane dawki</div>
+      <div id="gnDawki">${renderDawkiEdycja()}</div>
+      <button class="btn maly szary" id="gnDodDaw" style="margin-top:4px">+ Dawka</button>
+      <div class="podpis" style="margin-top:6px" id="gnSumaInfo">Suma udzia\u0142\u00f3w: ${dawkiGrupy.reduce((s,d)=>s+(d.udzial||0),0)}%</div>`,
+    przyciski:[
+      {tekst:'Anuluj'},
+      {tekst:isEdit?'Zapisz':'Dodaj', klasa:'', akcja:async(n)=>{
+        const nazwa=n.querySelector('#gnNazwa').value.trim();
+        if(!nazwa){toast('Podaj nazw\u0119.',true);return false;}
+        const sztuk=Math.max(0,parseInt(n.querySelector('#gnSztuk').value)||0);
+        const parentId=n.querySelector('#gnParent').value||null;
+        const sels=n.querySelectorAll('[data-pole="dawkaId"]');
+        const inps=n.querySelectorAll('[data-pole="udzial"]');
+        const daw=[];
+        sels.forEach((sel,i)=>{
+          const u=parseInt(inps[i]?.value)||0;
+          if(sel.value && u>0) daw.push({dawkaId:sel.value, udzial:u});
+        });
+        const dane={nazwa,sztuk,parentId,dawki:daw,lokalizacja:lok};
+        if(isEdit){await DB.zapisz('grupyTech',edId,dane);toast('Zapisano.');}
+        else{dane.kolejnosc=grupyLok(lok).reduce((m,x)=>Math.max(m,x.kolejnosc??0),0)+1;await DB.zapisz('grupyTech',null,dane);toast('Dodano grup\u0119.');}
+      }}
+    ]
+  });
+
+  function odswiez(){
+    const k=document.getElementById('gnDawki'); if(k) k.innerHTML=renderDawkiEdycja(); podepnijDawki();
+    const info=document.getElementById('gnSumaInfo'); if(info) info.textContent='Suma udzia\u0142\u00f3w: '+dawkiGrupy.reduce((s,d)=>s+(d.udzial||0),0)+'%';
+  }
+  function podepnijDawki(){
+    const n=document.getElementById('nakladka');
+    n.querySelectorAll('[data-pole="dawkaId"]').forEach(sel=>{sel.onchange=()=>{dawkiGrupy[+sel.dataset.di].dawkaId=sel.value;};});
+    n.querySelectorAll('[data-pole="udzial"]').forEach(inp=>{inp.onchange=()=>{dawkiGrupy[+inp.dataset.di].udzial=parseInt(inp.value)||0;odswiez();};});
+    n.querySelectorAll('[data-usundaw]').forEach(b=>{b.onclick=()=>{dawkiGrupy.splice(+b.dataset.usundaw,1);odswiez();};});
+  }
+  podepnijDawki();
+  document.getElementById('gnDodDaw').onclick=()=>{dawkiGrupy.push({dawkaId:dawkiList[0]?.id||'',udzial:0});odswiez();};
+}
+
+/* ===================== ZAKŁADKA: MIESZALNIA =============================== */
+let mixRozwiniete = new Set();
+let mixZakladka = 'receptury';
+
+function kosztMieszanki(m){
+  return (m.skladniki||[]).reduce((s,sk)=>{
+    const sur=store.surowce[sk.surowiecId];
+    return s + (sk.procent/100)*((sur?.cenaTona||0)/1000);
+  },0);
+}
+
+function renderMieszalnia(w){
+  const edycja = mozeEdytowac('mieszalnia');
+  const mieszanki = Object.values(store.mieszanki).sort((a,b)=>(a.nazwa||'').localeCompare(b.nazwa||'','pl'));
+  const produkcje = Object.values(store.produkcja).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+  w.innerHTML = `
+  <div class="panel">
+    <div class="panel-tyt">Mieszalnia <span class="licznik">${mieszanki.length} receptur</span><span style="flex:1"></span>
+      ${edycja?'<button class="btn maly" id="btnNowaMix">+ Receptura</button>':''}
+    </div>
+    <div class="pasek">
+      <button class="btn ${mixZakladka==='receptury'?'':'szary'} maly" data-mz="receptury">Receptury</button>
+      <button class="btn ${mixZakladka==='produkcja'?'':'szary'} maly" data-mz="produkcja">Produkuj parti\u0119</button>
+      <button class="btn ${mixZakladka==='historia'?'':'szary'} maly" data-mz="historia">Historia (${produkcje.length})</button>
+    </div>
+    <div id="mixTresc"></div>
+  </div>`;
+  w.querySelectorAll('[data-mz]').forEach(b=>b.onclick=()=>{mixZakladka=b.dataset.mz;renderMieszalnia(w);});
+  if(edycja){const b=w.querySelector('#btnNowaMix');if(b)b.onclick=()=>oknoMix();}
+  const tresc=w.querySelector('#mixTresc');
+  if(mixZakladka==='receptury') renderMixReceptury(tresc,mieszanki,edycja);
+  else if(mixZakladka==='produkcja') renderMixProdukcja(tresc,mieszanki);
+  else renderMixHistoria(tresc,produkcje);
+}
+
+function renderMixReceptury(el,mieszanki,edycja){
+  el.innerHTML = mieszanki.map(m=>{
+    const rozw=mixRozwiniete.has(m.id);
+    const koszt=kosztMieszanki(m);
+    return `<div class="mix-karta">
+      <div class="mix-karta-tyt" data-rozmix2="${m.id}">
+        <span>${rozw?'\u25be':'\u25b8'}</span><b>${esc(m.nazwa)}</b>
+        <span class="koszt">${fmt(koszt*1000,2)} z\u0142/t \u00b7 ${fmt(koszt,4)} z\u0142/kg</span>
+        ${edycja?`<button class="ikonka" data-edmix="${m.id}" title="Edytuj">\u270e</button><button class="ikonka usun" data-usunmix="${m.id}" title="Usu\u0144">\u2715</button>`:''}
+      </div>
+      ${rozw?`<div class="mix-tresc"><table>
+        <thead><tr><th>Sk\u0142adnik</th><th class="num">%</th><th class="num">kg/t</th><th class="num">z\u0142/t sk\u0142adnika</th></tr></thead>
+        <tbody>${(m.skladniki||[]).map(sk=>{
+          const sur=store.surowce[sk.surowiecId];
+          return `<tr><td>${esc(sur?.nazwa||'?')}</td><td class="num">${fmt(sk.procent,1)}</td><td class="num">${fmt(sk.procent*10,1)}</td><td class="num">${fmt((sk.procent/100)*(sur?.cenaTona||0),2)}</td></tr>`;
+        }).join('')}
+        <tr style="font-weight:700"><td>SUMA</td><td class="num">${fmt((m.skladniki||[]).reduce((s,x)=>s+x.procent,0),1)}</td><td class="num">${fmt((m.skladniki||[]).reduce((s,x)=>s+x.procent*10,0),0)}</td><td class="num">${fmt(koszt*1000,2)}</td></tr>
+        </tbody></table></div>`:''}
+    </div>`;
+  }).join('')||'<div class="pusto">Brak receptur.</div>';
+  el.querySelectorAll('[data-rozmix2]').forEach(b=>{b.onclick=e=>{if(e.target.closest('[data-edmix],[data-usunmix]'))return;const id=b.dataset.rozmix2;mixRozwiniete.has(id)?mixRozwiniete.delete(id):mixRozwiniete.add(id);renderMieszalnia(document.getElementById('widok'));};});
+  el.querySelectorAll('[data-edmix]').forEach(b=>b.onclick=e=>{e.stopPropagation();oknoMix(b.dataset.edmix);});
+  el.querySelectorAll('[data-usunmix]').forEach(b=>b.onclick=e=>{e.stopPropagation();const m=store.mieszanki[b.dataset.usunmix];potwierdz('Usun\u0105\u0107 receptur\u0119?',`\u201e${esc(m?.nazwa)}\u201d`,()=>{DB.usun('mieszanki',b.dataset.usunmix);toast('Usuni\u0119to.');},'Usu\u0144');});
+}
+
+function renderMixProdukcja(el,mieszanki){
+  el.innerHTML=`<div style="padding:14px">
+    <div class="wiersz2">
+      <div class="pole-grupa"><label>Mieszanka</label><select id="mpMix">${mieszanki.map(m=>`<option value="${m.id}">${esc(m.nazwa)}</option>`).join('')}</select></div>
+      <div class="pole-grupa"><label>Wielko\u015b\u0107 partii (kg)</label><input id="mpKg" type="number" value="1000" min="1" inputmode="numeric"></div>
+      <div class="pole-grupa"><label>Data</label><input id="mpData" type="date" value="${dzisiaj()}"></div>
+    </div>
+    <div class="pole-grupa"><label>Lokalizacja przeznaczenia</label>
+      <select id="mpLok"><option value="obie">Obie lokalizacje</option><option value="nadarzyn">Nadarzyn</option><option value="boguszyn">Boguszyn</option></select>
+    </div>
+    <button class="btn" id="mpOblicz">Oblicz kart\u0119 za\u0142adunku</button>
+    <div id="mpKarta" style="margin-top:14px"></div>
+  </div>`;
+  document.getElementById('mpOblicz').onclick=()=>{
+    const mixId=document.getElementById('mpMix').value;
+    const partiaKg=liczba(document.getElementById('mpKg').value);
+    const m=store.mieszanki[mixId]; if(!m||!partiaKg)return;
+    let wM=0;
+    const w=(m.skladniki||[]).map(sk=>{const sur=store.surowce[sk.surowiecId];const kg=Math.round(sk.procent/100*partiaKg*10)/10;wM+=kg;
+      return `<tr><td>${esc(sur?.nazwa||'?')}</td><td class="num">${fmt(sk.procent,1)}%</td><td class="num">${fmt(kg,1)}</td><td class="num wwozie">${fmt(wM,1)}</td></tr>`;}).join('');
+    const koszt=kosztMieszanki(m)*partiaKg;
+    document.getElementById('mpKarta').innerHTML=`<div class="gt-det">
+      <h4>Karta za\u0142adunku: ${esc(m.nazwa)} \u2014 ${fmt(partiaKg,0)} kg</h4>
+      <table><thead><tr><th>Sk\u0142adnik</th><th class="num">%</th><th class="num">kg</th><th class="num">W mieszalniku</th></tr></thead><tbody>${w}</tbody></table>
+      <div style="margin-top:8px"><b>Koszt partii: ${fmt(koszt,2)} z\u0142</b> \u00b7 ${fmt(koszt/partiaKg,4)} z\u0142/kg</div>
+      <button class="btn" id="mpZapisz" style="margin-top:10px">\ud83d\udcbe Zapisz parti\u0119 do historii</button>
+    </div>`;
+    document.getElementById('mpZapisz').onclick=async()=>{
+      const kosztKg=koszt/partiaKg;
+      await DB.zapisz('produkcja',null,{data:document.getElementById('mpData').value,mieszankaId:mixId,kg:partiaKg,koszt:Math.round(koszt*100)/100,kosztKg:Math.round(kosztKg*10000)/10000,lokalizacja:document.getElementById('mpLok').value,uzytkownik:ROLE[rolaAkt]?.nazwa||'?',ts:Date.now()});
+      const surMix=Object.values(store.surowce).find(s=>s.mieszankaId===mixId||(s.zMieszalni&&s.nazwa===m.nazwa));
+      if(surMix) await DB.zapisz('surowce',surMix.id,{cenaTona:Math.round(kosztKg*1000*100)/100,dataCeny:dzisiaj()});
+      await DB.zapisz('mieszanki',mixId,{kosztKg:Math.round(kosztKg*10000)/10000});
+      toast('Zapisano parti\u0119. Cena mieszanki zaktualizowana.');
+      mixZakladka='historia';renderMieszalnia(document.getElementById('widok'));
+    };
+  };
+}
+
+function renderMixHistoria(el,produkcje){
+  if(!produkcje.length){el.innerHTML='<div class="pusto">Brak historii produkcji.</div>';return;}
+  el.innerHTML=produkcje.map(p=>{const m=store.mieszanki[p.mieszankaId];
+    return `<div class="hist-row"><span class="data">${dataPL(p.data)}</span><b>${esc(m?.nazwa||'?')}</b><span>${fmt(p.kg,0)} kg</span><span>${fmt(p.koszt,2)} z\u0142</span><span class="podpis">${fmt(p.kosztKg,4)} z\u0142/kg</span><span class="plakietka">${p.lokalizacja==='obie'?'obie lok.':esc(p.lokalizacja||'?')}</span><span class="podpis">${esc(p.uzytkownik||'')}</span></div>`;
+  }).join('');
+}
+
+function oknoMix(edId){
+  const isEdit=!!edId; const m=isEdit?store.mieszanki[edId]:null;
+  const surList=Object.values(store.surowce).filter(s=>!s.zMieszalni).sort((a,b)=>(a.nazwa||'').localeCompare(b.nazwa||'','pl'));
+  let skladniki=isEdit?[...(m.skladniki||[])]:[];
+  if(skladniki.length===0)skladniki.push({surowiecId:surList[0]?.id||'',procent:0});
+  function renderSklad(){return skladniki.map((sk,i)=>`
+    <div class="wiersz2" style="margin-bottom:4px;align-items:end">
+      <div class="pole-grupa" style="margin:0;flex:2"><select data-si="${i}" data-pole="surowiecId">${surList.map(s=>`<option value="${s.id}" ${s.id===sk.surowiecId?'selected':''}>${esc(s.nazwa)}</option>`).join('')}</select></div>
+      <div class="pole-grupa" style="margin:0;flex:1"><input data-si="${i}" data-pole="procent" type="number" value="${sk.procent||0}" min="0" max="100" step="0.1" style="width:70px" inputmode="decimal"></div>
+      <button class="ikonka usun" data-usunsk="${i}" title="Usu\u0144">\u2715</button>
+    </div>`).join('');}
+  modal({tytul:isEdit?`Edytuj: ${m.nazwa}`:'Nowa receptura',szer:'620px',
+    tresc:`<div class="pole-grupa"><label>Nazwa</label><input id="mxNazwa" value="${esc(m?.nazwa||'')}" autocomplete="off"></div>
+      <hr style="border:none;border-top:1px solid var(--linia);margin:10px 0">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-weight:600">Sk\u0142adniki (% masy)</span><span class="podpis" id="mxSuma">Suma: ${skladniki.reduce((s,x)=>s+x.procent,0)}%</span></div>
+      <div id="mxSklad">${renderSklad()}</div>
+      <button class="btn maly szary" id="mxDodSk" style="margin-top:4px">+ Sk\u0142adnik</button>`,
+    przyciski:[{tekst:'Anuluj'},{tekst:isEdit?'Zapisz':'Dodaj',klasa:'',akcja:async(n)=>{
+      const nazwa=n.querySelector('#mxNazwa').value.trim(); if(!nazwa){toast('Podaj nazw\u0119.',true);return false;}
+      const sels=n.querySelectorAll('[data-pole="surowiecId"]');const inps=n.querySelectorAll('[data-pole="procent"]');const sk=[];
+      sels.forEach((sel,i)=>{const p=liczba(inps[i]?.value);if(sel.value&&p>0)sk.push({surowiecId:sel.value,procent:p});});
+      const kosztKg=sk.reduce((s,x)=>{const sur=store.surowce[x.surowiecId];return s+(x.procent/100)*((sur?.cenaTona||0)/1000);},0);
+      if(isEdit){await DB.zapisz('mieszanki',edId,{nazwa,skladniki:sk,kosztKg:Math.round(kosztKg*10000)/10000});
+        const surMix=Object.values(store.surowce).find(s=>s.mieszankaId===edId);if(surMix)await DB.zapisz('surowce',surMix.id,{nazwa,cenaTona:Math.round(kosztKg*1000*100)/100});
+      }else{const newId=await DB.zapisz('mieszanki',null,{nazwa,skladniki:sk,kosztKg:Math.round(kosztKg*10000)/10000});
+        await DB.zapisz('surowce',null,{nazwa,kategoria:'Mieszanka w\u0142asna',cenaTona:Math.round(kosztKg*1000*100)/100,dataCeny:dzisiaj(),kolejnosc:Object.keys(store.surowce).length+1,zMieszalni:true,mieszankaId:newId,lokalizacja:null});}
+      toast('Zapisano receptur\u0119.');
+    }}]});
+  function odsw(){const k=document.getElementById('mxSklad');if(k)k.innerHTML=renderSklad();podepnij();
+    const s=document.getElementById('mxSuma');if(s)s.textContent='Suma: '+skladniki.reduce((sum,x)=>sum+x.procent,0)+'%';}
+  function podepnij(){const n=document.getElementById('nakladka');
+    n.querySelectorAll('[data-pole="surowiecId"]').forEach(sel=>{sel.onchange=()=>{skladniki[+sel.dataset.si].surowiecId=sel.value;};});
+    n.querySelectorAll('[data-pole="procent"]').forEach(inp=>{inp.onchange=()=>{skladniki[+inp.dataset.si].procent=liczba(inp.value);odsw();};});
+    n.querySelectorAll('[data-usunsk]').forEach(b=>{b.onclick=()=>{skladniki.splice(+b.dataset.usunsk,1);odsw();};});}
+  podepnij();document.getElementById('mxDodSk').onclick=()=>{skladniki.push({surowiecId:surList[0]?.id||'',procent:0});odsw();};
+}
+
+
 /* ===================== USTAWIENIA ========================================= */
 function oknoUstawienia(){
   const st = store.config.settings || {};
@@ -1648,7 +2120,7 @@ document.getElementById('btnInstaluj').onclick = async () => {
 };
 
 /* ===================== REAKCJA NA ZMIANY DANYCH =========================== */
-['surowce','dawki','mieszanki'].forEach(kol=>{
+['surowce','dawki','mieszanki','grupyTech','produkcja'].forEach(kol=>{
   nasluchuj(kol, ()=>{
     if(!rolaAkt) return;
     const akt = document.activeElement;
