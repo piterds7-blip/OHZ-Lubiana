@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>OHZ Lubiana — Żywienie</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#14532d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Żywienie">
+<link rel="apple-touch-icon" href="./ikony/apple-touch-icon.png">
+<link rel="icon" href="./ikony/favicon-64.png">
+<style>
+:root{
+  --zielen:#14532d;
+  --zielen-jasna:#1b6b3a;
+  --zielen-bardzo-jasna:#e8f3ec;
+  --akcent:#14532d;
+  --nadarzyn:#0e6f8e;
+  --boguszyn:#a8560c;
+  --tlo:#f4f6f4;
+  --karta:#ffffff;
+  --tekst:#1c2420;
+  --tekst-slaby:#66756c;
+  --linia:#dde5df;
+  --czerwony:#b3261e;
+  --zolty:#a06a00;
+  --zielony-ok:#1e7a3c;
+  --cien:0 1px 3px rgba(0,0,0,.10), 0 4px 14px rgba(0,0,0,.05);
+  --r:10px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;height:100%}
+body{
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  background:var(--tlo);color:var(--tekst);font-size:15px;line-height:1.45;
+  overscroll-behavior-y:none;
+}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+button{cursor:pointer;border:none;background:none}
+[hidden]{display:none !important}
+
+/* ---------- SPLASH ---------- */
+#splash{
+  position:fixed;inset:0;z-index:100;background:#fff;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:24px;
+}
+#splash img{width:150px;height:150px;object-fit:contain}
+#splash h1{margin:0;font-size:21px;letter-spacing:.02em;color:var(--zielen);text-align:center}
+#splashStan{color:var(--tekst-slaby);font-size:13px;min-height:20px;text-align:center;max-width:460px}
+.spinner{width:26px;height:26px;border:3px solid var(--zielen-bardzo-jasna);border-top-color:var(--zielen);border-radius:50%;animation:obrot .8s linear infinite}
+@keyframes obrot{to{transform:rotate(360deg)}}
+#splashBlad{color:var(--czerwony);font-size:13px;max-width:520px;text-align:left;background:#fdecea;border:1px solid #f5c6c2;border-radius:var(--r);padding:12px 14px;white-space:pre-wrap}
+
+/* ---------- LOGOWANIE ---------- */
+#logowanie{
+  position:fixed;inset:0;z-index:90;background:var(--tlo);
+  display:flex;align-items:center;justify-content:center;padding:20px;
+}
+.karta-log{
+  background:#fff;border-radius:14px;box-shadow:var(--cien);padding:28px 24px;width:100%;max-width:390px;text-align:center;
+}
+.karta-log img{width:104px;height:104px;object-fit:contain;margin-bottom:6px}
+.karta-log h2{margin:0 0 2px;font-size:19px;color:var(--zielen)}
+.karta-log p.pod{margin:0 0 20px;color:var(--tekst-slaby);font-size:13px}
+.karta-log input{
+  width:100%;padding:13px 14px;border:1.5px solid var(--linia);border-radius:var(--r);
+  font-size:17px;text-align:center;letter-spacing:.06em;background:#fff;
+}
+.karta-log input:focus{outline:none;border-color:var(--zielen-jasna)}
+.karta-log button{
+  width:100%;margin-top:12px;padding:13px;background:var(--zielen);color:#fff;
+  border-radius:var(--r);font-size:16px;font-weight:600;
+}
+.karta-log button:active{background:var(--zielen-jasna)}
+#blad-log{color:var(--czerwony);font-size:13px;margin-top:10px;min-height:18px}
+
+/* ---------- NAGŁÓWEK ---------- */
+header{
+  background:var(--akcent);color:#fff;padding:8px 12px;
+  padding-top:calc(8px + env(safe-area-inset-top));
+  display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:40;
+  transition:background .18s;
+}
+header .tytul{display:flex;flex-direction:column;min-width:0;flex:1}
+header .tytul b{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header .tytul span{font-size:11.5px;opacity:.82;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header .ikony{display:flex;align-items:center;gap:2px}
+header .ikony button{
+  color:#fff;width:36px;height:36px;border-radius:8px;font-size:17px;
+  display:flex;align-items:center;justify-content:center;
+}
+header .ikony button:active{background:rgba(255,255,255,.18)}
+#sync{font-size:17px;width:36px;height:36px;display:flex;align-items:center;justify-content:center}
+#sync.zapis{animation:puls 1s ease-in-out infinite}
+@keyframes puls{50%{opacity:.35}}
+.baner{background:#fff4d6;color:#6b4c00;border-bottom:1px solid #f0dca6;padding:7px 12px;font-size:12.5px;text-align:center}
+
+/* ---------- ZAKŁADKI ---------- */
+nav{
+  background:#fff;border-bottom:1px solid var(--linia);display:flex;overflow-x:auto;
+  position:sticky;top:0;z-index:35;scrollbar-width:none;
+}
+nav::-webkit-scrollbar{display:none}
+nav button{
+  padding:12px 16px;font-size:14px;font-weight:600;color:var(--tekst-slaby);
+  border-bottom:3px solid transparent;white-space:nowrap;flex:0 0 auto;
+}
+nav button.akt{color:var(--akcent);border-bottom-color:var(--akcent)}
+
+main{padding:12px;padding-bottom:calc(28px + env(safe-area-inset-bottom));max-width:1500px;margin:0 auto}
+
+/* ---------- ELEMENTY ---------- */
+.panel{background:var(--karta);border-radius:var(--r);box-shadow:var(--cien);overflow:hidden;margin-bottom:12px}
+.panel-tyt{padding:11px 14px;border-bottom:1px solid var(--linia);font-weight:600;font-size:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.panel-tyt .licznik{color:var(--tekst-slaby);font-weight:400;font-size:12.5px}
+.pasek{padding:10px 12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--linia);background:#fbfcfb}
+.pasek input[type=search],.pasek select{
+  padding:9px 11px;border:1.5px solid var(--linia);border-radius:8px;background:#fff;min-width:0;
+}
+.pasek input[type=search]{flex:1 1 190px}
+.pasek select{flex:0 1 210px}
+.btn{
+  padding:9px 14px;border-radius:8px;font-weight:600;font-size:14px;
+  background:var(--akcent);color:#fff;display:inline-flex;align-items:center;gap:6px;
+}
+.btn:active{opacity:.85}
+.btn.szary{background:#eceeed;color:var(--tekst)}
+.btn.czerw{background:var(--czerwony);color:#fff}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.maly{padding:6px 10px;font-size:13px}
+
+table{border-collapse:collapse;width:100%;font-size:14px}
+.przewijak{overflow-x:auto;-webkit-overflow-scrolling:touch}
+thead th{
+  background:var(--zielen);color:#fff;font-weight:600;font-size:12.5px;text-align:left;
+  padding:9px 10px;white-space:nowrap;position:sticky;top:0;z-index:2;
+}
+thead th.klik{cursor:pointer;user-select:none}
+thead th.klik:hover{background:var(--zielen-jasna)}
+tbody td{padding:5px 10px;border-bottom:1px solid var(--linia);vertical-align:middle}
+tbody tr:nth-child(even) td{background:#fafcfa}
+tbody tr.rozwiniety td{background:var(--zielen-bardzo-jasna)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+td.akcje{white-space:nowrap;text-align:right;width:1%}
+.lipka{position:sticky;left:0;background:inherit;z-index:1}
+thead th.lipka{background:var(--zielen);z-index:3}
+tbody tr:nth-child(even) td.lipka{background:#fafcfa}
+tbody tr:nth-child(odd) td.lipka{background:#fff}
+tbody tr.rozwiniety td.lipka{background:var(--zielen-bardzo-jasna)}
+
+input.pole{
+  width:100%;padding:6px 8px;border:1px solid transparent;border-radius:6px;background:transparent;
+}
+input.pole:hover{border-color:var(--linia);background:#fff}
+input.pole:focus{outline:none;border-color:var(--zielen-jasna);background:#fff;box-shadow:0 0 0 2px rgba(27,107,58,.12)}
+input.pole.num{text-align:right;font-variant-numeric:tabular-nums}
+select.pole{width:100%;padding:6px 8px;border:1px solid transparent;border-radius:6px;background:transparent}
+select.pole:hover{border-color:var(--linia);background:#fff}
+select.pole:focus{outline:none;border-color:var(--zielen-jasna);background:#fff}
+.ikonka{width:30px;height:30px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:15px;color:var(--tekst-slaby)}
+.ikonka:hover{background:#eef1ef}
+.ikonka.usun:hover{background:#fdecea;color:var(--czerwony)}
+.plakietka{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11.5px;font-weight:600;background:var(--zielen-bardzo-jasna);color:var(--zielen);white-space:nowrap}
+.plakietka.mieszanka{background:#fff1d9;color:#8a5300}
+.pusto{padding:36px 16px;text-align:center;color:var(--tekst-slaby);font-size:14px}
+.podpis{color:var(--tekst-slaby);font-size:12px}
+.skladPod{font-size:12.5px;color:var(--tekst-slaby);padding:2px 10px 8px 34px}
+.skladPod table{width:auto;min-width:280px;font-size:12.5px}
+.skladPod td{padding:2px 10px 2px 0;border:none;background:none !important}
+
+/* ---------- MODAL ---------- */
+#nakladka{position:fixed;inset:0;background:rgba(15,25,20,.45);z-index:80;display:flex;align-items:center;justify-content:center;padding:14px}
+.modal{background:#fff;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.28);width:100%;max-width:560px;max-height:90vh;display:flex;flex-direction:column}
+.modal h3{margin:0;padding:15px 18px;border-bottom:1px solid var(--linia);font-size:16px}
+.modal .tresc{padding:16px 18px;overflow:auto}
+.modal .stopka{padding:12px 18px;border-top:1px solid var(--linia);display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.pole-grupa{margin-bottom:14px}
+.pole-grupa label{display:block;font-size:12.5px;font-weight:600;color:var(--tekst-slaby);margin-bottom:5px}
+.pole-grupa input,.pole-grupa select{width:100%;padding:10px 12px;border:1.5px solid var(--linia);border-radius:8px;background:#fff}
+.pole-grupa input:focus,.pole-grupa select:focus{outline:none;border-color:var(--zielen-jasna)}
+.pole-grupa .hint{font-size:12px;color:var(--tekst-slaby);margin-top:4px}
+.wiersz2{display:flex;gap:10px;flex-wrap:wrap}
+.wiersz2>*{flex:1 1 160px}
+
+/* ---------- TOAST ---------- */
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);z-index:120;
+  background:#22302a;color:#fff;padding:11px 18px;border-radius:24px;font-size:13.5px;box-shadow:var(--cien);
+  opacity:0;pointer-events:none;transition:.22s;max-width:88vw;text-align:center}
+#toast.pokaz{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast.blad{background:var(--czerwony)}
+
+@media(max-width:640px){
+  main{padding:8px}
+  .pasek select{flex:1 1 100%}
+  thead th,tbody td{padding-left:8px;padding-right:8px}
+}
+</style>
+</head>
+<body>
+
+<!-- ================= SPLASH ================= -->
+<div id="splash">
+  <img src="./ikony/ikona-512.png" alt="OHZ Lubiana">
+  <h1>OHZ Lubiana — Żywienie</h1>
+  <div class="spinner" id="splashSpin"></div>
+  <div id="splashStan">Uruchamianie…</div>
+  <div id="splashBlad" hidden></div>
+</div>
+
+<!-- ================= LOGOWANIE ================= -->
+<div id="logowanie" hidden>
+  <div class="karta-log">
+    <img src="./ikony/ikona-512.png" alt="">
+    <h2>OHZ Lubiana</h2>
+    <p class="pod">Zarządzanie żywieniem — Nadarzyn i Boguszyn</p>
+    <input type="password" id="haslo" placeholder="Hasło" autocomplete="current-password" inputmode="text">
+    <button id="btnZaloguj">Zaloguj</button>
+    <div id="blad-log"></div>
+  </div>
+</div>
+
+<!-- ================= APLIKACJA ================= -->
+<div id="app" hidden>
+  <header>
+    <div class="tytul">
+      <b id="hNazwa">OHZ Lubiana</b>
+      <span id="hRola">—</span>
+    </div>
+    <div class="ikony">
+      <div id="sync" title="Stan synchronizacji">☁</div>
+      <button id="btnOdswiez" title="Odśwież">⟳</button>
+      <button id="btnUstawienia" title="Ustawienia">⚙</button>
+      <button id="btnBackup" title="Kopia zapasowa">⬇</button>
+      <button id="btnInfo" title="Informacje">ⓘ</button>
+      <button id="btnWyloguj" title="Wyloguj">⏻</button>
+    </div>
+  </header>
+  <div class="baner" id="banerLokalny" hidden>TRYB LOKALNY — brak konfiguracji Firebase. Dane zapisują się tylko w tej przeglądarce.</div>
+  <nav id="taby"></nav>
+  <main id="widok"></main>
+</div>
+
+<div id="nakladka" hidden></div>
+<div id="toast"></div>
+
+<script type="module">
+/* ==========================================================================
+   OHZ LUBIANA — ŻYWIENIE
+   Moduł 1: szkielet (PWA, Firebase, splash z preloadem haseł, logowanie, role)
+   Moduł 2: Surowce
+   ========================================================================== */
+
+/* ############################################################
+   ###  KONFIGURACJA FIREBASE — WSTAW TUTAJ SWOJE DANE      ###
+   ###  (nowy, osobny projekt — nie współdzielony z innymi) ###
+   ############################################################ */
+const firebaseConfig = {
+  apiKey:            "WSTAW_TUTAJ",
+  authDomain:        "WSTAW_TUTAJ",
+  projectId:         "WSTAW_TUTAJ",
+  storageBucket:     "WSTAW_TUTAJ",
+  messagingSenderId: "WSTAW_TUTAJ",
+  appId:             "WSTAW_TUTAJ"
+};
+/* ###############  KONIEC KONFIGURACJI  ##################### */
+
+const WERSJA_APP = '1.0.0 (moduł 1–2)';
+const SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
+
+/* ===================== SHA-256 (czysty JS, bez zależności) ================= */
+const SHA_K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+const rotr=(x,n)=>(x>>>n)|(x<<(32-n));
+function sha256(txt){
+  const dane=new TextEncoder().encode(txt);
+  const bity=dane.length*8;
+  const buf=new Uint8Array(((((dane.length+8)>>6)+1)<<6));
+  buf.set(dane); buf[dane.length]=0x80;
+  const dv=new DataView(buf.buffer);
+  dv.setUint32(buf.length-8, Math.floor(bity/4294967296), false);
+  dv.setUint32(buf.length-4, bity>>>0, false);
+  let H=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+  const w=new Uint32Array(64);
+  for(let i=0;i<buf.length;i+=64){
+    for(let t=0;t<16;t++) w[t]=dv.getUint32(i+t*4,false);
+    for(let t=16;t<64;t++){
+      const s0=rotr(w[t-15],7)^rotr(w[t-15],18)^(w[t-15]>>>3);
+      const s1=rotr(w[t-2],17)^rotr(w[t-2],19)^(w[t-2]>>>10);
+      w[t]=(w[t-16]+s0+w[t-7]+s1)>>>0;
+    }
+    let [a,b,c,d,e,f,g,h]=H;
+    for(let t=0;t<64;t++){
+      const S1=rotr(e,6)^rotr(e,11)^rotr(e,25);
+      const ch=(e&f)^((~e)&g);
+      const t1=(h+S1+ch+SHA_K[t]+w[t])>>>0;
+      const S0=rotr(a,2)^rotr(a,13)^rotr(a,22);
+      const maj=(a&b)^(a&c)^(b&c);
+      const t2=(S0+maj)>>>0;
+      h=g;g=f;f=e;e=(d+t1)>>>0;d=c;c=b;b=a;a=(t1+t2)>>>0;
+    }
+    H=[(H[0]+a)>>>0,(H[1]+b)>>>0,(H[2]+c)>>>0,(H[3]+d)>>>0,(H[4]+e)>>>0,(H[5]+f)>>>0,(H[6]+g)>>>0,(H[7]+h)>>>0];
+  }
+  return H.map(x=>x.toString(16).padStart(8,'0')).join('');
+}
+
+/* ===================== ROLE I UPRAWNIENIA ================================= */
+/* poziomy: 'pelny' | 'podglad' | 'wpis' (tylko kg zadane + niedojady) */
+const ROLE = {
+  tworca:      {nazwa:'Twórca',                lokalizacje:['nadarzyn','boguszyn'], hasla:true,
+                zakl:{surowce:'pelny',dawki:'pelny',nadarzyn:'pelny',boguszyn:'pelny',mieszalnia:'pelny',raporty:'pelny'}},
+  hodowca:     {nazwa:'Główny hodowca',        lokalizacje:['nadarzyn','boguszyn'], hasla:false,
+                zakl:{surowce:'pelny',dawki:'pelny',nadarzyn:'pelny',boguszyn:'pelny',mieszalnia:'pelny',raporty:'pelny'}},
+  zootechnikN: {nazwa:'Zootechnik Nadarzyn',   lokalizacje:['nadarzyn'], hasla:false,
+                zakl:{surowce:'podglad',dawki:'podglad',nadarzyn:'pelny',raporty:'pelny'}},
+  zootechnikB: {nazwa:'Zootechnik Boguszyn',   lokalizacje:['boguszyn'], hasla:false,
+                zakl:{surowce:'podglad',dawki:'podglad',boguszyn:'pelny',raporty:'pelny'}},
+  operatorN:   {nazwa:'Operator Nadarzyn',     lokalizacje:['nadarzyn'], hasla:false,
+                zakl:{nadarzyn:'wpis',raporty:'podglad'}},
+  operatorB:   {nazwa:'Operator Boguszyn',     lokalizacje:['boguszyn'], hasla:false,
+                zakl:{boguszyn:'wpis',raporty:'podglad'}},
+  mieszalnia:  {nazwa:'Mieszalnia',            lokalizacje:['nadarzyn','boguszyn'], hasla:false,
+                zakl:{surowce:'podglad',mieszalnia:'pelny',raporty:'podglad'}}
+};
+
+/* hasła startowe — do zmiany w Ustawieniach przez Twórcę */
+const HASLA_STARTOWE = {
+  tworca:'lubiana-t', hodowca:'lubiana-h',
+  zootechnikN:'nadarzyn-z', zootechnikB:'boguszyn-z',
+  operatorN:'nadarzyn-o',  operatorB:'boguszyn-o',
+  mieszalnia:'mieszalnia-m'
+};
+
+const ZAKLADKI = [
+  {id:'surowce',    etykieta:'Surowce'},
+  {id:'dawki',      etykieta:'Dawki'},
+  {id:'nadarzyn',   etykieta:'Nadarzyn'},
+  {id:'boguszyn',   etykieta:'Boguszyn'},
+  {id:'mieszalnia', etykieta:'Mieszalnia'},
+  {id:'raporty',    etykieta:'Raporty'}
+];
+
+const KATEGORIE_START = ['Pasze objętościowe','Zboża','Śruty i białkowe','Produkty uboczne','Mineralne i dodatki','Mieszanka własna'];
+
+/* ===================== WARSTWA DANYCH ===================================== */
+/* Jedno API dla dwóch trybów: Firestore (źródło prawdy) albo localStorage (tryb lokalny). */
+const KOLEKCJE = ['config','surowce','dawki','mieszanki','produkcja','snapshoty'];
+const store = {config:{},surowce:{},dawki:{},mieszanki:{},produkcja:{},snapshoty:{}};
+const sluchacze = {};
+const pierwszySnapshot = {}; // kol -> true po pierwszym snapshocie z Firestore
+let FS = null;               // {db, funkcje...}
+let trybLokalny = false;
+
+const CACHE_KEY = k => 'ohz_cache_'+k;
+const LOKAL_KEY = k => 'ohz_lokal_'+k;
+
+function nasluchuj(kolekcja, cb){ (sluchacze[kolekcja] ||= []).push(cb); }
+function powiadom(kolekcja){ (sluchacze[kolekcja]||[]).forEach(cb=>{try{cb()}catch(e){console.error(e)}}); }
+
+function nowyId(){
+  return (Date.now().toString(36) + Math.random().toString(36).slice(2,8));
+}
+
+const DB = {
+  async zapisz(kolekcja, id, dane){
+    id = id || nowyId();
+    store[kolekcja][id] = {...(store[kolekcja][id]||{}), ...dane, id};
+    powiadom(kolekcja);
+    zapiszCache(kolekcja);
+    if(trybLokalny){ zapiszLokal(kolekcja); return id; }
+    stanSync('zapis');
+    try{
+      await FS.setDoc(FS.doc(FS.db, kolekcja, id), dane, {merge:true});
+      stanSync('ok');
+    }catch(e){ console.error(e); stanSync('blad'); toast('Błąd zapisu: '+e.message, true); }
+    return id;
+  },
+  async usun(kolekcja, id){
+    delete store[kolekcja][id];
+    powiadom(kolekcja);
+    zapiszCache(kolekcja);
+    if(trybLokalny){ zapiszLokal(kolekcja); return; }
+    stanSync('zapis');
+    try{ await FS.deleteDoc(FS.doc(FS.db, kolekcja, id)); stanSync('ok'); }
+    catch(e){ console.error(e); stanSync('blad'); toast('Błąd usuwania: '+e.message, true); }
+  }
+};
+
+function zapiszCache(kolekcja){
+  try{ localStorage.setItem(CACHE_KEY(kolekcja), JSON.stringify(store[kolekcja])); }catch(e){}
+}
+function czytajCache(kolekcja){
+  try{ const s=localStorage.getItem(CACHE_KEY(kolekcja)); if(s) store[kolekcja]=JSON.parse(s); }catch(e){}
+}
+function zapiszLokal(kolekcja){
+  try{ localStorage.setItem(LOKAL_KEY(kolekcja), JSON.stringify(store[kolekcja])); }catch(e){}
+}
+function czytajLokal(kolekcja){
+  try{ const s=localStorage.getItem(LOKAL_KEY(kolekcja)); if(s) store[kolekcja]=JSON.parse(s); }catch(e){}
+}
+
+/* ===================== WSKAŹNIK SYNCHRONIZACJI ============================ */
+let stanBiezacy='ok';
+function stanSync(stan){
+  stanBiezacy = stan;
+  const el = document.getElementById('sync');
+  if(!el) return;
+  el.classList.remove('zapis');
+  if(trybLokalny){ el.textContent='▤'; el.title='Tryb lokalny — dane tylko w tej przeglądarce'; return; }
+  if(!navigator.onLine){ el.textContent='☁✕'; el.title='Offline — zmiany zapiszą się po odzyskaniu połączenia'; return; }
+  if(stan==='zapis'){ el.textContent='☁↑'; el.title='Zapisywanie…'; el.classList.add('zapis'); return; }
+  if(stan==='blad'){ el.textContent='☁!'; el.title='Błąd synchronizacji'; return; }
+  if(stan==='cache'){ el.textContent='☁~'; el.title='Dane z pamięci podręcznej'; return; }
+  el.textContent='☁✓'; el.title='Zsynchronizowano';
+}
+addEventListener('online', ()=>stanSync('ok'));
+addEventListener('offline', ()=>stanSync('ok'));
+
+/* ===================== NARZĘDZIA UI ======================================= */
+function toast(txt, blad=false){
+  const t=document.getElementById('toast');
+  t.textContent=txt; t.classList.toggle('blad',blad); t.classList.add('pokaz');
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('pokaz'), 2800);
+}
+function esc(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function liczba(v){ if(v===''||v==null) return 0; const n=parseFloat(String(v).replace(/\s/g,'').replace(',','.')); return isNaN(n)?0:n; }
+function fmt(n, dec=2){ return (Number(n)||0).toLocaleString('pl-PL',{minimumFractionDigits:dec,maximumFractionDigits:dec}); }
+function dzisiaj(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function dataPL(iso){ if(!iso) return '—'; const [r,m,d]=iso.split('-'); return `${d}.${m}.${r}`; }
+
+function modal({tytul, tresc, przyciski=[], szer}){
+  const n=document.getElementById('nakladka');
+  n.innerHTML = `<div class="modal" ${szer?`style="max-width:${szer}"`:''}>
+      <h3>${esc(tytul)}</h3>
+      <div class="tresc">${tresc}</div>
+      <div class="stopka">${przyciski.map((p,i)=>`<button class="btn ${p.klasa||'szary'}" data-i="${i}">${esc(p.tekst)}</button>`).join('')}</div>
+    </div>`;
+  n.hidden=false;
+  n.querySelectorAll('.stopka button').forEach(b=>{
+    b.onclick=()=>{ const p=przyciski[+b.dataset.i]; if(!p.akcja || p.akcja(n)!==false) zamknijModal(); };
+  });
+  n.onclick=e=>{ if(e.target===n) zamknijModal(); };
+  return n;
+}
+function zamknijModal(){ const n=document.getElementById('nakladka'); n.hidden=true; n.innerHTML=''; }
+function potwierdz(tytul, tekst, naTak, tekstTak='Usuń'){
+  modal({tytul, tresc:`<div style="white-space:pre-wrap">${tekst}</div>`,
+    przyciski:[{tekst:'Anuluj'},{tekst:tekstTak, klasa:'czerw', akcja:naTak}]});
+}
+
+/* ===================== START APLIKACJI ==================================== */
+let rolaAkt = null;
+let zakladkaAkt = null;
+
+const splashStan = document.getElementById('splashStan');
+const splashBlad = document.getElementById('splashBlad');
+function stanSplash(t){ splashStan.textContent=t; }
+function bladSplash(t){
+  document.getElementById('splashSpin').hidden=true;
+  splashBlad.hidden=false; splashBlad.textContent=t;
+}
+
+(async function start(){
+  KOLEKCJE.forEach(czytajCache);
+
+  const brakKonfig = Object.values(firebaseConfig).some(v => !v || v==='WSTAW_TUTAJ');
+  if(brakKonfig){
+    trybLokalny = true;
+    KOLEKCJE.forEach(czytajLokal);
+    stanSplash('Tryb lokalny — brak konfiguracji Firebase.');
+    document.getElementById('banerLokalny').hidden=false;
+  }else{
+    try{
+      stanSplash('Łączenie z Firebase…');
+      await polaczFirebase();
+      stanSplash('Wczytywanie konfiguracji…');
+      await preloadConfig();       // <<< hasła MUSZĄ być tu, PRZED formularzem logowania
+    }catch(e){
+      console.error(e);
+      bladSplash('Nie udało się połączyć z Firebase:\n'+(e.message||e)+
+        '\n\nSprawdź firebaseConfig, reguły Firestore i włączone logowanie anonimowe.'+
+        '\nAplikacja może działać dalej na danych z pamięci podręcznej — odśwież, gdy naprawisz połączenie.');
+      await new Promise(r=>setTimeout(r,2500));
+    }
+  }
+
+  await zasiej();
+  stanSplash('Gotowe');
+  document.getElementById('splash').hidden = true;
+
+  const zapamietana = wczytajSesje();
+  if(zapamietana){ zaloguj(zapamietana, true); }
+  else document.getElementById('logowanie').hidden = false;
+
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  }
+})();
+
+/* ---------- Firebase ---------- */
+async function polaczFirebase(){
+  const [appM, fsM, authM] = await Promise.all([
+    import(SDK+'firebase-app.js'),
+    import(SDK+'firebase-firestore.js'),
+    import(SDK+'firebase-auth.js')
+  ]);
+  const app = appM.initializeApp(firebaseConfig);
+
+  let db;
+  try{
+    db = fsM.initializeFirestore(app, {
+      localCache: fsM.persistentLocalCache({tabManager: fsM.persistentMultipleTabManager()})
+    });
+  }catch(e){ db = fsM.getFirestore(app); }
+
+  FS = {db, ...fsM};
+
+  // Logowanie anonimowe — reguły Firestore mogą wymagać request.auth != null
+  const auth = authM.getAuth(app);
+  try{ await authM.signInAnonymously(auth); }
+  catch(e){ console.warn('Anonimowe logowanie nieudane:', e.message); }
+
+  // Nasłuch na wszystkie kolekcje
+  KOLEKCJE.forEach(kol=>{
+    FS.onSnapshot(FS.collection(FS.db, kol),
+      snap=>{
+        const nowe={};
+        snap.forEach(d=> nowe[d.id]={...d.data(), id:d.id});
+        store[kol]=nowe;                 // Firestore nadpisuje cache — jest źródłem prawdy
+        zapiszCache(kol);
+        pierwszySnapshot[kol]=true;
+        powiadom(kol);
+        stanSync(snap.metadata.fromCache ? 'cache' : 'ok');
+      },
+      err=>{ console.error('onSnapshot '+kol, err); pierwszySnapshot[kol]=true; stanSync('blad'); }
+    );
+  });
+}
+
+/* Preload konfiguracji (hasła!) zanim pokaże się formularz logowania.
+   To był błąd poprzedniej aplikacji: hasła ładowały się dopiero po zalogowaniu,
+   więc zmiana hasła nie propagowała się na inne urządzenia. */
+async function preloadConfig(){
+  const start = Date.now();
+  while(!pierwszySnapshot.config && Date.now()-start < 8000){
+    await new Promise(r=>setTimeout(r,80));
+  }
+  if(!pierwszySnapshot.config) console.warn('Konfiguracja nie dotarła w 8 s — działam na pamięci podręcznej.');
+}
+
+/* ---------- Zasiew danych startowych ---------- */
+async function zasiej(){
+  if(!store.config.settings){
+    await DB.zapisz('config','settings',{
+      nazwaGospodarstwa:'OHZ Lubiana',
+      waluta:'PLN',
+      jednostkaCeny:'zl_tona',        // ceny wprowadzane w zł/t, w obliczeniach zł/kg
+      kategorie:KATEGORIE_START,
+      wersja:WERSJA_APP
+    });
+  }
+  if(!store.config.passwords){
+    const hasla={};
+    for(const [k,v] of Object.entries(HASLA_STARTOWE)) hasla[k]=sha256(v);
+    await DB.zapisz('config','passwords',{hasla, zmienione:dzisiaj()});
+    console.info('Zasiano hasła startowe:', HASLA_STARTOWE);
+  }
+}
+
+/* ===================== LOGOWANIE ========================================== */
+const inpHaslo = document.getElementById('haslo');
+const bladLog  = document.getElementById('blad-log');
+document.getElementById('btnZaloguj').onclick = probujZalogowac;
+inpHaslo.onkeydown = e=>{ if(e.key==='Enter') probujZalogowac(); };
+
+function probujZalogowac(){
+  const h = inpHaslo.value.trim();
+  if(!h){ bladLog.textContent='Podaj hasło.'; return; }
+  const hasla = store.config.passwords?.hasla || {};
+  const hash = sha256(h);
+  const rola = Object.keys(hasla).find(r => hasla[r]===hash);
+  if(!rola || !ROLE[rola]){ bladLog.textContent='Nieprawidłowe hasło.'; inpHaslo.value=''; return; }
+  bladLog.textContent=''; inpHaslo.value='';
+  zaloguj(rola);
+}
+
+function zapiszSesje(rola){
+  try{ localStorage.setItem('ohz_sesja', JSON.stringify({rola, ts:Date.now()})); }catch(e){}
+}
+function wczytajSesje(){
+  try{
+    const s=JSON.parse(localStorage.getItem('ohz_sesja')||'null');
+    if(!s || !ROLE[s.rola]) return null;
+    if(Date.now()-s.ts > 30*24*3600*1000) return null;   // sesja ważna 30 dni
+    return s.rola;
+  }catch(e){ return null; }
+}
+
+function zaloguj(rola){
+  rolaAkt = rola;
+  zapiszSesje(rola);
+  document.getElementById('logowanie').hidden = true;
+  document.getElementById('app').hidden = false;
+  document.getElementById('hNazwa').textContent = store.config.settings?.nazwaGospodarstwa || 'OHZ Lubiana';
+  document.getElementById('hRola').textContent  = ROLE[rola].nazwa;
+  zbudujTaby();
+  stanSync(stanBiezacy);
+}
+
+function wyloguj(){
+  try{ localStorage.removeItem('ohz_sesja'); }catch(e){}
+  rolaAkt=null; zakladkaAkt=null;
+  document.getElementById('app').hidden = true;
+  document.getElementById('logowanie').hidden = false;
+  inpHaslo.value=''; bladLog.textContent='';
+}
+
+/* ===================== NAWIGACJA ========================================== */
+function poziom(zakl){ return ROLE[rolaAkt]?.zakl[zakl] || null; }
+function mozeEdytowac(zakl){ return poziom(zakl)==='pelny'; }
+
+function zbudujTaby(){
+  const nav = document.getElementById('taby');
+  const dostepne = ZAKLADKI.filter(z => poziom(z.id));
+  nav.innerHTML = dostepne.map(z=>`<button data-z="${z.id}">${esc(z.etykieta)}</button>`).join('');
+  nav.querySelectorAll('button').forEach(b=> b.onclick=()=>przejdz(b.dataset.z));
+  if(!dostepne.length){
+    document.getElementById('widok').innerHTML='<div class="panel"><div class="pusto">Ta rola nie ma dostępu do żadnej zakładki.</div></div>';
+    return;
+  }
+  przejdz(dostepne.some(z=>z.id===zakladkaAkt) ? zakladkaAkt : dostepne[0].id);
+}
+
+function przejdz(id){
+  zakladkaAkt = id;
+  document.querySelectorAll('#taby button').forEach(b=> b.classList.toggle('akt', b.dataset.z===id));
+  const akcent = id==='nadarzyn' ? 'var(--nadarzyn)' : id==='boguszyn' ? 'var(--boguszyn)' : 'var(--zielen)';
+  document.documentElement.style.setProperty('--akcent', akcent);
+  const meta = document.querySelector('meta[name=theme-color]');
+  if(meta) meta.content = id==='nadarzyn' ? '#0e6f8e' : id==='boguszyn' ? '#a8560c' : '#14532d';
+  document.getElementById('widok').scrollTop=0; window.scrollTo(0,0);
+  render();
+}
+
+function render(){
+  const w = document.getElementById('widok');
+  if(zakladkaAkt==='surowce'){ renderSurowce(w); return; }
+  w.innerHTML = `<div class="panel">
+      <div class="panel-tyt">${esc(ZAKLADKI.find(z=>z.id===zakladkaAkt)?.etykieta||'')}</div>
+      <div class="pusto">Moduł w przygotowaniu — zbudujemy go w kolejnym kroku.</div>
+    </div>`;
+}
+
+/* ===================== ZAKŁADKA: SUROWCE ================================== */
+let sSort = {pole:'kolejnosc', kier:1};
+let sSzukaj = '';
+let sKategoria = '';
+let sRozwiniete = new Set();
+let renderOdlozony = false;
+
+function kategorie(){ return store.config.settings?.kategorie || KATEGORIE_START; }
+
+function listaSurowcow(){
+  let arr = Object.values(store.surowce);
+  if(sSzukaj){
+    const q = sSzukaj.toLowerCase();
+    arr = arr.filter(s => (s.nazwa||'').toLowerCase().includes(q));
+  }
+  if(sKategoria) arr = arr.filter(s => s.kategoria===sKategoria);
+  const p = sSort.pole, k = sSort.kier;
+  arr.sort((a,b)=>{
+    let x,y;
+    if(p==='kolejnosc'){ x=a.kolejnosc??9999; y=b.kolejnosc??9999; }
+    else if(p==='cena'){ x=a.cenaTona??0; y=b.cenaTona??0; }
+    else { x=(a[p]||'').toString().toLowerCase(); y=(b[p]||'').toString().toLowerCase(); }
+    if(x<y) return -1*k; if(x>y) return 1*k;
+    return (a.nazwa||'').localeCompare(b.nazwa||'','pl');
+  });
+  return arr;
+}
+
+function uzycieSurowca(id){
+  const wDawkach = Object.values(store.dawki).filter(d => (d.skladniki||[]).some(s=>s.surowiecId===id)).map(d=>d.nazwa||'dawka');
+  const wMieszankach = Object.values(store.mieszanki).filter(m => (m.skladniki||[]).some(s=>s.surowiecId===id)).map(m=>m.nazwa||'mieszanka');
+  return {wDawkach, wMieszankach, ile:wDawkach.length+wMieszankach.length};
+}
+
+function renderSurowce(w){
+  const edycja = mozeEdytowac('surowce');
+  const lista = listaSurowcow();
+  const wszystkie = Object.values(store.surowce).length;
+  const strzalka = p => sSort.pole===p ? (sSort.kier===1?' ▲':' ▼') : '';
+
+  w.innerHTML = `
+  <div class="panel">
+    <div class="panel-tyt">
+      Surowce
+      <span class="licznik">${lista.length}${lista.length!==wszystkie?' z '+wszystkie:''} poz.</span>
+      <span style="flex:1"></span>
+      ${edycja?'<button class="btn maly" id="btnDodajSur">+ Surowiec</button>':'<span class="podpis">tryb podglądu</span>'}
+    </div>
+    <div class="pasek">
+      <input type="search" id="sSzukaj" placeholder="Szukaj surowca…" value="${esc(sSzukaj)}">
+      <select id="sKat">
+        <option value="">Wszystkie kategorie</option>
+        ${kategorie().map(k=>`<option value="${esc(k)}" ${k===sKategoria?'selected':''}>${esc(k)}</option>`).join('')}
+      </select>
+      <button class="btn szary maly" id="btnSortWlasny" title="Sortowanie własne — kolejność strzałkami">
+        ${sSort.pole==='kolejnosc'?'✓ ':''}Kolejność własna
+      </button>
+    </div>
+    <div class="przewijak">
+      <table id="tabSurowce">
+        <thead>
+          <tr>
+            <th style="width:34px"></th>
+            <th class="klik lipka" data-sort="nazwa">Nazwa${strzalka('nazwa')}</th>
+            <th class="klik" data-sort="kategoria">Kategoria${strzalka('kategoria')}</th>
+            <th class="klik num" data-sort="cena">Cena zł/t${strzalka('cena')}</th>
+            <th class="num">zł/kg</th>
+            <th class="klik" data-sort="dataCeny">Data ceny${strzalka('dataCeny')}</th>
+            ${edycja?'<th class="akcje"></th>':''}
+          </tr>
+        </thead>
+        <tbody>
+          ${lista.length ? lista.map((s,i)=>wierszSurowca(s,i,lista,edycja)).join('')
+            : `<tr><td colspan="${edycja?7:6}"><div class="pusto">${wszystkie? 'Brak surowców pasujących do filtrów.' : 'Brak surowców. '+(edycja?'Dodaj pierwszy przyciskiem „+ Surowiec”.':'')}</div></td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="podpis" style="padding:0 4px 10px">
+    Ceny wprowadzasz w <b>zł za tonę</b>. W dawkach, mieszankach i raportach aplikacja przelicza je na <b>zł/kg</b>.
+    Mieszanki z Mieszalni pojawiają się tu automatycznie jako pojedynczy surowiec — strzałką ▸ rozwiniesz ich skład.
+  </div>`;
+
+  // filtry
+  const inpSz = w.querySelector('#sSzukaj');
+  inpSz.oninput = e=>{ sSzukaj=e.target.value; const poz=e.target.selectionStart; renderSurowce(w);
+    const n=document.getElementById('sSzukaj'); n.focus(); n.setSelectionRange(poz,poz); };
+  w.querySelector('#sKat').onchange = e=>{ sKategoria=e.target.value; renderSurowce(w); };
+  w.querySelector('#btnSortWlasny').onclick = ()=>{ sSort={pole:'kolejnosc',kier:1}; renderSurowce(w); };
+  w.querySelectorAll('th.klik').forEach(th=>{
+    th.onclick = ()=>{
+      const p=th.dataset.sort;
+      sSort = (sSort.pole===p) ? {pole:p, kier:-sSort.kier} : {pole:p, kier:1};
+      renderSurowce(w);
+    };
+  });
+  const btnDod = w.querySelector('#btnDodajSur');
+  if(btnDod) btnDod.onclick = oknoNowySurowiec;
+
+  // wiersze
+  w.querySelectorAll('[data-rozwin]').forEach(b=>{
+    b.onclick=()=>{ const id=b.dataset.rozwin;
+      sRozwiniete.has(id)?sRozwiniete.delete(id):sRozwiniete.add(id); renderSurowce(w); };
+  });
+  w.querySelectorAll('[data-pole]').forEach(el=>{
+    el.onchange = ()=>{
+      const {id, pole} = el.dataset;
+      const s = store.surowce[id]; if(!s) return;
+      if(pole==='nazwa'){
+        const nowa = el.value.trim();
+        if(!nowa){ el.value=s.nazwa; return; }
+        const dubel = Object.values(store.surowce).find(x=>x.id!==id && (x.nazwa||'').toLowerCase()===nowa.toLowerCase());
+        if(dubel){ toast('Surowiec o tej nazwie już istnieje.', true); el.value=s.nazwa; return; }
+        DB.zapisz('surowce', id, {nazwa:nowa});
+      }else if(pole==='kategoria'){
+        DB.zapisz('surowce', id, {kategoria:el.value});
+      }else if(pole==='cena'){
+        const v = liczba(el.value);
+        if(v<0){ toast('Cena nie może być ujemna.', true); el.value=fmt(s.cenaTona,2); return; }
+        DB.zapisz('surowce', id, {cenaTona:v, dataCeny:dzisiaj()});
+      }
+    };
+    el.onfocus = ()=>{ if(el.dataset.pole==='cena') el.value = el.dataset.raw||''; };
+    el.onblur  = ()=>{ if(el.dataset.pole==='cena' && !renderOdlozony) el.value = fmt(liczba(el.value),2); };
+  });
+  w.querySelectorAll('[data-usun]').forEach(b=> b.onclick=()=>usunSurowiec(b.dataset.usun));
+  w.querySelectorAll('[data-gora]').forEach(b=> b.onclick=()=>przesun(b.dataset.gora,-1));
+  w.querySelectorAll('[data-dol]').forEach(b=> b.onclick=()=>przesun(b.dataset.dol,1));
+}
+
+function wierszSurowca(s, i, lista, edycja){
+  const mieszanka = s.zMieszalni || s.kategoria==='Mieszanka własna';
+  const rozw = sRozwiniete.has(s.id);
+  const wlasna = sSort.pole==='kolejnosc';
+  const zlKg = (s.cenaTona||0)/1000;
+  let html = `
+  <tr class="${rozw?'rozwiniety':''}">
+    <td>${mieszanka?`<button class="ikonka" data-rozwin="${s.id}" title="Pokaż skład">${rozw?'▾':'▸'}</button>`:''}</td>
+    <td class="lipka">
+      ${edycja
+        ? `<input class="pole" data-id="${s.id}" data-pole="nazwa" value="${esc(s.nazwa)}">`
+        : esc(s.nazwa)}
+    </td>
+    <td>
+      ${edycja
+        ? `<select class="pole" data-id="${s.id}" data-pole="kategoria">
+             ${kategorie().map(k=>`<option ${k===s.kategoria?'selected':''}>${esc(k)}</option>`).join('')}
+           </select>`
+        : `<span class="plakietka ${mieszanka?'mieszanka':''}">${esc(s.kategoria||'—')}</span>`}
+    </td>
+    <td class="num">
+      ${edycja && !s.zMieszalni
+        ? `<input class="pole num" data-id="${s.id}" data-pole="cena" data-raw="${s.cenaTona??''}" value="${fmt(s.cenaTona,2)}" inputmode="decimal">`
+        : fmt(s.cenaTona,2)}
+    </td>
+    <td class="num">${fmt(zlKg,4)}</td>
+    <td>${dataPL(s.dataCeny)}</td>
+    ${edycja?`<td class="akcje">
+        ${wlasna?`<button class="ikonka" data-gora="${s.id}" ${i===0?'disabled style="opacity:.25"':''} title="W górę">↑</button>
+                  <button class="ikonka" data-dol="${s.id}" ${i===lista.length-1?'disabled style="opacity:.25"':''} title="W dół">↓</button>`:''}
+        <button class="ikonka usun" data-usun="${s.id}" title="Usuń">✕</button>
+      </td>`:''}
+  </tr>`;
+
+  if(mieszanka && rozw){
+    const m = store.mieszanki[s.mieszankaId] || Object.values(store.mieszanki).find(x=>x.nazwa===s.nazwa);
+    const kol = edycja?7:6;
+    let tresc;
+    if(m && (m.skladniki||[]).length){
+      tresc = `<table>${(m.skladniki||[]).map(sk=>{
+        const sur = store.surowce[sk.surowiecId];
+        return `<tr><td>${esc(sur?.nazwa||'—')}</td><td class="num">${fmt(sk.procent ?? sk.udzial ?? 0,2)} %</td></tr>`;
+      }).join('')}</table>`;
+    }else{
+      tresc = 'Skład pojawi się po zdefiniowaniu receptury w zakładce Mieszalnia.';
+    }
+    html += `<tr class="rozwiniety"><td colspan="${kol}"><div class="skladPod"><b>Skład mieszanki:</b><br>${tresc}</div></td></tr>`;
+  }
+  return html;
+}
+
+function przesun(id, kierunek){
+  const lista = listaSurowcow();
+  const i = lista.findIndex(s=>s.id===id);
+  const j = i + kierunek;
+  if(i<0 || j<0 || j>=lista.length) return;
+  const a = lista[i], b = lista[j];
+  const ka = a.kolejnosc ?? i, kb = b.kolejnosc ?? j;
+  DB.zapisz('surowce', a.id, {kolejnosc:kb});
+  DB.zapisz('surowce', b.id, {kolejnosc:ka});
+}
+
+function oknoNowySurowiec(){
+  modal({
+    tytul:'Nowy surowiec',
+    tresc:`
+      <div class="pole-grupa">
+        <label>Nazwa</label>
+        <input id="nsNazwa" placeholder="np. Kiszonka z kukurydzy" autocomplete="off">
+      </div>
+      <div class="wiersz2">
+        <div class="pole-grupa">
+          <label>Kategoria</label>
+          <select id="nsKat">${kategorie().filter(k=>k!=='Mieszanka własna').map(k=>`<option>${esc(k)}</option>`).join('')}</select>
+        </div>
+        <div class="pole-grupa">
+          <label>Cena (zł / tonę)</label>
+          <input id="nsCena" inputmode="decimal" placeholder="0,00">
+          <div class="hint" id="nsPodglad">= 0,0000 zł/kg</div>
+        </div>
+      </div>
+      <div class="podpis">Kategoria „Mieszanka własna” jest nadawana automatycznie mieszankom z Mieszalni.</div>`,
+    przyciski:[
+      {tekst:'Anuluj'},
+      {tekst:'Dodaj', klasa:'', akcja:(n)=>{
+        const nazwa = n.querySelector('#nsNazwa').value.trim();
+        if(!nazwa){ toast('Podaj nazwę surowca.', true); return false; }
+        if(Object.values(store.surowce).some(s=>(s.nazwa||'').toLowerCase()===nazwa.toLowerCase())){
+          toast('Surowiec o tej nazwie już istnieje.', true); return false;
+        }
+        const cena = liczba(n.querySelector('#nsCena').value);
+        const maxK = Object.values(store.surowce).reduce((m,s)=>Math.max(m, s.kolejnosc??0), 0);
+        DB.zapisz('surowce', null, {
+          nazwa, kategoria:n.querySelector('#nsKat').value, cenaTona:cena,
+          dataCeny:dzisiaj(), kolejnosc:maxK+1, zMieszalni:false, mieszankaId:null, lokalizacja:null
+        });
+        toast('Dodano surowiec.');
+      }}
+    ]
+  });
+  const c = document.getElementById('nsCena');
+  c.oninput = ()=>{ document.getElementById('nsPodglad').textContent = '= '+fmt(liczba(c.value)/1000,4)+' zł/kg'; };
+  document.getElementById('nsNazwa').focus();
+}
+
+function usunSurowiec(id){
+  const s = store.surowce[id]; if(!s) return;
+  const u = uzycieSurowca(id);
+  let ostrz = '';
+  if(u.ile){
+    ostrz = `\n\n⚠ UWAGA — surowiec jest używany:\n`
+      + (u.wDawkach.length?`• w dawkach: ${u.wDawkach.join(', ')}\n`:'')
+      + (u.wMieszankach.length?`• w recepturach mieszanek: ${u.wMieszankach.join(', ')}\n`:'')
+      + `\nPo usunięciu te pozycje stracą składnik i wyliczenia będą niepełne.`;
+  }
+  if(s.zMieszalni){
+    ostrz += `\n\nTo mieszanka własna wygenerowana przez Mieszalnię. Usunięcie tutaj nie kasuje receptury — surowiec wróci po kolejnej produkcji.`;
+  }
+  potwierdz('Usunąć surowiec?', `„${esc(s.nazwa)}”${ostrz}`, ()=>{ DB.usun('surowce', id); toast('Usunięto surowiec.'); });
+}
+
+/* ===================== USTAWIENIA ========================================= */
+function oknoUstawienia(){
+  const st = store.config.settings || {};
+  const mozeHasla = ROLE[rolaAkt]?.hasla;
+  const mozeEd = ['tworca','hodowca'].includes(rolaAkt);
+  modal({
+    tytul:'Ustawienia',
+    szer:'620px',
+    tresc:`
+      <div class="pole-grupa">
+        <label>Nazwa gospodarstwa</label>
+        <input id="uNazwa" value="${esc(st.nazwaGospodarstwa||'OHZ Lubiana')}" ${mozeEd?'':'disabled'}>
+      </div>
+      <div class="pole-grupa">
+        <label>Kategorie surowców (jedna w wierszu)</label>
+        <textarea id="uKat" rows="6" style="width:100%;padding:10px 12px;border:1.5px solid var(--linia);border-radius:8px" ${mozeEd?'':'disabled'}>${esc(kategorie().join('\n'))}</textarea>
+        <div class="hint">Zmiana nazwy kategorii nie przepisuje jej automatycznie w istniejących surowcach.</div>
+      </div>
+      ${mozeHasla ? `
+      <hr style="border:none;border-top:1px solid var(--linia);margin:18px 0">
+      <div style="font-weight:600;margin-bottom:10px">Hasła ról</div>
+      <div class="podpis" style="margin-bottom:10px">Hasła są zapisywane jako skrót SHA-256 i wczytywane na ekranie startowym — zmiana działa od razu na wszystkich urządzeniach.</div>
+      ${Object.keys(ROLE).map(r=>`
+        <div class="pole-grupa">
+          <label>${esc(ROLE[r].nazwa)}</label>
+          <input data-haslo="${r}" type="text" placeholder="nowe hasło (puste = bez zmiany)" autocomplete="off">
+        </div>`).join('')}
+      ` : ''}
+      <div class="podpis">Wersja: ${esc(WERSJA_APP)} · Tryb: ${trybLokalny?'lokalny':'Firestore'}</div>`,
+    przyciski:[
+      {tekst:'Zamknij'},
+      ...(mozeEd?[{tekst:'Zapisz', klasa:'', akcja:async(n)=>{
+        const dane = {
+          nazwaGospodarstwa: n.querySelector('#uNazwa').value.trim() || 'OHZ Lubiana',
+          kategorie: n.querySelector('#uKat').value.split('\n').map(x=>x.trim()).filter(Boolean)
+        };
+        await DB.zapisz('config','settings',dane);
+        if(mozeHasla){
+          const hasla = {...(store.config.passwords?.hasla||{})};
+          let zmiany=0;
+          n.querySelectorAll('[data-haslo]').forEach(inp=>{
+            const v=inp.value.trim();
+            if(v){ hasla[inp.dataset.haslo]=sha256(v); zmiany++; }
+          });
+          if(zmiany) await DB.zapisz('config','passwords',{hasla, zmienione:dzisiaj()});
+        }
+        document.getElementById('hNazwa').textContent = dane.nazwaGospodarstwa;
+        render();
+        toast('Zapisano ustawienia.');
+      }}]:[])
+    ]
+  });
+}
+
+/* ===================== KOPIA ZAPASOWA ===================================== */
+function oknoBackup(){
+  modal({
+    tytul:'Kopia zapasowa',
+    tresc:`
+      <p style="margin-top:0">Pełny zrzut wszystkich kolekcji do pliku JSON. Rób to regularnie — plik trzymaj poza telefonem.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin:14px 0">
+        <button class="btn" id="bkEksport">⬇ Eksportuj JSON</button>
+        <button class="btn szary" id="bkImport">⬆ Importuj z pliku</button>
+      </div>
+      <input type="file" id="bkPlik" accept="application/json,.json" hidden>
+      <div class="podpis">Import <b>nadpisuje</b> dokumenty o tych samych identyfikatorach i dodaje brakujące. Nie usuwa dokumentów, których nie ma w pliku.</div>`,
+    przyciski:[{tekst:'Zamknij'}]
+  });
+  document.getElementById('bkEksport').onclick = eksportBackup;
+  document.getElementById('bkImport').onclick = ()=> document.getElementById('bkPlik').click();
+  document.getElementById('bkPlik').onchange = e=>{
+    const f=e.target.files[0]; if(!f) return;
+    const fr=new FileReader();
+    fr.onload=()=>{ try{ importBackup(JSON.parse(fr.result)); }catch(err){ toast('Nieprawidłowy plik JSON.', true); } };
+    fr.readAsText(f);
+  };
+}
+
+function eksportBackup(){
+  const dane = {
+    aplikacja:'OHZ Lubiana — Żywienie',
+    wersja:WERSJA_APP,
+    data:new Date().toISOString(),
+    kolekcje:{}
+  };
+  KOLEKCJE.forEach(k=> dane.kolekcje[k]=store[k]);
+  const blob = new Blob([JSON.stringify(dane,null,2)], {type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download = `lubiana-zywienie-${dzisiaj()}.json`;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+  toast('Pobrano kopię zapasową.');
+}
+
+function importBackup(dane){
+  if(!dane.kolekcje){ toast('Plik nie zawiera danych aplikacji.', true); return; }
+  const ile = Object.values(dane.kolekcje).reduce((s,k)=>s+Object.keys(k||{}).length,0);
+  potwierdz('Wczytać kopię?',
+    `Plik z ${esc(dane.data? dataPL(dane.data.slice(0,10)) : 'nieznanej daty')} — ${ile} dokumentów.\n\nDokumenty o tych samych identyfikatorach zostaną nadpisane.`,
+    async ()=>{
+      zamknijModal();
+      let n=0;
+      for(const [kol, docs] of Object.entries(dane.kolekcje)){
+        if(!KOLEKCJE.includes(kol)) continue;
+        for(const [id, d] of Object.entries(docs||{})){ await DB.zapisz(kol, id, d); n++; }
+      }
+      toast(`Wczytano ${n} dokumentów.`);
+      render();
+    }, 'Wczytaj');
+}
+
+/* ===================== INFO =============================================== */
+function oknoInfo(){
+  const r = ROLE[rolaAkt];
+  const zakl = ZAKLADKI.filter(z=>poziom(z.id))
+    .map(z=>`<tr><td>${esc(z.etykieta)}</td><td><span class="plakietka">${poziom(z.id)==='pelny'?'pełny':poziom(z.id)==='wpis'?'tylko wpis kg':'podgląd'}</span></td></tr>`).join('');
+  modal({
+    tytul:'Informacje',
+    tresc:`
+      <p style="margin-top:0"><b>OHZ Lubiana — Żywienie</b><br>
+      <span class="podpis">Wersja ${esc(WERSJA_APP)} · ${trybLokalny?'tryb lokalny (bez Firebase)':'Firestore'}</span></p>
+      <p>Zalogowano jako: <b>${esc(r.nazwa)}</b><br>
+      Lokalizacje: ${r.lokalizacje.map(l=>l==='nadarzyn'?'Nadarzyn':'Boguszyn').join(', ')}</p>
+      <table style="margin-top:10px">
+        <thead><tr><th>Zakładka</th><th>Dostęp</th></tr></thead>
+        <tbody>${zakl}</tbody>
+      </table>
+      <p class="podpis" style="margin-bottom:0">Dane: ${Object.keys(store.surowce).length} surowców · ${Object.keys(store.dawki).length} dawek · ${Object.keys(store.mieszanki).length} mieszanek</p>`,
+    przyciski:[{tekst:'Zamknij'}]
+  });
+}
+
+/* ===================== PODPIĘCIE NAGŁÓWKA ================================= */
+document.getElementById('btnOdswiez').onclick   = ()=>{ render(); toast('Odświeżono.'); };
+document.getElementById('btnUstawienia').onclick= oknoUstawienia;
+document.getElementById('btnBackup').onclick    = oknoBackup;
+document.getElementById('btnInfo').onclick      = oknoInfo;
+document.getElementById('btnWyloguj').onclick   = ()=> potwierdz('Wylogować?','Wrócisz do ekranu logowania.', wyloguj, 'Wyloguj');
+
+/* ===================== REAKCJA NA ZMIANY DANYCH =========================== */
+['surowce','dawki','mieszanki'].forEach(kol=>{
+  nasluchuj(kol, ()=>{
+    if(!rolaAkt) return;
+    const akt = document.activeElement;
+    if(akt && akt.closest && akt.closest('#tabSurowce')){ renderOdlozony=true; return; }  // nie wyrywaj kursora z pola
+    render();
+  });
+});
+nasluchuj('config', ()=>{
+  if(!rolaAkt) return;
+  document.getElementById('hNazwa').textContent = store.config.settings?.nazwaGospodarstwa || 'OHZ Lubiana';
+  // jeżeli Twórca odebrał komuś hasło — nic tu nie robimy; sesja wygaśnie przy kolejnym logowaniu
+});
+document.addEventListener('focusout', e=>{
+  if(renderOdlozony && e.target.closest && e.target.closest('#tabSurowce')){
+    renderOdlozony=false; setTimeout(()=>{ if(!document.activeElement?.closest?.('#tabSurowce')) render(); }, 120);
+  }
+});
+
+window.addEventListener('keydown', e=>{ if(e.key==='Escape') zamknijModal(); });
+</script>
+</body>
+</html>

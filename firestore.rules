@@ -1,0 +1,54 @@
+rules_version = '2';
+
+// OHZ Lubiana — Żywienie
+// Etap 1: logowanie anonimowe (każde urządzenie z aplikacją = jeden anonimowy użytkownik).
+// Rola wynika z hasła po stronie aplikacji, więc reguły NIE rozróżniają jeszcze ról —
+// odcinamy natomiast cały ruch spoza aplikacji (boty, skanery, zapytania bez uwierzytelnienia).
+// Etap 2 (docelowo, po wpięciu Firebase Auth z custom claims): odkomentuj sekcje z lokalizacjami.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function zalogowany() {
+      return request.auth != null;
+    }
+
+    // --- docelowe funkcje pod custom claims (etap 2) ---
+    // function rola()        { return request.auth.token.rola; }
+    // function lokalizacje() { return request.auth.token.lokalizacje; }
+    // function maLokalizacje(lok) { return lokalizacje().hasAny([lok]); }
+    // function pelnyDostep() { return rola() in ['tworca','hodowca']; }
+
+    // Konfiguracja: hasła i ustawienia. Odczyt musi być możliwy PRZED zalogowaniem
+    // w aplikacji (splash wczytuje hasła), ale już po logowaniu anonimowym.
+    match /config/{dok} {
+      allow read:  if zalogowany();
+      allow write: if zalogowany();
+      // etap 2: allow write: if dok == 'passwords' ? rola() == 'tworca' : pelnyDostep();
+    }
+
+    // Dane wspólne dla obu lokalizacji
+    match /surowce/{id}   { allow read, write: if zalogowany(); }
+    match /dawki/{id}     { allow read, write: if zalogowany(); }
+    match /mieszanki/{id} { allow read, write: if zalogowany(); }
+    match /produkcja/{id} { allow read, write: if zalogowany(); }
+    match /snapshoty/{id} { allow read, write: if zalogowany(); }
+
+    // Dane rozdzielone na lokalizacje — ścieżki gotowe pod etap 2
+    match /grupyTech/{lokalizacja}/grupy/{id} {
+      allow read, write: if zalogowany();
+      // etap 2: allow read:  if maLokalizacje(lokalizacja);
+      //         allow write: if maLokalizacje(lokalizacja) && rola() != 'operatorN' && rola() != 'operatorB';
+    }
+
+    match /zywienie/{lokalizacja}/dni/{data} {
+      allow read, write: if zalogowany();
+      // etap 2: allow read, write: if maLokalizacje(lokalizacja);
+    }
+
+    // Wszystko inne — zamknięte
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
