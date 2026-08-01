@@ -446,7 +446,7 @@ function modal({tytul, tresc, przyciski=[], szer}){
     </div>`;
   n.hidden=false;
   n.querySelectorAll('.stopka button').forEach(b=>{
-    b.onclick=()=>{ const p=przyciski[+b.dataset.i]; if(!p.akcja || p.akcja(n)!==false) zamknijModal(); };
+    b.onclick=async()=>{ const p=przyciski[+b.dataset.i]; if(!p.akcja || (await p.akcja(n))!==false) zamknijModal(); };
   });
   n.onclick=e=>{ if(e.target===n) zamknijModal(); };
   return n;
@@ -943,11 +943,13 @@ function oknoUstawienia(){
     przyciski:[
       {tekst:'Zamknij'},
       ...(mozeEd?[{tekst:'Zapisz', klasa:'', akcja:async(n)=>{
+        // Zbierz WSZYSTKIE dane z inputów ZANIM wykonamy jakikolwiek await
+        // (modal może zostać zamknięty między await-ami)
         const dane = {
           nazwaGospodarstwa: n.querySelector('#uNazwa').value.trim() || 'OHZ Lubiana',
           kategorie: n.querySelector('#uKat').value.split('\n').map(x=>x.trim()).filter(Boolean)
         };
-        await DB.zapisz('config','settings',dane);
+        let noweHasla = null;
         if(mozeHasla){
           const hasla = {...(store.config.passwords?.hasla||{})};
           let zmiany=0;
@@ -955,11 +957,14 @@ function oknoUstawienia(){
             const v=inp.value.trim();
             if(v){ hasla[inp.dataset.haslo]=sha256(v); zmiany++; }
           });
-          if(zmiany) await DB.zapisz('config','passwords',{hasla, zmienione:dzisiaj()});
+          if(zmiany) noweHasla = hasla;
         }
+        // Teraz bezpiecznie zapisujemy — inputy już nie są potrzebne
+        await DB.zapisz('config','settings',dane);
+        if(noweHasla) await DB.zapisz('config','passwords',{hasla:noweHasla, zmienione:dzisiaj()});
         document.getElementById('hNazwa').textContent = dane.nazwaGospodarstwa;
         render();
-        toast('Zapisano ustawienia.');
+        toast(noweHasla ? 'Zapisano ustawienia i hasła.' : 'Zapisano ustawienia.');
       }}]:[])
     ]
   });
