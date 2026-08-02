@@ -226,15 +226,13 @@ select.pole:focus{outline:none;border-color:var(--zielen-jasna);background:#fff}
 .macierz .mix-badge{font-size:10px;color:var(--zolty);cursor:pointer;margin-left:2px;vertical-align:middle}
 .macierz .wiersz-rozw td{background:#fffdf0 !important;padding:2px 6px 6px 36px;font-size:12px;color:var(--tekst-slaby)}
 .dawki-kart{display:none}
+/* Na telefonie macierz zostaje — przewijana poziomo, tak jak na komputerze */
 @media(max-width:720px){
-  .macierz{display:none}
-  .dawki-kart{display:block}
-  .dk-karta{background:var(--karta);border-radius:var(--r);box-shadow:var(--cien);margin-bottom:10px;overflow:hidden}
-  .dk-karta-tyt{padding:10px 12px;background:var(--zielen);color:#fff;font-weight:600;font-size:14px;display:flex;justify-content:space-between;align-items:center}
-  .dk-karta-row{padding:6px 12px;border-bottom:1px solid var(--linia);display:flex;justify-content:space-between;align-items:center;font-size:13px}
-  .dk-karta-row:nth-child(even){background:#fafcfa}
-  .dk-karta-sum{padding:8px 12px;background:#d4edda;font-weight:700;font-size:13px;display:flex;justify-content:space-between}
-  .dk-karta-koszt{padding:6px 12px;background:#f0faf3;font-size:12px;color:var(--zielen);font-weight:600;display:flex;justify-content:space-between}
+  .macierz{max-height:calc(100vh - 190px)}
+  .macierz thead th.lipka{min-width:130px}
+  .macierz tbody td.lipka .nazwaS{max-width:100px;font-size:12px}
+  .macierz input.komorka{width:64px;font-size:12px;padding:4px}
+  .macierz thead th{min-width:74px;font-size:10.5px}
 }
 
 /* ---------- LOKALIZACJE (grupy technologiczne) ---------- */
@@ -431,7 +429,7 @@ const KATEGORIE_START = ['Pasze objętościowe','Zboża','Śruty i białkowe','P
 /* ===================== WARSTWA DANYCH ===================================== */
 /* Jedno API dla dwóch trybów: Firestore (źródło prawdy) albo localStorage (tryb lokalny). */
 const KOLEKCJE = ['config','surowce','dawki','mieszanki','produkcja','snapshoty','grupyTech'];
-const store = {config:{},surowce:{},dawki:{},mieszanki:{},produkcja:{},snapshoty:{}};
+const store = {config:{},surowce:{},dawki:{},mieszanki:{},produkcja:{},snapshoty:{},grupyTech:{}};
 const sluchacze = {};
 const pierwszySnapshot = {}; // kol -> true po pierwszym snapshocie z Firestore
 let FS = null;               // {db, funkcje...}
@@ -1353,20 +1351,6 @@ function renderDawki(w){
   // Wiersz kosztu
   let kosztyKomorki = dawki.map(d=>`<td class="num">${fmt(kosztDawki(d),2)} zł</td>`).join('');
 
-  // --- WIDOK KARTOWY (mobilny) ---
-  let karty = dawki.map(d=>{
-    const skladniki = (d.skladniki||[]).filter(sk=>sk.kg>0).sort((a,b)=>b.kg-a.kg);
-    return `<div class="dk-karta">
-      <div class="dk-karta-tyt">${esc(d.nazwa)} ${d.suchyTMR?'<span style="font-size:11px;opacity:.7">(suchy TMR)</span>':''}</div>
-      ${skladniki.map(sk=>{
-        const sur=store.surowce[sk.surowiecId];
-        return `<div class="dk-karta-row"><span>${esc(sur?.nazwa||'?')}</span><span>${fmt(sk.kg,1)} kg</span></div>`;
-      }).join('')}
-      <div class="dk-karta-sum"><span>Całość kg/szt</span><span>${fmt(sumaDawki(d),1)} kg</span></div>
-      <div class="dk-karta-koszt"><span>Koszt zł/szt/dobę</span><span>${fmt(kosztDawki(d),2)} zł</span></div>
-    </div>`;
-  }).join('');
-
   w.innerHTML = `
   <div class="panel">
     <div class="panel-tyt">
@@ -1387,7 +1371,6 @@ function renderDawki(w){
         </tbody>
       </table>
     </div>
-    <div class="dawki-kart">${karty}</div>
   </div>
   <div class="podpis" style="padding:4px 4px 10px">
     Wartości w <b>kg świeżej masy / sztukę / dobę</b>. Koszty wyliczane z cen w zakładce Surowce (zł/t → zł/kg).
@@ -1582,75 +1565,105 @@ function obliczGrupe(gr){
 
 function renderLokalizacja(w, lok){
   const edycja = mozeEdytowac(lok);
+  const wpisTylko = poziom(lok)==='wpis';
+  const mozeWpis = edycja || wpisTylko;
   const grupy = grupyLok(lok);
   const nazwaLok = lok==='nadarzyn'?'Nadarzyn':'Boguszyn';
-  let sumaSzt=0, sumaKg=0, sumaKoszt=0;
+  let sumaSzt=0, sumaKgPlan=0, sumaKgReal=0, sumaKoszt=0;
   const zapotrzebowanie = {};
+
   const dane = grupy.map(gr=>{
     const o = obliczGrupe(gr);
+    // Dawka realna: ile kg TMR faktycznie robimy na wóz dla tej grupy
+    const planKg = o.kgGrupa;                       // sztuk x dawka wyliczona
+    const naWoz  = (gr.naWozKg!=null && gr.naWozKg!=='') ? Number(gr.naWozKg) : null;
+    const realKg = naWoz!=null ? naWoz : planKg;    // puste = auto (plan)
+    const perSzt = (gr.sztuk||0)>0 ? realKg/(gr.sztuk||1) : 0;
+    const proc   = o.kgSzt>0 ? (perSzt/o.kgSzt)*100 : 0;
+    const wsp    = planKg>0 ? realKg/planKg : 1;    // wspolczynnik skalowania surowcow
     sumaSzt += (gr.sztuk||0);
-    sumaKg += o.kgGrupa;
-    sumaKoszt += o.kosztGrupa;
+    sumaKgPlan += planKg;
+    sumaKgReal += realKg;
+    sumaKoszt += o.kosztSzt*(gr.sztuk||0)*wsp;
+    // Zapotrzebowanie liczone z FAKTYCZNEJ ilosci
     o.skladniki.forEach(sk=>{
-      const kgGr = sk.kg * (gr.sztuk||0);
-      zapotrzebowanie[sk.surowiecId] = (zapotrzebowanie[sk.surowiecId]||0) + kgGr;
+      zapotrzebowanie[sk.surowiecId] = (zapotrzebowanie[sk.surowiecId]||0) + sk.kg*(gr.sztuk||0)*wsp;
     });
-    return {gr, ...o};
+    return {gr, ...o, planKg, naWoz, realKg, perSzt, proc, wsp};
   });
+
+  const kolProc = p => p>=97&&p<=103 ? 'var(--zielony-ok)' : (p>=90&&p<=110 ? 'var(--zolty)' : 'var(--czerwony)');
 
   w.innerHTML = `
   <div class="panel">
     <div class="panel-tyt">
-      ${esc(nazwaLok)} — grupy technologiczne
-      <span class="licznik">${grupy.length} grup · ${sumaSzt} szt</span>
+      ${esc(nazwaLok)} \u2014 grupy technologiczne
+      <span class="licznik">${grupy.length} grup \u00b7 ${sumaSzt} szt</span>
       <span style="flex:1"></span>
       ${edycja?'<button class="btn maly" id="btnNowaGrupa">+ Grupa</button>':''}
     </div>
     <div class="przewijak">
       <table class="gt-tabela" id="tabelaGT">
         <thead><tr>
-          <th>Grupa</th><th class="num">Sztuk</th><th>Dawki (udziały %)</th>
-          <th class="num">kg/szt</th><th class="num">kg/grupę</th>
-          <th class="num">zł/szt</th><th class="num">zł/grupę</th>
+          <th>Grupa</th>
+          <th class="num">Sztuk</th>
+          <th>Dawki (udzia\u0142y %)</th>
+          <th class="num">Dawka wylicz.<br>kg/szt</th>
+          <th class="num">Plan<br>kg/grup\u0119</th>
+          <th class="num">Na w\u00f3z<br>kg</th>
+          <th class="num">Per sztuk\u0119<br>kg</th>
+          <th class="num">% realiz.</th>
+          <th class="num">z\u0142/szt</th>
           ${edycja?'<th class="akcje"></th>':''}
         </tr></thead>
         <tbody>
-          ${dane.map(({gr,kgSzt,kgGrupa,kosztSzt,kosztGrupa,sumaUdzialow})=>{
+          ${dane.map(d=>{
+            const gr=d.gr;
             const jestPodgrupa = !!gr.parentId;
             const parent = jestPodgrupa ? store.grupyTech[gr.parentId] : null;
-            const opis = (gr.dawki||[]).map(d=>{
-              const daw=store.dawki[d.dawkaId]; return `${daw?.nazwa||'?'} ${d.udzial}%`;
+            const opis = (gr.dawki||[]).map(x=>{
+              const daw=store.dawki[x.dawkaId]; return `${daw?.nazwa||'?'} ${x.udzial}%`;
             }).join(' + ');
-            const bladU = sumaUdzialow!==100 && (gr.dawki||[]).length>0;
+            const bladU = d.sumaUdzialow!==100 && (gr.dawki||[]).length>0;
             const rozw = gtRozwiniete.has(gr.id);
             return `
             <tr class="${jestPodgrupa?'podgrupa':''} ${rozw?'rozwiniety':''}" data-rozgt="${gr.id}">
               <td><b>${esc(gr.nazwa)}</b>${jestPodgrupa?' <span class="podpis">('+esc(parent?.nazwa||'')+')</span>':''}</td>
-              <td class="num">${edycja?`<input class="pole num" data-sztuki="${gr.id}" value="${gr.sztuk||0}" style="width:60px" inputmode="numeric">`:(gr.sztuk||0)}</td>
-              <td>${esc(opis)}${bladU?` <span class="blad-udzial">\u26a0 ${sumaUdzialow}%</span>`:''}</td>
-              <td class="num">${fmt(kgSzt,1)}</td>
-              <td class="num">${fmt(kgGrupa,0)}</td>
-              <td class="num">${fmt(kosztSzt,2)}</td>
-              <td class="num">${fmt(kosztGrupa,0)}</td>
+              <td class="num">${mozeWpis?`<input class="pole num" data-sztuki="${gr.id}" value="${gr.sztuk||0}" style="width:56px" inputmode="numeric">`:(gr.sztuk||0)}</td>
+              <td>${esc(opis)}${bladU?` <span class="blad-udzial">\u26a0 ${d.sumaUdzialow}%</span>`:''}</td>
+              <td class="num">${fmt(d.kgSzt,1)}</td>
+              <td class="num">${fmt(d.planKg,0)}</td>
+              <td class="num">${mozeWpis?`<input class="pole num" data-nawoz="${gr.id}" value="${d.naWoz!=null?fmt(d.naWoz,0):''}" placeholder="auto" style="width:74px" inputmode="decimal">`:(d.naWoz!=null?fmt(d.naWoz,0):'auto')}</td>
+              <td class="num"><b>${fmt(d.perSzt,1)}</b></td>
+              <td class="num" style="color:${kolProc(d.proc)};font-weight:600">${fmt(d.proc,0)}%</td>
+              <td class="num">${fmt(d.kosztSzt*d.wsp,2)}</td>
               ${edycja?`<td class="akcje">
                 <button class="ikonka" data-edgt="${gr.id}" title="Edytuj">\u270e</button>
                 <button class="ikonka usun" data-usungt="${gr.id}" title="Usu\u0144">\u2715</button>
               </td>`:''}
             </tr>
-            ${rozw?'<tr><td colspan="'+(edycja?8:7)+'">'+renderGTDet(gr, {kgSzt,kgGrupa,kosztSzt,kosztGrupa,skladniki:dane.find(d=>d.gr.id===gr.id).skladniki})+'</td></tr>':''}`;
+            ${rozw?'<tr><td colspan="'+(edycja?10:9)+'">'+renderGTDet(gr, d)+'</td></tr>':''}`;
           }).join('')}
           <tr class="suma">
-            <td>SUMA ${esc(nazwaLok)}</td><td class="num">${sumaSzt}</td><td></td>
-            <td class="num"></td><td class="num">${fmt(sumaKg,0)}</td>
-            <td class="num"></td><td class="num">${fmt(sumaKoszt,0)}</td>
+            <td>SUMA ${esc(nazwaLok)}</td>
+            <td class="num">${sumaSzt}</td><td></td><td class="num"></td>
+            <td class="num">${fmt(sumaKgPlan,0)}</td>
+            <td class="num">${fmt(sumaKgReal,0)}</td>
+            <td class="num"></td><td class="num"></td>
+            <td class="num">${fmt(sumaKoszt,0)} z\u0142</td>
             ${edycja?'<td></td>':''}
           </tr>
         </tbody>
       </table>
     </div>
+    <div class="podpis" style="padding:8px 14px">
+      <b>Na w\u00f3z</b> \u2014 ile kg TMR faktycznie robimy dla grupy. Puste = auto (sztuki \u00d7 dawka wyliczona).
+      <b>Per sztuk\u0119</b> to faktyczne pobranie, <b>% realiz.</b> to stosunek do dawki wyliczonej.
+      Kliknij wiersz, \u017ceby rozwin\u0105\u0107 kart\u0119 za\u0142adunku przeliczon\u0105 na faktyczn\u0105 ilo\u015b\u0107.
+    </div>
   </div>
   <div class="panel zapot-panel">
-    <div class="panel-tyt">Zapotrzebowanie dobowe \u2014 ${esc(nazwaLok)}</div>
+    <div class="panel-tyt">Zapotrzebowanie dobowe \u2014 ${esc(nazwaLok)} <span class="licznik">wg faktycznych ilo\u015bci</span></div>
     <div style="padding:10px 14px">
       <table>
         <thead><tr><th>Surowiec</th><th class="num">kg/dob\u0119</th><th class="num">t/dob\u0119</th></tr></thead>
@@ -1663,7 +1676,8 @@ function renderLokalizacja(w, lok){
       </table>
     </div>
   </div>`;
-  // Podpi\u0119cia
+
+  // --- PODPI\u0118CIA ---
   w.querySelectorAll('[data-rozgt]').forEach(tr=>{
     tr.onclick=e=>{
       if(e.target.closest('input,button,.ikonka')) return;
@@ -1672,11 +1686,20 @@ function renderLokalizacja(w, lok){
       renderLokalizacja(w,lok);
     };
   });
-  if(edycja){
+  if(mozeWpis){
     w.querySelectorAll('[data-sztuki]').forEach(inp=>{
       inp.onclick=e=>e.stopPropagation();
       inp.onchange=()=>{DB.zapisz('grupyTech',inp.dataset.sztuki,{sztuk:Math.max(0,parseInt(inp.value)||0)});};
     });
+    w.querySelectorAll('[data-nawoz]').forEach(inp=>{
+      inp.onclick=e=>e.stopPropagation();
+      inp.onchange=()=>{
+        const v=inp.value.trim();
+        DB.zapisz('grupyTech',inp.dataset.nawoz,{naWozKg: v==='' ? null : Math.max(0,liczba(v))});
+      };
+    });
+  }
+  if(edycja){
     w.querySelectorAll('[data-edgt]').forEach(b=>{
       b.onclick=e=>{e.stopPropagation();oknoEdGrupa(lok,b.dataset.edgt);};
     });
@@ -1690,29 +1713,30 @@ function renderLokalizacja(w, lok){
   }
 }
 
-function renderGTDet(gr, obl){
-  if(!obl) return '';
-  const {skladniki,kgSzt,kgGrupa} = obl;
+function renderGTDet(gr, d){
+  if(!d) return '';
+  const wsp = d.wsp!=null ? d.wsp : 1;
   let wWozie = 0;
-  const wiersze = skladniki.map(sk=>{
+  const wiersze = d.skladniki.map(sk=>{
     const sur = store.surowce[sk.surowiecId];
-    const kgGr = sk.kg * (gr.sztuk||0);
+    const kgSztReal = sk.kg*wsp;
+    const kgGr = kgSztReal*(gr.sztuk||0);
     wWozie += kgGr;
-    return `<tr><td>${esc(sur?.nazwa||'?')}</td><td class="num">${fmt(sk.kg,1)}</td><td class="num">${fmt(kgGr,1)}</td><td class="num wwozie">${fmt(wWozie,1)}</td></tr>`;
+    return `<tr><td>${esc(sur?.nazwa||'?')}</td><td class="num">${fmt(sk.kg,2)}</td><td class="num">${fmt(kgSztReal,2)}</td><td class="num">${fmt(kgGr,1)}</td><td class="num wwozie">${fmt(wWozie,1)}</td></tr>`;
   }).join('');
   return `<div class="gt-det">
-    <h4>Karta za\u0142adunku \u2014 ${esc(gr.nazwa)} (${gr.sztuk||0} szt)</h4>
-    <div class="gt-dawki-lista">${(gr.dawki||[]).map(d=>{
-      const daw=store.dawki[d.dawkaId];
-      return `<span class="chip"><b>${d.udzial}%</b> ${esc(daw?.nazwa||'?')}</span>`;
+    <h4>Karta za\u0142adunku \u2014 ${esc(gr.nazwa)} (${gr.sztuk||0} szt \u00b7 ${fmt(d.realKg,0)} kg TMR)</h4>
+    <div class="gt-dawki-lista">${(gr.dawki||[]).map(x=>{
+      const daw=store.dawki[x.dawkaId];
+      return `<span class="chip"><b>${x.udzial}%</b> ${esc(daw?.nazwa||'?')}</span>`;
     }).join('')}</div>
     <table>
-      <thead><tr><th>Surowiec</th><th class="num">kg/szt</th><th class="num">kg na grup\u0119</th><th class="num">W wozie</th></tr></thead>
+      <thead><tr><th>Surowiec</th><th class="num">Plan kg/szt</th><th class="num">Realnie kg/szt</th><th class="num">kg na grup\u0119</th><th class="num">W wozie</th></tr></thead>
       <tbody>${wiersze}
-        <tr style="font-weight:700;border-top:2px solid var(--zielen)"><td>RAZEM</td><td class="num">${fmt(kgSzt,1)}</td><td class="num">${fmt(kgGrupa,1)}</td><td></td></tr>
+        <tr style="font-weight:700;border-top:2px solid var(--zielen)"><td>RAZEM</td><td class="num">${fmt(d.kgSzt,2)}</td><td class="num">${fmt(d.perSzt,2)}</td><td class="num">${fmt(d.realKg,1)}</td><td></td></tr>
       </tbody>
     </table>
-    <div class="podpis">Koszt: ${fmt(obl.kosztSzt,2)} z\u0142/szt/dob\u0119 \u00b7 ${fmt(obl.kosztGrupa,0)} z\u0142/grup\u0119/dob\u0119</div>
+    <div class="podpis">Koszt: ${fmt(d.kosztSzt*wsp,2)} z\u0142/szt/dob\u0119 \u00b7 ${fmt(d.kosztSzt*wsp*(gr.sztuk||0),0)} z\u0142/grup\u0119/dob\u0119 \u00b7 realizacja ${fmt(d.proc,0)}%</div>
   </div>`;
 }
 
