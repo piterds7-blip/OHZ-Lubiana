@@ -245,6 +245,10 @@ select.pole:focus{outline:none;border-color:var(--zielen-jasna);background:#fff}
 .gt-tabela tr.podgrupa td:first-child::before{content:'↳ ';color:var(--tekst-slaby)}
 .gt-tabela tr.suma td{background:#c3e6cb !important;font-weight:700;border-top:2px solid var(--zielen);cursor:default;color:#0f3d1f}
 .gt-tabela .blad-udzial{color:var(--czerwony);font-size:11px;font-weight:700}
+.gt-tabela tr.wgplanu td{background:#fcfcf7}
+.gt-tabela tr.wgplanu:hover td{background:var(--zielen-bardzo-jasna)}
+.plakietka.auto{background:#f0ecd8;color:#6b5d1f;font-size:10px;margin-left:6px;font-weight:600}
+input.pole.potw{background:#f0faf3;border-color:#b9dfc6}
 .gt-det{background:#fff;border:1px solid var(--zielen-jasna);border-radius:var(--r);margin:8px 0;padding:12px 14px}
 .gt-det h4{margin:0 0 8px;font-size:13.5px;color:var(--zielen);font-weight:700}
 .gt-det table{width:100%;font-size:12.5px;margin-bottom:10px}
@@ -433,8 +437,8 @@ const KATEGORIE_START = ['Pasze objętościowe','Zboża','Śruty i białkowe','P
 
 /* ===================== WARSTWA DANYCH ===================================== */
 /* Jedno API dla dwóch trybów: Firestore (źródło prawdy) albo localStorage (tryb lokalny). */
-const KOLEKCJE = ['config','surowce','dawki','mieszanki','produkcja','snapshoty','grupyTech','zywienie'];
-const store = {config:{},surowce:{},dawki:{},mieszanki:{},produkcja:{},snapshoty:{},grupyTech:{},zywienie:{}};
+const KOLEKCJE = ['config','surowce','dawki','mieszanki','produkcja','snapshoty','grupyTech','zywienie','zmianyDawek'];
+const store = {config:{},surowce:{},dawki:{},mieszanki:{},produkcja:{},snapshoty:{},grupyTech:{},zywienie:{},zmianyDawek:{}};
 const sluchacze = {};
 const pierwszySnapshot = {}; // kol -> true po pierwszym snapshocie z Firestore
 let FS = null;               // {db, funkcje...}
@@ -1279,6 +1283,8 @@ function zapiszKomorke(dawkaId, surowiecId, wartoscStr){
   const v = liczba(wartoscStr);
   let skladniki = [...(dawka.skladniki||[])];
   const i = skladniki.findIndex(s=>s.surowiecId===surowiecId);
+  const stara = i>=0 ? skladniki[i].kg : 0;
+  if(Math.abs(stara - v) < 0.0001) return;          // nic się nie zmieniło
   if(v > 0){
     if(i>=0) skladniki[i] = {...skladniki[i], kg:v};
     else skladniki.push({surowiecId, kg:v});
@@ -1286,7 +1292,33 @@ function zapiszKomorke(dawkaId, surowiecId, wartoscStr){
     if(i>=0) skladniki.splice(i,1);
   }
   DB.zapisz('dawki', dawkaId, {skladniki});
-  zaplanujSnapshot();
+  zapiszZmiane(dawkaId, surowiecId, stara, v);
+  zapiszSnapshotDnia();
+}
+
+/* Rejestr zmian dawek — kto (rola), kiedy, co, z czego na co */
+function zapiszZmiane(dawkaId, surowiecId, stara, nowa){
+  const ts = Date.now();
+  DB.zapisz('zmianyDawek', 'zm_'+ts+'_'+Math.random().toString(36).slice(2,6), {
+    ts, data: dzisiaj(),
+    rola: ROLE[rolaAkt]?.nazwa || '?',
+    dawkaId, dawkaNazwa: store.dawki[dawkaId]?.nazwa || '?',
+    surowiecId, surowiecNazwa: store.surowce[surowiecId]?.nazwa || '?',
+    stara: Math.round(stara*1000)/1000,
+    nowa: Math.round(nowa*1000)/1000
+  });
+}
+
+/* Snapshot: jeden dokument na dobę, nadpisywany przy każdej zmianie.
+   Na koniec dnia w bazie leży stan końcowy — bez zależności od tego,
+   czy ktoś ma otwartą aplikację o północy. */
+function zapiszSnapshotDnia(){
+  const d = dzisiaj();
+  DB.zapisz('snapshoty', 'snap_'+d, {
+    typ:'dawki', data:d, ts:Date.now(),
+    autor: ROLE[rolaAkt]?.nazwa || '?',
+    dane: store.dawki
+  });
 }
 
 function zapiszUkladWierszy(wiersze){
@@ -1313,8 +1345,7 @@ function renderDawki(w){
       <span class="nazwa-kol" title="${esc(d.nazwa)}">${esc(d.nazwa)}</span>
       ${d.suchyTMR?'<span style="font-size:9px;opacity:.7;display:block">(suchy TMR)</span>':''}
       ${edycja?`<div class="kol-akcje">
-        <button title="Edytuj" data-edkol="${d.id}">✎</button>
-        <button title="Usuń" data-usunkol="${d.id}">✕</button>
+        <button title="Edytuj grupę żywieniową" data-edkol="${d.id}">✎</button>
       </div>`:''}
     </th>`).join('');
 
@@ -1421,7 +1452,6 @@ function renderDawki(w){
     w.querySelectorAll('[data-usunwiersz]').forEach(b=> b.onclick=()=>usunWiersz(b.dataset.usunwiersz));
     // Edytuj/usuń kolumnę
     w.querySelectorAll('[data-edkol]').forEach(b=> b.onclick=()=>oknoDawka(b.dataset.edkol));
-    w.querySelectorAll('[data-usunkol]').forEach(b=> b.onclick=()=>usunDawke(b.dataset.usunkol));
     // + Surowiec
     const btnDW = w.querySelector('#btnDodWiersz');
     if(btnDW) btnDW.onclick = oknoDodajWiersz;
@@ -1506,6 +1536,7 @@ function oknoDodajWiersz(){
 function oknoDawka(edId){
   const isEdit = !!edId;
   const d = isEdit ? store.dawki[edId] : null;
+  const ileSk = isEdit ? (d.skladniki||[]).filter(s=>s.kg>0).length : 0;
   modal({
     tytul: isEdit ? 'Edytuj grupę żywieniową' : 'Nowa grupa żywieniowa',
     tresc:`
@@ -1513,9 +1544,10 @@ function oknoDawka(edId){
         <label>Nazwa</label>
         <input id="dnNazwa" value="${esc(d?.nazwa||'')}" placeholder="np. Krowy laktacja" autocomplete="off">
       </div>
-      <div class="pole-grupa">
-        <label><input type="checkbox" id="dnSuchy" ${d?.suchyTMR?'checked':''}> Suchy TMR (receptura suchej mieszanki)</label>
-      </div>`,
+      ${isEdit?`<div class="podpis">Zawiera ${ileSk} surowców z wartościami.${d?.suchyTMR?' Oznaczona jako suchy TMR.':''}</div>
+      <hr style="border:none;border-top:1px solid var(--linia);margin:14px 0">
+      <button class="btn czerw maly" id="dnUsun">✕ Usuń tę grupę żywieniową</button>
+      <div class="podpis" style="margin-top:5px">Usunięcie kasuje całą kolumnę razem z wpisanymi wartościami.</div>`:''}`,
     przyciski:[
       {tekst:'Anuluj'},
       {tekst: isEdit?'Zapisz':'Dodaj', klasa:'', akcja:(n)=>{
@@ -1525,18 +1557,19 @@ function oknoDawka(edId){
           const dubel = Object.values(store.dawki).find(x=>(x.nazwa||'').toLowerCase()===nazwa.toLowerCase());
           if(dubel){ toast('Grupa o tej nazwie już istnieje.', true); return false; }
         }
-        const suchyTMR = n.querySelector('#dnSuchy').checked;
         if(isEdit){
-          DB.zapisz('dawki', edId, {nazwa, suchyTMR});
+          DB.zapisz('dawki', edId, {nazwa});     // flaga suchyTMR zostaje nietknięta
           toast('Zapisano.');
         }else{
           const maxK = Object.values(store.dawki).reduce((m,x)=>Math.max(m, x.kolejnosc??0), 0);
-          DB.zapisz('dawki', null, {nazwa, suchyTMR, skladniki:[], kolejnosc:maxK+1});
+          DB.zapisz('dawki', null, {nazwa, suchyTMR:false, skladniki:[], kolejnosc:maxK+1});
           toast('Dodano grupę żywieniową.');
         }
       }}
     ]
   });
+  const bu = document.getElementById('dnUsun');
+  if(bu) bu.onclick = ()=>{ zamknijModal(); usunDawke(edId); };
   document.getElementById('dnNazwa').focus();
 }
 
@@ -1576,44 +1609,57 @@ function obliczGrupe(gr){
   return {skladniki, kgSzt, kgGrupa, kosztSzt:koszt, kosztGrupa:koszt*(gr.sztuk||0), sumaUdzialow};
 }
 
+let lokData = {};   // wybrana data per lokalizacja
+
 function renderLokalizacja(w, lok){
   const edycja = mozeEdytowac(lok);
-  const wpisTylko = poziom(lok)==='wpis';
-  const mozeWpis = edycja || wpisTylko;
+  const mozeWpis = edycja || poziom(lok)==='wpis';
   const grupy = grupyLok(lok);
   const nazwaLok = lok==='nadarzyn'?'Nadarzyn':'Boguszyn';
-  let sumaSzt=0, sumaKgPlan=0, sumaKgReal=0, sumaKoszt=0;
+  if(!lokData[lok]) lokData[lok] = dzisiaj();
+  const data = lokData[lok];
+  const wczoraj = dataMinus(data,1);
+  const dok = dokDnia(lok,data);
+  const dokWczoraj = dokDnia(lok,wczoraj);
+
+  let sumaSzt=0, sumaPlan=0, sumaZadane=0, sumaKoszt=0, ileAuto=0, ilePotw=0;
   const zapotrzebowanie = {};
 
   const dane = grupy.map(gr=>{
     const o = obliczGrupe(gr);
-    // Dawka realna: ile kg TMR faktycznie robimy na wóz dla tej grupy
-    const planKg = o.kgGrupa;                       // sztuk x dawka wyliczona
-    const naWoz  = (gr.naWozKg!=null && gr.naWozKg!=='') ? Number(gr.naWozKg) : null;
-    const realKg = naWoz!=null ? naWoz : planKg;    // puste = auto (plan)
-    const perSzt = (gr.sztuk||0)>0 ? realKg/(gr.sztuk||1) : 0;
-    const proc   = o.kgSzt>0 ? (perSzt/o.kgSzt)*100 : 0;
-    const wsp    = planKg>0 ? realKg/planKg : 1;    // wspolczynnik skalowania surowcow
-    sumaSzt += (gr.sztuk||0);
-    sumaKgPlan += planKg;
-    sumaKgReal += realKg;
-    sumaKoszt += o.kosztSzt*(gr.sztuk||0)*wsp;
-    // Zapotrzebowanie liczone z FAKTYCZNEJ ilosci
-    o.skladniki.forEach(sk=>{
-      zapotrzebowanie[sk.surowiecId] = (zapotrzebowanie[sk.surowiecId]||0) + sk.kg*(gr.sztuk||0)*wsp;
-    });
-    return {gr, ...o, planKg, naWoz, realKg, perSzt, proc, wsp};
+    const z = dok?.grupy?.[gr.id] || {};
+    const sztuk = z.sztuk!=null ? z.sztuk : (gr.sztuk||0);
+    const wylicz = z.dawkaWyliczonaKgSzt!=null ? z.dawkaWyliczonaKgSzt : o.kgSzt;
+    const planKg = wylicz*sztuk;
+    const potw = z.zadaneKg!=null;                 // wpisane ręcznie = potwierdzone
+    const zadaneKg = potw ? z.zadaneKg : planKg;   // brak wpisu = zakładamy plan
+    const perSzt = sztuk>0 ? zadaneKg/sztuk : 0;
+    const proc = wylicz>0 ? (perSzt/wylicz)*100 : 0;
+    const wsp = planKg>0 ? zadaneKg/planKg : 1;
+    sumaSzt+=sztuk; sumaPlan+=planKg; sumaZadane+=zadaneKg;
+    sumaKoszt+=o.kosztSzt*sztuk*wsp;
+    potw?ilePotw++:ileAuto++;
+    o.skladniki.forEach(sk=>{ zapotrzebowanie[sk.surowiecId]=(zapotrzebowanie[sk.surowiecId]||0)+sk.kg*sztuk*wsp; });
+    return {gr,...o,sztuk,wylicz,planKg,zadaneKg,perSzt,proc,wsp,potw,realKg:zadaneKg,kgSzt:wylicz};
   });
 
-  const kolProc = p => p>=97&&p<=103 ? 'var(--zielony-ok)' : (p>=90&&p<=110 ? 'var(--zolty)' : 'var(--czerwony)');
+  const kolProc = p => Math.abs(p-100)<=3 ? 'var(--zielony-ok)' : (Math.abs(p-100)<=10 ? 'var(--zolty)' : 'var(--czerwony)');
 
   w.innerHTML = `
   <div class="panel">
     <div class="panel-tyt">
-      ${esc(nazwaLok)} \u2014 grupy technologiczne
+      ${esc(nazwaLok)} \u2014 dzie\u0144 \u017cywienia
       <span class="licznik">${grupy.length} grup \u00b7 ${sumaSzt} szt</span>
       <span style="flex:1"></span>
       ${edycja?'<button class="btn maly" id="btnNowaGrupa">+ Grupa</button>':''}
+    </div>
+    <div class="pasek">
+      <div class="pole-grupa" style="margin:0"><label>Data</label>
+        <input type="date" id="lkData" value="${data}" max="${dzisiaj()}"></div>
+      <button class="btn szary maly" id="lkPrev">\u2039 Poprzedni</button>
+      <button class="btn szary maly" id="lkDzis">Dzi\u015b</button>
+      <span style="flex:1"></span>
+      <span class="podpis">${ilePotw} potwierdzonych \u00b7 ${ileAuto} wg planu</span>
     </div>
     <div class="przewijak">
       <table class="gt-tabela" id="tabelaGT">
@@ -1621,9 +1667,9 @@ function renderLokalizacja(w, lok){
           <th>Grupa</th>
           <th class="num">Sztuk</th>
           <th>Dawki (udzia\u0142y %)</th>
-          <th class="num">Dawka wylicz.<br>kg/szt</th>
+          <th class="num">Dawka wyliczona<br>kg/szt</th>
           <th class="num">Plan<br>kg/grup\u0119</th>
-          <th class="num">Na w\u00f3z<br>kg</th>
+          <th class="num">Zadane<br>kg na grup\u0119</th>
           <th class="num">Per sztuk\u0119<br>kg</th>
           <th class="num">% realiz.</th>
           <th class="num">z\u0142/szt</th>
@@ -1632,65 +1678,81 @@ function renderLokalizacja(w, lok){
         <tbody>
           ${dane.map(d=>{
             const gr=d.gr;
-            const jestPodgrupa = !!gr.parentId;
-            const parent = jestPodgrupa ? store.grupyTech[gr.parentId] : null;
+            const pod = !!gr.parentId;
+            const parent = pod ? store.grupyTech[gr.parentId] : null;
             const opis = (gr.dawki||[]).map(x=>{
               const daw=store.dawki[x.dawkaId]; return `${daw?.nazwa||'?'} ${x.udzial}%`;
             }).join(' + ');
             const bladU = d.sumaUdzialow!==100 && (gr.dawki||[]).length>0;
             const rozw = gtRozwiniete.has(gr.id);
             return `
-            <tr class="${jestPodgrupa?'podgrupa':''} ${rozw?'rozwiniety':''}" data-rozgt="${gr.id}">
-              <td><b>${esc(gr.nazwa)}</b>${jestPodgrupa?' <span class="podpis">('+esc(parent?.nazwa||'')+')</span>':''}</td>
-              <td class="num">${mozeWpis?`<input class="pole num" data-sztuki="${gr.id}" value="${gr.sztuk||0}" style="width:56px" inputmode="numeric">`:(gr.sztuk||0)}</td>
+            <tr class="${pod?'podgrupa':''} ${rozw?'rozwiniety':''} ${d.potw?'':'wgplanu'}" data-rozgt="${gr.id}">
+              <td><b>${esc(gr.nazwa)}</b>${pod?' <span class="podpis">('+esc(parent?.nazwa||'')+')</span>':''}
+                  ${d.potw?'':'<span class="plakietka auto">wg planu</span>'}</td>
+              <td class="num">${mozeWpis?`<input class="pole num" data-szt="${gr.id}" value="${d.sztuk}" style="width:56px" inputmode="numeric">`:d.sztuk}</td>
               <td>${esc(opis)}${bladU?` <span class="blad-udzial">\u26a0 ${d.sumaUdzialow}%</span>`:''}</td>
-              <td class="num">${fmt(d.kgSzt,1)}</td>
+              <td class="num">${fmt(d.wylicz,1)}</td>
               <td class="num">${fmt(d.planKg,0)}</td>
-              <td class="num">${mozeWpis?`<input class="pole num" data-nawoz="${gr.id}" value="${d.naWoz!=null?fmt(d.naWoz,0):''}" placeholder="auto" style="width:74px" inputmode="decimal">`:(d.naWoz!=null?fmt(d.naWoz,0):'auto')}</td>
+              <td class="num">${mozeWpis?`<input class="pole num ${d.potw?'potw':''}" data-zad="${gr.id}" value="${d.potw?fmt(d.zadaneKg,0):''}" placeholder="${fmt(d.planKg,0)}" style="width:82px" inputmode="decimal">`:fmt(d.zadaneKg,0)}</td>
               <td class="num"><b>${fmt(d.perSzt,1)}</b></td>
-              <td class="num" style="color:${kolProc(d.proc)};font-weight:600">${fmt(d.proc,0)}%</td>
+              <td class="num" style="color:${kolProc(d.proc)};font-weight:700">${fmt(d.proc,0)}%</td>
               <td class="num">${fmt(d.kosztSzt*d.wsp,2)}</td>
-              ${edycja?`<td class="akcje">
-                <button class="ikonka" data-edgt="${gr.id}" title="Edytuj">\u270e</button>
-                <button class="ikonka usun" data-usungt="${gr.id}" title="Usu\u0144">\u2715</button>
-              </td>`:''}
+              ${edycja?`<td class="akcje"><button class="ikonka" data-edgt="${gr.id}" title="Edytuj grup\u0119">\u270e</button></td>`:''}
             </tr>
             ${rozw?'<tr><td colspan="'+(edycja?10:9)+'">'+renderGTDet(gr, d)+'</td></tr>':''}`;
           }).join('')}
           <tr class="suma">
-            <td>SUMA ${esc(nazwaLok)}</td>
-            <td class="num">${sumaSzt}</td><td></td><td class="num"></td>
-            <td class="num">${fmt(sumaKgPlan,0)}</td>
-            <td class="num">${fmt(sumaKgReal,0)}</td>
-            <td class="num"></td><td class="num"></td>
-            <td class="num">${fmt(sumaKoszt,0)} z\u0142</td>
+            <td>SUMA ${esc(nazwaLok)}</td><td class="num">${sumaSzt}</td><td></td><td class="num"></td>
+            <td class="num">${fmt(sumaPlan,0)}</td><td class="num">${fmt(sumaZadane,0)}</td>
+            <td class="num"></td><td class="num"></td><td class="num">${fmt(sumaKoszt,0)} z\u0142</td>
             ${edycja?'<td></td>':''}
           </tr>
         </tbody>
       </table>
     </div>
     <div class="podpis" style="padding:8px 14px">
-      <b>Na w\u00f3z</b> \u2014 ile kg TMR faktycznie robimy dla grupy. Puste = auto (sztuki \u00d7 dawka wyliczona).
-      <b>Per sztuk\u0119</b> to faktyczne pobranie, <b>% realiz.</b> to stosunek do dawki wyliczonej.
+      Puste pole <b>Zadane</b> = przyj\u0119to plan (wiersz oznaczony \u201ewg planu\u201d). Wpisanie warto\u015bci potwierdza dzie\u0144.
       Kliknij wiersz, \u017ceby rozwin\u0105\u0107 kart\u0119 za\u0142adunku przeliczon\u0105 na faktyczn\u0105 ilo\u015b\u0107.
     </div>
   </div>
+
+  <div class="panel">
+    <div class="panel-tyt">Niedojady z ${dataPL(data)} \u2192 korekta pobrania za ${dataPL(wczoraj)}</div>
+    ${!dokWczoraj ? `<div class="pusto">Brak wpisu \u017cywienia za ${dataPL(wczoraj)} \u2014 nie ma czego korygowa\u0107.</div>` : `
+    <div class="przewijak"><table class="gt-tabela">
+      <thead><tr><th>Grupa</th><th class="num">Zadano ${dataPL(wczoraj)}<br>kg</th>
+      <th class="num">Niedojady<br>kg</th><th class="num">Niedojady<br>%</th>
+      <th class="num">Pobranie rzeczywiste<br>kg/szt</th></tr></thead>
+      <tbody>${grupy.map(gr=>{
+        const zy=dokWczoraj.grupy?.[gr.id]; if(!zy) return '';
+        const zad = zy.zadaneKg!=null ? zy.zadaneKg : (zy.dawkaWyliczonaKgSzt||0)*(zy.sztuk||0);
+        if(!zad) return '';
+        const nd=zy.niedojadyKg;
+        const proc=(nd!=null&&zad>0)?(nd/zad)*100:null;
+        const pobr=(zy.sztuk>0)?(zad-(nd||0))/zy.sztuk:null;
+        return `<tr><td><b>${esc(gr.nazwa)}</b></td><td class="num">${fmt(zad,0)}</td>
+          <td class="num">${mozeWpis?`<input class="pole num" data-nd="${gr.id}" value="${nd!=null?fmt(nd,0):''}" placeholder="0" style="width:76px" inputmode="decimal">`:(nd!=null?fmt(nd,0):'\u2014')}</td>
+          <td class="num">${proc!=null?fmt(proc,1)+'%':'\u2014'}</td>
+          <td class="num"><b>${pobr!=null?fmt(pobr,1):'\u2014'}</b></td></tr>`;
+      }).join('')}</tbody>
+    </table></div>`}
+  </div>
+
   <div class="panel zapot-panel">
     <div class="panel-tyt">Zapotrzebowanie dobowe \u2014 ${esc(nazwaLok)} <span class="licznik">wg faktycznych ilo\u015bci</span></div>
-    <div style="padding:10px 14px">
-      <table>
-        <thead><tr><th>Surowiec</th><th class="num">kg/dob\u0119</th><th class="num">t/dob\u0119</th></tr></thead>
-        <tbody>
-          ${Object.entries(zapotrzebowanie).sort((a,b)=>b[1]-a[1]).map(([sid,kg])=>{
-            const sur=store.surowce[sid];
-            return `<tr><td>${esc(sur?.nazwa||'?')}</td><td class="num">${fmt(kg,1)}</td><td class="num">${fmt(kg/1000,3)}</td></tr>`;
-          }).join('')}
-        </tbody>
-      </table>
-    </div>
+    <div style="padding:10px 14px"><table>
+      <thead><tr><th>Surowiec</th><th class="num">kg/dob\u0119</th><th class="num">t/dob\u0119</th></tr></thead>
+      <tbody>${Object.entries(zapotrzebowanie).sort((a,b)=>b[1]-a[1]).map(([sid,kg])=>{
+        const sur=store.surowce[sid];
+        return `<tr><td>${esc(sur?.nazwa||'?')}</td><td class="num">${fmt(kg,1)}</td><td class="num">${fmt(kg/1000,3)}</td></tr>`;
+      }).join('')}</tbody>
+    </table></div>
   </div>`;
 
-  // --- PODPI\u0118CIA ---
+  // --- PODPIĘCIA ---
+  w.querySelector('#lkData').onchange=e=>{lokData[lok]=e.target.value; renderLokalizacja(w,lok);};
+  w.querySelector('#lkPrev').onclick=()=>{lokData[lok]=dataMinus(data,1); renderLokalizacja(w,lok);};
+  w.querySelector('#lkDzis').onclick=()=>{lokData[lok]=dzisiaj(); renderLokalizacja(w,lok);};
   w.querySelectorAll('[data-rozgt]').forEach(tr=>{
     tr.onclick=e=>{
       if(e.target.closest('input,button,.ikonka')) return;
@@ -1700,26 +1762,32 @@ function renderLokalizacja(w, lok){
     };
   });
   if(mozeWpis){
-    w.querySelectorAll('[data-sztuki]').forEach(inp=>{
-      inp.onclick=e=>e.stopPropagation();
-      inp.onchange=()=>{DB.zapisz('grupyTech',inp.dataset.sztuki,{sztuk:Math.max(0,parseInt(inp.value)||0)});};
+    w.querySelectorAll('[data-szt]').forEach(i=>{
+      i.onclick=e=>e.stopPropagation();
+      i.onchange=async()=>{
+        const v=Math.max(0,parseInt(i.value)||0);
+        await DB.zapisz('grupyTech', i.dataset.szt, {sztuk:v});
+        await zapiszDzien(lok, data, i.dataset.szt, {sztuk:v});
+      };
     });
-    w.querySelectorAll('[data-nawoz]').forEach(inp=>{
-      inp.onclick=e=>e.stopPropagation();
-      inp.onchange=()=>{
-        const v=inp.value.trim();
-        DB.zapisz('grupyTech',inp.dataset.nawoz,{naWozKg: v==='' ? null : Math.max(0,liczba(v))});
+    w.querySelectorAll('[data-zad]').forEach(i=>{
+      i.onclick=e=>e.stopPropagation();
+      i.onchange=()=>{
+        const v=i.value.trim();
+        zapiszDzien(lok, data, i.dataset.zad, {zadaneKg: v===''?null:Math.max(0,liczba(v))});
+      };
+    });
+    w.querySelectorAll('[data-nd]').forEach(i=>{
+      i.onclick=e=>e.stopPropagation();
+      i.onchange=()=>{
+        const v=i.value.trim();
+        zapiszDzien(lok, wczoraj, i.dataset.nd, {niedojadyKg: v===''?null:Math.max(0,liczba(v))});
       };
     });
   }
   if(edycja){
     w.querySelectorAll('[data-edgt]').forEach(b=>{
       b.onclick=e=>{e.stopPropagation();oknoEdGrupa(lok,b.dataset.edgt);};
-    });
-    w.querySelectorAll('[data-usungt]').forEach(b=>{
-      b.onclick=e=>{e.stopPropagation();const g=store.grupyTech[b.dataset.usungt];
-        potwierdz('Usun\u0105\u0107 grup\u0119?',`\u201e${esc(g?.nazwa)}\u201d \u2014 dane zostan\u0105 utracone.`,()=>{DB.usun('grupyTech',b.dataset.usungt);toast('Usuni\u0119to.');}, 'Usu\u0144');
-      };
     });
     const btn=w.querySelector('#btnNowaGrupa');
     if(btn) btn.onclick=()=>oknoEdGrupa(lok);
@@ -1733,12 +1801,12 @@ function renderGTDet(gr, d){
   const wiersze = d.skladniki.map(sk=>{
     const sur = store.surowce[sk.surowiecId];
     const kgSztReal = sk.kg*wsp;
-    const kgGr = kgSztReal*(gr.sztuk||0);
+    const kgGr = kgSztReal*(d.sztuk||0);
     wWozie += kgGr;
     return `<tr><td>${esc(sur?.nazwa||'?')}</td><td class="num">${fmt(sk.kg,2)}</td><td class="num">${fmt(kgSztReal,2)}</td><td class="num">${fmt(kgGr,1)}</td><td class="num wwozie">${fmt(wWozie,1)}</td></tr>`;
   }).join('');
   return `<div class="gt-det">
-    <h4>Karta za\u0142adunku \u2014 ${esc(gr.nazwa)} (${gr.sztuk||0} szt \u00b7 ${fmt(d.realKg,0)} kg TMR)</h4>
+    <h4>Karta za\u0142adunku \u2014 ${esc(gr.nazwa)} (${d.sztuk||0} szt \u00b7 ${fmt(d.zadaneKg,0)} kg TMR)${d.potw?'':' \u2014 wg planu'}</h4>
     <div class="gt-dawki-lista">${(gr.dawki||[]).map(x=>{
       const daw=store.dawki[x.dawkaId];
       return `<span class="chip"><b>${x.udzial}%</b> ${esc(daw?.nazwa||'?')}</span>`;
@@ -1746,10 +1814,10 @@ function renderGTDet(gr, d){
     <table>
       <thead><tr><th>Surowiec</th><th class="num">Plan kg/szt</th><th class="num">Realnie kg/szt</th><th class="num">kg na grup\u0119</th><th class="num">W wozie</th></tr></thead>
       <tbody>${wiersze}
-        <tr style="font-weight:700;border-top:2px solid var(--zielen)"><td>RAZEM</td><td class="num">${fmt(d.kgSzt,2)}</td><td class="num">${fmt(d.perSzt,2)}</td><td class="num">${fmt(d.realKg,1)}</td><td></td></tr>
+        <tr style="font-weight:700;border-top:2px solid var(--zielen)"><td>RAZEM</td><td class="num">${fmt(d.wylicz,2)}</td><td class="num">${fmt(d.perSzt,2)}</td><td class="num">${fmt(d.zadaneKg,1)}</td><td></td></tr>
       </tbody>
     </table>
-    <div class="podpis">Koszt: ${fmt(d.kosztSzt*wsp,2)} z\u0142/szt/dob\u0119 \u00b7 ${fmt(d.kosztSzt*wsp*(gr.sztuk||0),0)} z\u0142/grup\u0119/dob\u0119 \u00b7 realizacja ${fmt(d.proc,0)}%</div>
+    <div class="podpis">Koszt: ${fmt(d.kosztSzt*wsp,2)} z\u0142/szt/dob\u0119 \u00b7 ${fmt(d.kosztSzt*wsp*(d.sztuk||0),0)} z\u0142/grup\u0119/dob\u0119 \u00b7 realizacja ${fmt(d.proc,0)}%</div>
   </div>`;
 }
 
@@ -1977,7 +2045,7 @@ function oknoMix(edId){
 
 
 /* ===================== ZAKŁADKA: RAPORTY ================================= */
-let rapZakladka = 'dzien';
+let rapZakladka = 'zmiany';
 let rapLok = null;
 let rapData = null;
 let rapMiesiac = null;
@@ -2045,7 +2113,7 @@ function renderRaporty(w){
   if(!rapOdDo) rapOdDo = {od:dataMinus(dzisiaj(),30), do:dzisiaj()};
 
   const podz = [
-    {id:'dzien',    txt:'Dzie\u0144 \u017cywienia'},
+    {id:'zmiany',   txt:'Zmiany dawek'},
     {id:'historia', txt:'Historia \u017cywienia'},
     {id:'miesiac',  txt:'Zestawienie miesi\u0119czne'},
     {id:'zuzycie',  txt:'Zu\u017cycie surowc\u00f3w'},
@@ -2071,7 +2139,7 @@ function renderRaporty(w){
   w.querySelectorAll('[data-rz]').forEach(b=>b.onclick=()=>{rapZakladka=b.dataset.rz; renderRaporty(w);});
 
   const t=w.querySelector('#rapTresc');
-  if(rapZakladka==='dzien') rapDzien(t);
+  if(rapZakladka==='zmiany') rapZmiany(t);
   else if(rapZakladka==='historia') rapHistoria(t);
   else if(rapZakladka==='miesiac') rapMiesiacWidok(t);
   else if(rapZakladka==='zuzycie') rapZuzycie(t);
@@ -2079,109 +2147,79 @@ function renderRaporty(w){
   else rapSnapshoty(t);
 }
 
-/* ---------- 8.1 Dzień żywienia (wpis) ---------- */
-function rapDzien(el){
-  const edy = mozeWpisDnia(rapLok);
-  const grupy = grupyLok(rapLok);
-  const dok = dokDnia(rapLok, rapData);
-  const wczoraj = dataMinus(rapData,1);
-  const dokWczoraj = dokDnia(rapLok, wczoraj);
-
-  const wiersze = grupy.map(gr=>{
-    const o = obliczGrupe(gr);
-    const z = dok?.grupy?.[gr.id] || {};
-    const sztuk = z.sztuk!=null ? z.sztuk : (gr.sztuk||0);
-    const wylicz = z.dawkaWyliczonaKgSzt!=null ? z.dawkaWyliczonaKgSzt : o.kgSzt;
-    const zadaneKg = z.zadaneKg;
-    const zadaneKgSzt = (zadaneKg!=null && sztuk>0) ? zadaneKg/sztuk : null;
-    const odchKg = zadaneKgSzt!=null ? zadaneKgSzt-wylicz : null;
-    const odchProc = (odchKg!=null && wylicz>0) ? (odchKg/wylicz)*100 : null;
-    return {gr,o,sztuk,wylicz,zadaneKg,zadaneKgSzt,odchKg,odchProc};
+/* ---------- Zmiany dawek: pełna macierz + rejestr edycji ---------- */
+function rapZmiany(el){
+  const zmiany = Object.values(store.zmianyDawek).sort((a,b)=>(b.ts||0)-(a.ts||0));
+  // Najnowsza data edycji — te wartości świecą na czerwono. Starsze wracają do czerni.
+  const najnowszaData = zmiany.length ? zmiany[0].data : null;
+  // Ostatnia zmiana dla każdej komórki (klucz: dawkaId|surowiecId)
+  const ostatnia = {};
+  zmiany.forEach(z=>{
+    const k = z.dawkaId+'|'+z.surowiecId;
+    if(!ostatnia[k]) ostatnia[k] = z;      // lista posortowana malejąco, więc pierwsza = najnowsza
   });
 
+  const dawki = dawkiSorted();
+  const wiersze = wierszeDawek();
+
   el.innerHTML = `
-  <div style="padding:12px 14px;display:flex;gap:12px;flex-wrap:wrap;align-items:end;border-bottom:1px solid var(--linia)">
-    <div class="pole-grupa" style="margin:0"><label>Data \u017cywienia</label>
-      <input type="date" id="rdData" value="${rapData}" max="${dzisiaj()}"></div>
-    <button class="btn szary maly" id="rdWczoraj">\u2039 Poprzedni dzie\u0144</button>
-    <button class="btn szary maly" id="rdDzis">Dzi\u015b</button>
+  <div style="padding:12px 14px;border-bottom:1px solid var(--linia);display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <span class="podpis">Na <b style="color:var(--czerwony)">czerwono</b> warto\u015bci zmienione ostatniego dnia edycji${najnowszaData?' ('+dataPL(najnowszaData)+')':''}. Najedź kursorem, żeby zobaczyć kto i kiedy.</span>
     <span style="flex:1"></span>
-    <button class="btn szary maly" id="rdCsv">\u2193 CSV</button>
+    <button class="btn szary maly" id="rzmCsv">\u2193 CSV rejestru</button>
   </div>
-  <div class="przewijak">
-    <table class="gt-tabela">
-      <thead><tr>
-        <th>Grupa technologiczna</th>
-        <th class="num">Sztuk</th>
-        <th class="num">Dawka wyliczona<br>kg/szt</th>
-        <th class="num">Dawka zadana<br>kg na grup\u0119</th>
-        <th class="num">Zadana<br>kg/szt</th>
-        <th class="num">Odchylenie</th>
+
+  <div class="macierz" style="max-height:none">
+    <table>
+      <thead><tr><th class="lipka">Surowiec</th>
+        ${dawki.map(d=>`<th><span class="nazwa-kol" title="${esc(d.nazwa)}">${esc(d.nazwa)}</span>${d.suchyTMR?'<span style="font-size:9px;opacity:.7;display:block">(suchy TMR)</span>':''}</th>`).join('')}
       </tr></thead>
       <tbody>
-        ${wiersze.map(r=>`
-        <tr>
-          <td><b>${esc(r.gr.nazwa)}</b>${r.gr.parentId?' <span class="podpis">(podgrupa)</span>':''}</td>
-          <td class="num">${edy?`<input class="pole num" data-dz-szt="${r.gr.id}" value="${r.sztuk}" style="width:58px" inputmode="numeric">`:r.sztuk}</td>
-          <td class="num">${fmt(r.wylicz,1)}</td>
-          <td class="num">${edy?`<input class="pole num" data-dz-kg="${r.gr.id}" value="${r.zadaneKg!=null?fmt(r.zadaneKg,0):''}" placeholder="\u2014" style="width:82px" inputmode="decimal">`:(r.zadaneKg!=null?fmt(r.zadaneKg,0):'\u2014')}</td>
-          <td class="num"><b>${r.zadaneKgSzt!=null?fmt(r.zadaneKgSzt,1):'\u2014'}</b></td>
-          <td class="num">${r.odchProc!=null
-              ? `<span style="color:${odchylenieKolor(r.odchProc)};font-weight:700">${r.odchKg>0?'+':''}${fmt(r.odchKg,1)} kg &nbsp;${r.odchProc>0?'+':''}${fmt(r.odchProc,0)}%</span>`
-              : '\u2014'}</td>
-        </tr>`).join('')}
+        ${wiersze.map(sid=>{
+          const sur=store.surowce[sid]; if(!sur) return '';
+          return `<tr>
+            <td class="lipka"><span class="nazwaS" title="${esc(sur.nazwa)}">${esc(sur.nazwa)}</span></td>
+            ${dawki.map(d=>{
+              const v = kgWDawce(d, sid);
+              const z = ostatnia[d.id+'|'+sid];
+              const swiezo = z && najnowszaData && z.data===najnowszaData;
+              const tyt = z ? `${z.rola} \u00b7 ${dataPL(z.data)} ${new Date(z.ts).toTimeString().slice(0,5)} \u00b7 ${fmt(z.stara,1)} \u2192 ${fmt(z.nowa,1)} kg` : '';
+              return `<td class="num" ${tyt?`title="${esc(tyt)}"`:''} style="${swiezo?'color:var(--czerwony);font-weight:700':''}">${v?fmt(v,1):'\u2014'}</td>`;
+            }).join('')}
+          </tr>`;
+        }).join('')}
+        <tr class="suma-wiersz"><td class="lipka">Ca\u0142o\u015b\u0107 kg/szt</td>
+          ${dawki.map(d=>`<td class="num">${fmt(sumaDawki(d),1)}</td>`).join('')}</tr>
+        <tr class="koszt-wiersz"><td class="lipka">Koszt z\u0142/szt/dob\u0119</td>
+          ${dawki.map(d=>`<td class="num">${fmt(kosztDawki(d),2)} z\u0142</td>`).join('')}</tr>
       </tbody>
     </table>
   </div>
-  <div style="padding:14px;border-top:8px solid var(--tlo)">
-    <div style="font-weight:700;margin-bottom:4px">Niedojady z ${dataPL(rapData)} \u2192 korekta pobrania za ${dataPL(wczoraj)}</div>
-    <div class="podpis" style="margin-bottom:10px">Niedojady zebrane rano pomniejszaj\u0105 pobranie dnia poprzedniego, nie dzisiejszego.</div>
-    ${!dokWczoraj ? `<div class="pusto" style="padding:18px">Brak wpisu \u017cywienia za ${dataPL(wczoraj)} \u2014 nie ma czego korygowa\u0107.</div>` : `
-    <div class="przewijak"><table class="gt-tabela">
-      <thead><tr>
-        <th>Grupa</th><th class="num">Zadano ${dataPL(wczoraj)}<br>kg</th>
-        <th class="num">Niedojady<br>kg</th><th class="num">Niedojady<br>%</th>
-        <th class="num">Pobranie rzeczywiste<br>kg/szt</th>
-      </tr></thead>
-      <tbody>
-        ${grupy.map(gr=>{
-          const zy = dokWczoraj.grupy?.[gr.id]; if(!zy || zy.zadaneKg==null) return '';
-          const nd = zy.niedojadyKg;
-          const proc = (nd!=null && zy.zadaneKg>0) ? (nd/zy.zadaneKg)*100 : null;
-          const pobr = (zy.sztuk>0) ? (zy.zadaneKg-(nd||0))/zy.sztuk : null;
-          return `<tr>
-            <td><b>${esc(gr.nazwa)}</b></td>
-            <td class="num">${fmt(zy.zadaneKg,0)}</td>
-            <td class="num">${edy?`<input class="pole num" data-nd="${gr.id}" value="${nd!=null?fmt(nd,0):''}" placeholder="0" style="width:76px" inputmode="decimal">`:(nd!=null?fmt(nd,0):'\u2014')}</td>
-            <td class="num">${proc!=null?fmt(proc,1)+'%':'\u2014'}</td>
-            <td class="num"><b>${pobr!=null?fmt(pobr,1):'\u2014'}</b></td>
-          </tr>`;
-        }).join('')}
-      </tbody>
-    </table></div>`}
-  </div>`;
 
-  el.querySelector('#rdData').onchange=e=>{rapData=e.target.value; renderRaporty(document.getElementById('widok'));};
-  el.querySelector('#rdWczoraj').onclick=()=>{rapData=dataMinus(rapData,1); renderRaporty(document.getElementById('widok'));};
-  el.querySelector('#rdDzis').onclick=()=>{rapData=dzisiaj(); renderRaporty(document.getElementById('widok'));};
-  el.querySelector('#rdCsv').onclick=()=>{
-    const r=[['Data','Lokalizacja','Grupa','Sztuk','Dawka wyliczona kg/szt','Zadane kg','Zadane kg/szt','Odchylenie kg','Odchylenie %']];
-    wiersze.forEach(x=>r.push([dataPL(rapData), rapLok, x.gr.nazwa, x.sztuk, fmt(x.wylicz,2),
-      x.zadaneKg!=null?fmt(x.zadaneKg,1):'', x.zadaneKgSzt!=null?fmt(x.zadaneKgSzt,2):'',
-      x.odchKg!=null?fmt(x.odchKg,2):'', x.odchProc!=null?fmt(x.odchProc,1):'']));
-    csvPobierz('zywienie_'+rapLok+'_'+rapData, r);
+  <div class="panel-tyt" style="border-top:8px solid var(--tlo)">Rejestr edycji <span class="licznik">${zmiany.length} zmian</span></div>
+  ${zmiany.length ? zmiany.slice(0,300).map(z=>{
+    const g = new Date(z.ts);
+    const kier = z.nowa>z.stara ? '\u2191' : '\u2193';
+    const kol = z.nowa>z.stara ? 'var(--zielony-ok)' : 'var(--czerwony)';
+    return `<div class="hist-row">
+      <span class="data">${dataPL(z.data)}</span>
+      <span class="podpis">${String(g.getHours()).padStart(2,'0')}:${String(g.getMinutes()).padStart(2,'0')}</span>
+      <span class="plakietka">${esc(z.rola)}</span>
+      <b>${esc(z.dawkaNazwa)}</b>
+      <span>${esc(z.surowiecNazwa)}</span>
+      <span style="color:${kol};font-weight:700">${fmt(z.stara,1)} ${kier} ${fmt(z.nowa,1)} kg</span>
+    </div>`;
+  }).join('') : '<div class="pusto">Brak zarejestrowanych zmian. Rejestr zapisuje ka\u017cd\u0105 edycj\u0119 warto\u015bci w macierzy Dawek.</div>'}`;
+
+  el.querySelector('#rzmCsv').onclick=()=>{
+    const r=[['Data','Godzina','Rola','Grupa zywieniowa','Surowiec','Bylo kg','Jest kg','Zmiana kg']];
+    zmiany.forEach(z=>{
+      const g=new Date(z.ts);
+      r.push([dataPL(z.data), String(g.getHours()).padStart(2,'0')+':'+String(g.getMinutes()).padStart(2,'0'),
+        z.rola, z.dawkaNazwa, z.surowiecNazwa, fmt(z.stara,2), fmt(z.nowa,2), fmt(z.nowa-z.stara,2)]);
+    });
+    csvPobierz('rejestr_zmian_dawek', r);
   };
-  if(edy){
-    el.querySelectorAll('[data-dz-szt]').forEach(i=>i.onchange=()=>zapiszDzien(rapLok,rapData,i.dataset.dzSzt,{sztuk:Math.max(0,parseInt(i.value)||0)}));
-    el.querySelectorAll('[data-dz-kg]').forEach(i=>i.onchange=()=>{
-      const v=i.value.trim();
-      zapiszDzien(rapLok,rapData,i.dataset.dzKg,{zadaneKg: v===''?null:Math.max(0,liczba(v))});
-    });
-    el.querySelectorAll('[data-nd]').forEach(i=>i.onchange=()=>{
-      const v=i.value.trim();
-      zapiszDzien(rapLok,wczoraj,i.dataset.nd,{niedojadyKg: v===''?null:Math.max(0,liczba(v))});
-    });
-  }
 }
 
 /* ---------- Historia żywienia ---------- */
@@ -2192,13 +2230,15 @@ function rapHistoria(el){
   const rows=[];
   dni.forEach(d=>{
     Object.entries(d.grupy||{}).forEach(([gid,z])=>{
-      if(z.zadaneKg==null && z.niedojadyKg==null) return;
       const gr=store.grupyTech[gid];
-      const zadKgSzt=(z.sztuk>0&&z.zadaneKg!=null)?z.zadaneKg/z.sztuk:null;
+      const potw = z.zadaneKg!=null;
+      const zadEff = potw ? z.zadaneKg : (z.dawkaWyliczonaKgSzt||0)*(z.sztuk||0);
+      if(!zadEff && z.niedojadyKg==null) return;
+      const zadKgSzt=(z.sztuk>0)?zadEff/z.sztuk:null;
       const odchKg=(zadKgSzt!=null&&z.dawkaWyliczonaKgSzt)?zadKgSzt-z.dawkaWyliczonaKgSzt:null;
       const odchProc=(odchKg!=null&&z.dawkaWyliczonaKgSzt>0)?(odchKg/z.dawkaWyliczonaKgSzt)*100:null;
-      const pobr=(z.sztuk>0&&z.zadaneKg!=null)?(z.zadaneKg-(z.niedojadyKg||0))/z.sztuk:null;
-      rows.push({data:d.data, nazwa:gr?.nazwa||z.nazwaGrupy||'?', z, zadKgSzt, odchKg, odchProc, pobr});
+      const pobr=(z.sztuk>0)?(zadEff-(z.niedojadyKg||0))/z.sztuk:null;
+      rows.push({data:d.data, nazwa:gr?.nazwa||z.nazwaGrupy||'?', z, zadEff, potw, zadKgSzt, odchKg, odchProc, pobr});
     });
   });
 
@@ -2215,7 +2255,7 @@ function rapHistoria(el){
     <tbody>${rows.map(r=>`<tr>
       <td>${dataPL(r.data)}</td><td><b>${esc(r.nazwa)}</b></td><td class="num">${r.z.sztuk??'\u2014'}</td>
       <td class="num">${r.z.dawkaWyliczonaKgSzt!=null?fmt(r.z.dawkaWyliczonaKgSzt,1):'\u2014'}</td>
-      <td class="num">${r.z.zadaneKg!=null?fmt(r.z.zadaneKg,0):'\u2014'}</td>
+      <td class="num">${fmt(r.zadEff,0)}${r.potw?'':' <span class="plakietka auto">plan</span>'}</td>
       <td class="num">${r.zadKgSzt!=null?fmt(r.zadKgSzt,1):'\u2014'}</td>
       <td class="num">${r.odchProc!=null?`<span style="color:${odchylenieKolor(r.odchProc)};font-weight:700">${r.odchProc>0?'+':''}${fmt(r.odchProc,0)}%</span>`:'\u2014'}</td>
       <td class="num">${r.z.niedojadyKg!=null?fmt(r.z.niedojadyKg,0):'\u2014'}</td>
@@ -2240,11 +2280,14 @@ function rapMiesiacWidok(el){
   const dni=Object.values(store.zywienie).filter(d=>d.lokalizacja===rapLok && (d.data||'').startsWith(rapMiesiac));
   const agg={};
   dni.forEach(d=>Object.entries(d.grupy||{}).forEach(([gid,z])=>{
-    if(z.zadaneKg==null) return;
-    const a=agg[gid]||(agg[gid]={dni:0,sumPobrKgSzt:0,sumNiedoj:0,sumZadane:0,sumKoszt:0,sumSzt:0,nazwa:store.grupyTech[gid]?.nazwa||z.nazwaGrupy||'?'});
-    const pobr=(z.sztuk>0)?(z.zadaneKg-(z.niedojadyKg||0))/z.sztuk:0;
-    a.dni++; a.sumPobrKgSzt+=pobr; a.sumNiedoj+=(z.niedojadyKg||0); a.sumZadane+=z.zadaneKg;
-    a.sumKoszt+=(z.zadaneKg-(z.niedojadyKg||0))*(z.kosztKgTMR||0); a.sumSzt+=(z.sztuk||0);
+    const potw = z.zadaneKg!=null;
+    const zadEff = potw ? z.zadaneKg : (z.dawkaWyliczonaKgSzt||0)*(z.sztuk||0);
+    if(!zadEff) return;
+    const a=agg[gid]||(agg[gid]={dni:0,dniPotw:0,sumPobrKgSzt:0,sumNiedoj:0,sumZadane:0,sumKoszt:0,sumSzt:0,nazwa:store.grupyTech[gid]?.nazwa||z.nazwaGrupy||'?'});
+    const pobr=(z.sztuk>0)?(zadEff-(z.niedojadyKg||0))/z.sztuk:0;
+    a.dni++; if(potw) a.dniPotw++;
+    a.sumPobrKgSzt+=pobr; a.sumNiedoj+=(z.niedojadyKg||0); a.sumZadane+=zadEff;
+    a.sumKoszt+=(zadEff-(z.niedojadyKg||0))*(z.kosztKgTMR||0); a.sumSzt+=(z.sztuk||0);
   }));
   const lista=Object.values(agg);
   const sumKoszt=lista.reduce((s,a)=>s+a.sumKoszt,0);
@@ -2255,14 +2298,14 @@ function rapMiesiacWidok(el){
     <span style="flex:1"></span><button class="btn szary maly" id="rmCsv">\u2193 CSV</button>
   </div>
   ${lista.length?`<div class="przewijak"><table class="gt-tabela">
-    <thead><tr><th>Grupa</th><th class="num">Dni<br>z wpisem</th><th class="num">\u015arednie pobranie<br>kg/szt/dob\u0119</th>
+    <thead><tr><th>Grupa</th><th class="num">Dni<br>(potwierdzone)</th><th class="num">\u015arednie pobranie<br>kg/szt/dob\u0119</th>
     <th class="num">\u015arednie<br>niedojady %</th><th class="num">Koszt<br>z\u0142/szt/dob\u0119</th><th class="num">Koszt \u0142\u0105cznie<br>z\u0142</th></tr></thead>
     <tbody>${lista.map(a=>{
       const srPobr=a.dni?a.sumPobrKgSzt/a.dni:0;
       const srNied=a.sumZadane?(a.sumNiedoj/a.sumZadane)*100:0;
       const srSzt=a.dni?a.sumSzt/a.dni:0;
       const kosztSzt=(srSzt>0&&a.dni>0)?a.sumKoszt/(srSzt*a.dni):0;
-      return `<tr><td><b>${esc(a.nazwa)}</b></td><td class="num">${a.dni}</td>
+      return `<tr><td><b>${esc(a.nazwa)}</b></td><td class="num">${a.dni} <span class="podpis">(${a.dniPotw})</span></td>
         <td class="num"><b>${fmt(srPobr,1)}</b></td>
         <td class="num" style="color:${srNied<=3?'var(--zielony-ok)':srNied<=8?'var(--zolty)':'var(--czerwony)'};font-weight:700">${fmt(srNied,1)}%</td>
         <td class="num">${fmt(kosztSzt,2)}</td><td class="num">${fmt(a.sumKoszt,0)}</td></tr>`;
@@ -2288,11 +2331,12 @@ function rapZuzycie(el){
   const dni=Object.values(store.zywienie).filter(d=>d.lokalizacja===rapLok && d.data>=rapOdDo.od && d.data<=rapOdDo.do);
   const zuz={};
   dni.forEach(d=>Object.entries(d.grupy||{}).forEach(([gid,z])=>{
-    if(z.zadaneKg==null) return;
     const skl=z.skladniki || obliczGrupe(store.grupyTech[gid]||{dawki:[]}).skladniki;
     const planKgSzt=z.dawkaWyliczonaKgSzt||0;
     const planGrupa=planKgSzt*(z.sztuk||0);
-    const wsp=planGrupa>0 ? z.zadaneKg/planGrupa : 0;
+    const zadEff = z.zadaneKg!=null ? z.zadaneKg : planGrupa;   // brak wpisu = plan
+    if(!zadEff) return;
+    const wsp=planGrupa>0 ? zadEff/planGrupa : 0;
     (skl||[]).forEach(sk=>{
       zuz[sk.surowiecId]=(zuz[sk.surowiecId]||0)+sk.kg*(z.sztuk||0)*wsp;
     });
@@ -2374,19 +2418,6 @@ function rapSnapshoty(el){
   }).join('') : '<div class="pusto">Brak zapisanych wersji. Snapshot powstaje automatycznie po zmianie dawek (co najwy\u017cej raz na godzin\u0119).</div>';
 }
 
-/* Snapshot dawek — debounce: min. 5 min przerwy, nie częściej niż raz na godzinę */
-let snapTimer=null;
-function zaplanujSnapshot(){
-  clearTimeout(snapTimer);
-  snapTimer=setTimeout(async()=>{
-    const ostatni=Object.values(store.snapshoty).sort((a,b)=>(b.ts||0)-(a.ts||0))[0];
-    const teraz=Date.now();
-    if(ostatni && teraz-(ostatni.ts||0) < 3600000) return;   // max raz na godzinę
-    await DB.zapisz('snapshoty', 'snap_'+teraz, {
-      typ:'dawki', ts:teraz, autor:ROLE[rolaAkt]?.nazwa||'?', dane:store.dawki
-    });
-  }, 300000);   // 5 minut ciszy po ostatniej edycji
-}
 
 /* ===================== USTAWIENIA ========================================= */
 function oknoUstawienia(){
@@ -2588,6 +2619,10 @@ document.getElementById('btnInstaluj').onclick = async () => {
 nasluchuj('config', ()=>{
   if(!rolaAkt) return;
   document.getElementById('hNazwa').textContent = store.config.settings?.nazwaGospodarstwa || 'OHZ Lubiana';
+  // Kolejność wierszy macierzy siedzi w config/ukladDawki — bez tego strzałki nie odświeżały widoku
+  const akt = document.activeElement;
+  if(akt && akt.closest && akt.closest('#macierzDawek')) return;
+  render();
 });
 document.addEventListener('focusout', e=>{
   if(renderOdlozony && e.target.closest && e.target.closest('#tabSurowce')){
