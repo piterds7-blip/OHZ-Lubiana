@@ -651,6 +651,8 @@ async function zasiej(){
   }
   // Dane przykładowe — tylko gdy baza jest pusta
   if(Object.keys(store.surowce).length===0) await zasiejPrzykladowe();
+  // Grupy technologiczne — osobny warunek, mogą być puste mimo istniejących surowców
+  else if(Object.keys(store.grupyTech).length===0) await zasiejGrupy();
 }
 
 async function zasiejPrzykladowe(){
@@ -831,8 +833,12 @@ async function zasiejPrzykladowe(){
   }
 
   console.info('Zasiano:', S.length, 'surowców,', M.length, 'mieszanek,', D.length, 'dawek');
+  await zasiejGrupy();
+}
 
-  /* ===== GRUPY TECHNOLOGICZNE ===== */
+/* Grupy technologiczne obu lokalizacji — osobna funkcja, żeby dało się zasiać
+   niezależnie od tego, czy surowce i dawki już są w bazie. */
+async function zasiejGrupy(){
   const GT = [
     // NADARZYN
     {id:'gtn01',lok:'nadarzyn',nazwa:'GR 8',sztuk:60,kol:1,dawki:[{dawkaId:'daw_01',udzial:100}]},
@@ -2097,7 +2103,7 @@ function oknoInfo(){
         <tbody>${zakl}</tbody>
       </table>
       <p class="podpis" style="margin-bottom:0">Dane: ${Object.keys(store.surowce).length} surowców · ${Object.keys(store.dawki).length} dawek · ${Object.keys(store.mieszanki).length} mieszanek</p>
-      ${rolaAkt==='tworca' ? '<hr style="border:none;border-top:1px solid var(--linia);margin:14px 0"><button class="btn szary" id="btnZasiej">🌱 Wgraj dane przykładowe (surowce, mieszanki, dawki)</button><div class="podpis" style="margin-top:6px">Jednorazowy zasiew — nie nadpisze istniejących dokumentów o tych samych ID.</div>' : ''}
+      ${rolaAkt==='tworca' ? '<hr style="border:none;border-top:1px solid var(--linia);margin:14px 0"><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn szary" id="btnZasiej">🌱 Surowce, mieszanki i dawki</button><button class="btn szary" id="btnZasiejGr">🏠 Grupy technologiczne</button></div><div class="podpis" style="margin-top:6px">Zasiew danych przykładowych. Nadpisuje dokumenty o tych samych ID, nie usuwa Twoich własnych wpisów.</div>' : ''}
       ${deferredPrompt ? '<hr style="border:none;border-top:1px solid var(--linia);margin:14px 0"><button class="btn" id="btnInstalujInfo">📲 Zainstaluj aplikację na tym urządzeniu</button>' : '<p class="podpis">Aby zainstalować jako aplikację: w Chrome kliknij menu ⋮ → „Zainstaluj aplikację" (komputer) lub „Dodaj do ekranu głównego" (Android).</p>'}`,
     przyciski:[{tekst:'Zamknij'}]
   });
@@ -2106,7 +2112,14 @@ function oknoInfo(){
     btnZ.disabled=true; btnZ.textContent='Trwa zasiewanie…';
     await zasiejPrzykladowe();
     zamknijModal(); render();
-    toast('Wgrano dane przykładowe: 24 surowce, 8 mieszanek, 10 dawek.');
+    toast('Wgrano: 24 surowce, 8 mieszanek, 10 dawek, 31 grup.');
+  };
+  const btnZG = document.getElementById('btnZasiejGr');
+  if(btnZG) btnZG.onclick = async()=>{
+    btnZG.disabled=true; btnZG.textContent='Trwa zasiewanie…';
+    await zasiejGrupy();
+    zamknijModal(); render();
+    toast('Wgrano grupy technologiczne: 17 Nadarzyn, 14 Boguszyn.');
   };
   const btnII = document.getElementById('btnInstalujInfo');
   if(btnII) btnII.onclick = ()=>{ zamknijModal(); document.getElementById('btnInstaluj').click(); };
