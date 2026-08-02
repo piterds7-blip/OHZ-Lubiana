@@ -23,7 +23,7 @@
   --tlo:#f4f6f4;
   --karta:#ffffff;
   --tekst:#1c2420;
-  --tekst-slaby:#66756c;
+  --tekst-slaby:#55645b;
   --linia:#dde5df;
   --czerwony:#b3261e;
   --zolty:#a06a00;
@@ -237,26 +237,30 @@ select.pole:focus{outline:none;border-color:var(--zielen-jasna);background:#fff}
 
 /* ---------- LOKALIZACJE (grupy technologiczne) ---------- */
 .gt-tabela{width:100%;font-size:13.5px}
-.gt-tabela th{text-align:left;padding:8px 10px;font-size:12px}
-.gt-tabela td{padding:6px 10px;border-bottom:1px solid var(--linia);cursor:pointer}
+.gt-tabela th{text-align:left;padding:8px 10px;font-size:12px;color:#fff;background:var(--zielen)}
+.gt-tabela th.num{text-align:right}          /* nagłówek NAD kolumną liczb, nie obok */
+.gt-tabela td{padding:6px 10px;border-bottom:1px solid var(--linia);cursor:pointer;color:var(--tekst)}
 .gt-tabela tr:hover td{background:var(--zielen-bardzo-jasna)}
 .gt-tabela tr.podgrupa td{padding-left:30px}
 .gt-tabela tr.podgrupa td:first-child::before{content:'↳ ';color:var(--tekst-slaby)}
-.gt-tabela tr.suma td{background:#d4edda !important;font-weight:700;border-top:2px solid var(--zielen);cursor:default}
-.gt-tabela .blad-udzial{color:var(--czerwony);font-size:11px;font-weight:600}
-.gt-det{background:#fafcfa;border:1px solid var(--linia);border-radius:var(--r);margin:8px 0;padding:12px 14px}
-.gt-det h4{margin:0 0 8px;font-size:13px;color:var(--zielen)}
+.gt-tabela tr.suma td{background:#c3e6cb !important;font-weight:700;border-top:2px solid var(--zielen);cursor:default;color:#0f3d1f}
+.gt-tabela .blad-udzial{color:var(--czerwony);font-size:11px;font-weight:700}
+.gt-det{background:#fff;border:1px solid var(--zielen-jasna);border-radius:var(--r);margin:8px 0;padding:12px 14px}
+.gt-det h4{margin:0 0 8px;font-size:13.5px;color:var(--zielen);font-weight:700}
 .gt-det table{width:100%;font-size:12.5px;margin-bottom:10px}
-.gt-det table th{text-align:left;padding:4px 8px;font-size:11px;background:var(--zielen-bardzo-jasna)}
-.gt-det table td{padding:3px 8px;border-bottom:1px solid var(--linia)}
+/* Kontrast: jasne tło wymaga ciemnej czcionki — inaczej dziedziczy białą z globalnego thead */
+.gt-det table th{text-align:left;padding:5px 8px;font-size:11.5px;background:#c3e6cb;color:#0f3d1f;font-weight:700;position:static}
+.gt-det table th.num{text-align:right}
+.gt-det table td{padding:3px 8px;border-bottom:1px solid var(--linia);color:var(--tekst)}
 .gt-det table td.num{text-align:right;font-variant-numeric:tabular-nums}
-.gt-det .wwozie{font-weight:600;color:var(--zielen)}
+.gt-det .wwozie{font-weight:700;color:#0f3d1f;background:#eaf6ee}
 .gt-dawki-lista{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
 .gt-dawki-lista .chip{background:var(--zielen-bardzo-jasna);padding:3px 10px;border-radius:20px;font-size:12px;display:flex;align-items:center;gap:4px}
 .gt-dawki-lista .chip b{color:var(--zielen)}
 .zapot-panel{margin-top:12px}
 .zapot-panel table{width:100%;max-width:500px;font-size:13px}
-.zapot-panel th{text-align:left;padding:5px 8px;font-size:11.5px}
+.zapot-panel th{text-align:left;padding:6px 8px;font-size:11.5px;color:#fff;background:var(--zielen)}
+.zapot-panel th.num{text-align:right}
 .zapot-panel td{padding:4px 8px;border-bottom:1px solid var(--linia)}
 
 /* ---------- MIESZALNIA ---------- */
@@ -267,7 +271,8 @@ select.pole:focus{outline:none;border-color:var(--zielen-jasna);background:#fff}
 .mix-karta-tyt .koszt{font-size:13px;color:var(--zielen);font-weight:600}
 .mix-tresc{padding:12px 14px;border-top:1px solid var(--linia)}
 .mix-tresc table{width:100%;max-width:500px;font-size:13px}
-.mix-tresc th{text-align:left;padding:4px 8px;font-size:11px;background:var(--zielen-bardzo-jasna)}
+.mix-tresc th{text-align:left;padding:5px 8px;font-size:11.5px;background:#c3e6cb;color:#0f3d1f;font-weight:700;position:static}
+.mix-tresc th.num{text-align:right}
 .mix-tresc td{padding:3px 8px;border-bottom:1px solid var(--linia)}
 .hist-row{padding:8px 14px;border-bottom:1px solid var(--linia);font-size:13px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
 .hist-row:nth-child(even){background:#fafcfa}
@@ -428,8 +433,8 @@ const KATEGORIE_START = ['Pasze objętościowe','Zboża','Śruty i białkowe','P
 
 /* ===================== WARSTWA DANYCH ===================================== */
 /* Jedno API dla dwóch trybów: Firestore (źródło prawdy) albo localStorage (tryb lokalny). */
-const KOLEKCJE = ['config','surowce','dawki','mieszanki','produkcja','snapshoty','grupyTech'];
-const store = {config:{},surowce:{},dawki:{},mieszanki:{},produkcja:{},snapshoty:{},grupyTech:{}};
+const KOLEKCJE = ['config','surowce','dawki','mieszanki','produkcja','snapshoty','grupyTech','zywienie'];
+const store = {config:{},surowce:{},dawki:{},mieszanki:{},produkcja:{},snapshoty:{},grupyTech:{},zywienie:{}};
 const sluchacze = {};
 const pierwszySnapshot = {}; // kol -> true po pierwszym snapshocie z Firestore
 let FS = null;               // {db, funkcje...}
@@ -965,6 +970,7 @@ function render(){
   if(zakladkaAkt==='nadarzyn'){ renderLokalizacja(w,'nadarzyn'); return; }
   if(zakladkaAkt==='boguszyn'){ renderLokalizacja(w,'boguszyn'); return; }
   if(zakladkaAkt==='mieszalnia'){ renderMieszalnia(w); return; }
+  if(zakladkaAkt==='raporty'){ renderRaporty(w); return; }
   w.innerHTML = `<div class="panel">
       <div class="panel-tyt">${esc(ZAKLADKI.find(z=>z.id===zakladkaAkt)?.etykieta||'')}</div>
       <div class="pusto">Moduł w przygotowaniu — zbudujemy go w kolejnym kroku.</div>
@@ -1280,6 +1286,7 @@ function zapiszKomorke(dawkaId, surowiecId, wartoscStr){
     if(i>=0) skladniki.splice(i,1);
   }
   DB.zapisz('dawki', dawkaId, {skladniki});
+  zaplanujSnapshot();
 }
 
 function zapiszUkladWierszy(wiersze){
@@ -1969,6 +1976,418 @@ function oknoMix(edId){
 }
 
 
+/* ===================== ZAKŁADKA: RAPORTY ================================= */
+let rapZakladka = 'dzien';
+let rapLok = null;
+let rapData = null;
+let rapMiesiac = null;
+let rapOdDo = null;
+
+function lokDostepne(){
+  return (ROLE[rolaAkt]?.lokalizacje||[]).filter(l=>l==='nadarzyn'||l==='boguszyn');
+}
+function mozeWpisDnia(lok){
+  return (ROLE[rolaAkt]?.lokalizacje||[]).includes(lok) && rolaAkt!=='mieszalnia';
+}
+function idDnia(lok,data){ return lok+'_'+data; }
+function dokDnia(lok,data){ return store.zywienie[idDnia(lok,data)] || null; }
+function dataMinus(iso,dni){
+  const d=new Date(iso+'T12:00:00'); d.setDate(d.getDate()-dni);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function biezacyMiesiac(){ return dzisiaj().slice(0,7); }
+
+/* Zapis pojedynczej pozycji dnia. Koszt zamrażamy w chwili wpisu. */
+async function zapiszDzien(lok, data, grupaId, pola){
+  const id = idDnia(lok,data);
+  const stary = store.zywienie[id] || {lokalizacja:lok, data, grupy:{}};
+  const gr = store.grupyTech[grupaId];
+  const grupy = {...(stary.grupy||{})};
+  const poprz = grupy[grupaId] || {};
+  let baza = {};
+  if(gr && poprz.dawkaWyliczonaKgSzt==null){
+    const o = obliczGrupe(gr);
+    baza = {
+      dawkaWyliczonaKgSzt: Math.round(o.kgSzt*1000)/1000,
+      kosztKgTMR: o.kgSzt>0 ? Math.round((o.kosztSzt/o.kgSzt)*10000)/10000 : 0,
+      nazwaGrupy: gr.nazwa,
+      skladniki: o.skladniki
+    };
+  }
+  grupy[grupaId] = {...poprz, ...baza, ...pola, autor:ROLE[rolaAkt]?.nazwa||'?', ts:Date.now()};
+  await DB.zapisz('zywienie', id, {lokalizacja:lok, data, grupy});
+}
+
+function odchylenieKolor(proc){
+  const a=Math.abs(proc);
+  if(a<=3) return 'var(--zielony-ok)';
+  if(a<=10) return 'var(--zolty)';
+  return 'var(--czerwony)';
+}
+
+function csvPobierz(nazwa, wiersze){
+  const tresc = wiersze.map(r=>r.map(k=>{
+    const s=String(k??'').replace(/"/g,'""');
+    return /[;\n"]/.test(s) ? '"'+s+'"' : s;
+  }).join(';')).join('\r\n');
+  const blob = new Blob(['\ufeff'+tresc], {type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download=nazwa+'.csv'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  toast('Pobrano '+nazwa+'.csv');
+}
+
+function renderRaporty(w){
+  const loki = lokDostepne();
+  if(!rapLok || !loki.includes(rapLok)) rapLok = loki[0]||'nadarzyn';
+  if(!rapData) rapData = dzisiaj();
+  if(!rapMiesiac) rapMiesiac = biezacyMiesiac();
+  if(!rapOdDo) rapOdDo = {od:dataMinus(dzisiaj(),30), do:dzisiaj()};
+
+  const podz = [
+    {id:'dzien',    txt:'Dzie\u0144 \u017cywienia'},
+    {id:'historia', txt:'Historia \u017cywienia'},
+    {id:'miesiac',  txt:'Zestawienie miesi\u0119czne'},
+    {id:'zuzycie',  txt:'Zu\u017cycie surowc\u00f3w'},
+    {id:'produkcja',txt:'Produkcja mieszalni'},
+    {id:'snapshoty',txt:'Historia dawek'}
+  ];
+
+  w.innerHTML = `
+  <div class="panel">
+    <div class="panel-tyt">Raporty<span style="flex:1"></span>
+      ${loki.length>1?`<select id="rapLokSel" style="padding:6px 10px;border:1.5px solid var(--linia);border-radius:8px">
+        ${loki.map(l=>`<option value="${l}" ${l===rapLok?'selected':''}>${l==='nadarzyn'?'Nadarzyn':'Boguszyn'}</option>`).join('')}
+      </select>`:`<span class="plakietka">${rapLok==='nadarzyn'?'Nadarzyn':'Boguszyn'}</span>`}
+    </div>
+    <div class="pasek">
+      ${podz.map(p=>`<button class="btn ${rapZakladka===p.id?'':'szary'} maly" data-rz="${p.id}">${p.txt}</button>`).join('')}
+    </div>
+    <div id="rapTresc"></div>
+  </div>`;
+
+  const sel=w.querySelector('#rapLokSel');
+  if(sel) sel.onchange=()=>{rapLok=sel.value; renderRaporty(w);};
+  w.querySelectorAll('[data-rz]').forEach(b=>b.onclick=()=>{rapZakladka=b.dataset.rz; renderRaporty(w);});
+
+  const t=w.querySelector('#rapTresc');
+  if(rapZakladka==='dzien') rapDzien(t);
+  else if(rapZakladka==='historia') rapHistoria(t);
+  else if(rapZakladka==='miesiac') rapMiesiacWidok(t);
+  else if(rapZakladka==='zuzycie') rapZuzycie(t);
+  else if(rapZakladka==='produkcja') rapProdukcja(t);
+  else rapSnapshoty(t);
+}
+
+/* ---------- 8.1 Dzień żywienia (wpis) ---------- */
+function rapDzien(el){
+  const edy = mozeWpisDnia(rapLok);
+  const grupy = grupyLok(rapLok);
+  const dok = dokDnia(rapLok, rapData);
+  const wczoraj = dataMinus(rapData,1);
+  const dokWczoraj = dokDnia(rapLok, wczoraj);
+
+  const wiersze = grupy.map(gr=>{
+    const o = obliczGrupe(gr);
+    const z = dok?.grupy?.[gr.id] || {};
+    const sztuk = z.sztuk!=null ? z.sztuk : (gr.sztuk||0);
+    const wylicz = z.dawkaWyliczonaKgSzt!=null ? z.dawkaWyliczonaKgSzt : o.kgSzt;
+    const zadaneKg = z.zadaneKg;
+    const zadaneKgSzt = (zadaneKg!=null && sztuk>0) ? zadaneKg/sztuk : null;
+    const odchKg = zadaneKgSzt!=null ? zadaneKgSzt-wylicz : null;
+    const odchProc = (odchKg!=null && wylicz>0) ? (odchKg/wylicz)*100 : null;
+    return {gr,o,sztuk,wylicz,zadaneKg,zadaneKgSzt,odchKg,odchProc};
+  });
+
+  el.innerHTML = `
+  <div style="padding:12px 14px;display:flex;gap:12px;flex-wrap:wrap;align-items:end;border-bottom:1px solid var(--linia)">
+    <div class="pole-grupa" style="margin:0"><label>Data \u017cywienia</label>
+      <input type="date" id="rdData" value="${rapData}" max="${dzisiaj()}"></div>
+    <button class="btn szary maly" id="rdWczoraj">\u2039 Poprzedni dzie\u0144</button>
+    <button class="btn szary maly" id="rdDzis">Dzi\u015b</button>
+    <span style="flex:1"></span>
+    <button class="btn szary maly" id="rdCsv">\u2193 CSV</button>
+  </div>
+  <div class="przewijak">
+    <table class="gt-tabela">
+      <thead><tr>
+        <th>Grupa technologiczna</th>
+        <th class="num">Sztuk</th>
+        <th class="num">Dawka wyliczona<br>kg/szt</th>
+        <th class="num">Dawka zadana<br>kg na grup\u0119</th>
+        <th class="num">Zadana<br>kg/szt</th>
+        <th class="num">Odchylenie</th>
+      </tr></thead>
+      <tbody>
+        ${wiersze.map(r=>`
+        <tr>
+          <td><b>${esc(r.gr.nazwa)}</b>${r.gr.parentId?' <span class="podpis">(podgrupa)</span>':''}</td>
+          <td class="num">${edy?`<input class="pole num" data-dz-szt="${r.gr.id}" value="${r.sztuk}" style="width:58px" inputmode="numeric">`:r.sztuk}</td>
+          <td class="num">${fmt(r.wylicz,1)}</td>
+          <td class="num">${edy?`<input class="pole num" data-dz-kg="${r.gr.id}" value="${r.zadaneKg!=null?fmt(r.zadaneKg,0):''}" placeholder="\u2014" style="width:82px" inputmode="decimal">`:(r.zadaneKg!=null?fmt(r.zadaneKg,0):'\u2014')}</td>
+          <td class="num"><b>${r.zadaneKgSzt!=null?fmt(r.zadaneKgSzt,1):'\u2014'}</b></td>
+          <td class="num">${r.odchProc!=null
+              ? `<span style="color:${odchylenieKolor(r.odchProc)};font-weight:700">${r.odchKg>0?'+':''}${fmt(r.odchKg,1)} kg &nbsp;${r.odchProc>0?'+':''}${fmt(r.odchProc,0)}%</span>`
+              : '\u2014'}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>
+  <div style="padding:14px;border-top:8px solid var(--tlo)">
+    <div style="font-weight:700;margin-bottom:4px">Niedojady z ${dataPL(rapData)} \u2192 korekta pobrania za ${dataPL(wczoraj)}</div>
+    <div class="podpis" style="margin-bottom:10px">Niedojady zebrane rano pomniejszaj\u0105 pobranie dnia poprzedniego, nie dzisiejszego.</div>
+    ${!dokWczoraj ? `<div class="pusto" style="padding:18px">Brak wpisu \u017cywienia za ${dataPL(wczoraj)} \u2014 nie ma czego korygowa\u0107.</div>` : `
+    <div class="przewijak"><table class="gt-tabela">
+      <thead><tr>
+        <th>Grupa</th><th class="num">Zadano ${dataPL(wczoraj)}<br>kg</th>
+        <th class="num">Niedojady<br>kg</th><th class="num">Niedojady<br>%</th>
+        <th class="num">Pobranie rzeczywiste<br>kg/szt</th>
+      </tr></thead>
+      <tbody>
+        ${grupy.map(gr=>{
+          const zy = dokWczoraj.grupy?.[gr.id]; if(!zy || zy.zadaneKg==null) return '';
+          const nd = zy.niedojadyKg;
+          const proc = (nd!=null && zy.zadaneKg>0) ? (nd/zy.zadaneKg)*100 : null;
+          const pobr = (zy.sztuk>0) ? (zy.zadaneKg-(nd||0))/zy.sztuk : null;
+          return `<tr>
+            <td><b>${esc(gr.nazwa)}</b></td>
+            <td class="num">${fmt(zy.zadaneKg,0)}</td>
+            <td class="num">${edy?`<input class="pole num" data-nd="${gr.id}" value="${nd!=null?fmt(nd,0):''}" placeholder="0" style="width:76px" inputmode="decimal">`:(nd!=null?fmt(nd,0):'\u2014')}</td>
+            <td class="num">${proc!=null?fmt(proc,1)+'%':'\u2014'}</td>
+            <td class="num"><b>${pobr!=null?fmt(pobr,1):'\u2014'}</b></td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table></div>`}
+  </div>`;
+
+  el.querySelector('#rdData').onchange=e=>{rapData=e.target.value; renderRaporty(document.getElementById('widok'));};
+  el.querySelector('#rdWczoraj').onclick=()=>{rapData=dataMinus(rapData,1); renderRaporty(document.getElementById('widok'));};
+  el.querySelector('#rdDzis').onclick=()=>{rapData=dzisiaj(); renderRaporty(document.getElementById('widok'));};
+  el.querySelector('#rdCsv').onclick=()=>{
+    const r=[['Data','Lokalizacja','Grupa','Sztuk','Dawka wyliczona kg/szt','Zadane kg','Zadane kg/szt','Odchylenie kg','Odchylenie %']];
+    wiersze.forEach(x=>r.push([dataPL(rapData), rapLok, x.gr.nazwa, x.sztuk, fmt(x.wylicz,2),
+      x.zadaneKg!=null?fmt(x.zadaneKg,1):'', x.zadaneKgSzt!=null?fmt(x.zadaneKgSzt,2):'',
+      x.odchKg!=null?fmt(x.odchKg,2):'', x.odchProc!=null?fmt(x.odchProc,1):'']));
+    csvPobierz('zywienie_'+rapLok+'_'+rapData, r);
+  };
+  if(edy){
+    el.querySelectorAll('[data-dz-szt]').forEach(i=>i.onchange=()=>zapiszDzien(rapLok,rapData,i.dataset.dzSzt,{sztuk:Math.max(0,parseInt(i.value)||0)}));
+    el.querySelectorAll('[data-dz-kg]').forEach(i=>i.onchange=()=>{
+      const v=i.value.trim();
+      zapiszDzien(rapLok,rapData,i.dataset.dzKg,{zadaneKg: v===''?null:Math.max(0,liczba(v))});
+    });
+    el.querySelectorAll('[data-nd]').forEach(i=>i.onchange=()=>{
+      const v=i.value.trim();
+      zapiszDzien(rapLok,wczoraj,i.dataset.nd,{niedojadyKg: v===''?null:Math.max(0,liczba(v))});
+    });
+  }
+}
+
+/* ---------- Historia żywienia ---------- */
+function rapHistoria(el){
+  const dni = Object.values(store.zywienie)
+    .filter(d=>d.lokalizacja===rapLok && d.data>=rapOdDo.od && d.data<=rapOdDo.do)
+    .sort((a,b)=>b.data.localeCompare(a.data));
+  const rows=[];
+  dni.forEach(d=>{
+    Object.entries(d.grupy||{}).forEach(([gid,z])=>{
+      if(z.zadaneKg==null && z.niedojadyKg==null) return;
+      const gr=store.grupyTech[gid];
+      const zadKgSzt=(z.sztuk>0&&z.zadaneKg!=null)?z.zadaneKg/z.sztuk:null;
+      const odchKg=(zadKgSzt!=null&&z.dawkaWyliczonaKgSzt)?zadKgSzt-z.dawkaWyliczonaKgSzt:null;
+      const odchProc=(odchKg!=null&&z.dawkaWyliczonaKgSzt>0)?(odchKg/z.dawkaWyliczonaKgSzt)*100:null;
+      const pobr=(z.sztuk>0&&z.zadaneKg!=null)?(z.zadaneKg-(z.niedojadyKg||0))/z.sztuk:null;
+      rows.push({data:d.data, nazwa:gr?.nazwa||z.nazwaGrupy||'?', z, zadKgSzt, odchKg, odchProc, pobr});
+    });
+  });
+
+  el.innerHTML=`
+  <div style="padding:12px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:end;border-bottom:1px solid var(--linia)">
+    <div class="pole-grupa" style="margin:0"><label>Od</label><input type="date" id="rhOd" value="${rapOdDo.od}"></div>
+    <div class="pole-grupa" style="margin:0"><label>Do</label><input type="date" id="rhDo" value="${rapOdDo.do}"></div>
+    <span style="flex:1"></span><button class="btn szary maly" id="rhCsv">\u2193 CSV</button>
+  </div>
+  ${rows.length?`<div class="przewijak"><table class="gt-tabela">
+    <thead><tr><th>Data</th><th>Grupa</th><th class="num">Sztuk</th>
+    <th class="num">Wyliczona<br>kg/szt</th><th class="num">Zadane<br>kg</th><th class="num">Zadane<br>kg/szt</th>
+    <th class="num">Odchylenie</th><th class="num">Niedojady<br>kg</th><th class="num">Pobranie<br>kg/szt</th></tr></thead>
+    <tbody>${rows.map(r=>`<tr>
+      <td>${dataPL(r.data)}</td><td><b>${esc(r.nazwa)}</b></td><td class="num">${r.z.sztuk??'\u2014'}</td>
+      <td class="num">${r.z.dawkaWyliczonaKgSzt!=null?fmt(r.z.dawkaWyliczonaKgSzt,1):'\u2014'}</td>
+      <td class="num">${r.z.zadaneKg!=null?fmt(r.z.zadaneKg,0):'\u2014'}</td>
+      <td class="num">${r.zadKgSzt!=null?fmt(r.zadKgSzt,1):'\u2014'}</td>
+      <td class="num">${r.odchProc!=null?`<span style="color:${odchylenieKolor(r.odchProc)};font-weight:700">${r.odchProc>0?'+':''}${fmt(r.odchProc,0)}%</span>`:'\u2014'}</td>
+      <td class="num">${r.z.niedojadyKg!=null?fmt(r.z.niedojadyKg,0):'\u2014'}</td>
+      <td class="num"><b>${r.pobr!=null?fmt(r.pobr,1):'\u2014'}</b></td>
+    </tr>`).join('')}</tbody></table></div>`
+  :'<div class="pusto">Brak wpis\u00f3w w wybranym okresie.</div>'}`;
+
+  el.querySelector('#rhOd').onchange=e=>{rapOdDo.od=e.target.value;renderRaporty(document.getElementById('widok'));};
+  el.querySelector('#rhDo').onchange=e=>{rapOdDo.do=e.target.value;renderRaporty(document.getElementById('widok'));};
+  el.querySelector('#rhCsv').onclick=()=>{
+    const r=[['Data','Grupa','Sztuk','Wyliczona kg/szt','Zadane kg','Zadane kg/szt','Odchylenie kg','Odchylenie %','Niedojady kg','Pobranie kg/szt']];
+    rows.forEach(x=>r.push([dataPL(x.data),x.nazwa,x.z.sztuk??'',x.z.dawkaWyliczonaKgSzt!=null?fmt(x.z.dawkaWyliczonaKgSzt,2):'',
+      x.z.zadaneKg!=null?fmt(x.z.zadaneKg,1):'',x.zadKgSzt!=null?fmt(x.zadKgSzt,2):'',
+      x.odchKg!=null?fmt(x.odchKg,2):'',x.odchProc!=null?fmt(x.odchProc,1):'',
+      x.z.niedojadyKg!=null?fmt(x.z.niedojadyKg,1):'',x.pobr!=null?fmt(x.pobr,2):'']));
+    csvPobierz('historia_zywienia_'+rapLok, r);
+  };
+}
+
+/* ---------- Zestawienie miesięczne ---------- */
+function rapMiesiacWidok(el){
+  const dni=Object.values(store.zywienie).filter(d=>d.lokalizacja===rapLok && (d.data||'').startsWith(rapMiesiac));
+  const agg={};
+  dni.forEach(d=>Object.entries(d.grupy||{}).forEach(([gid,z])=>{
+    if(z.zadaneKg==null) return;
+    const a=agg[gid]||(agg[gid]={dni:0,sumPobrKgSzt:0,sumNiedoj:0,sumZadane:0,sumKoszt:0,sumSzt:0,nazwa:store.grupyTech[gid]?.nazwa||z.nazwaGrupy||'?'});
+    const pobr=(z.sztuk>0)?(z.zadaneKg-(z.niedojadyKg||0))/z.sztuk:0;
+    a.dni++; a.sumPobrKgSzt+=pobr; a.sumNiedoj+=(z.niedojadyKg||0); a.sumZadane+=z.zadaneKg;
+    a.sumKoszt+=(z.zadaneKg-(z.niedojadyKg||0))*(z.kosztKgTMR||0); a.sumSzt+=(z.sztuk||0);
+  }));
+  const lista=Object.values(agg);
+  const sumKoszt=lista.reduce((s,a)=>s+a.sumKoszt,0);
+
+  el.innerHTML=`
+  <div style="padding:12px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:end;border-bottom:1px solid var(--linia)">
+    <div class="pole-grupa" style="margin:0"><label>Miesi\u0105c</label><input type="month" id="rmM" value="${rapMiesiac}"></div>
+    <span style="flex:1"></span><button class="btn szary maly" id="rmCsv">\u2193 CSV</button>
+  </div>
+  ${lista.length?`<div class="przewijak"><table class="gt-tabela">
+    <thead><tr><th>Grupa</th><th class="num">Dni<br>z wpisem</th><th class="num">\u015arednie pobranie<br>kg/szt/dob\u0119</th>
+    <th class="num">\u015arednie<br>niedojady %</th><th class="num">Koszt<br>z\u0142/szt/dob\u0119</th><th class="num">Koszt \u0142\u0105cznie<br>z\u0142</th></tr></thead>
+    <tbody>${lista.map(a=>{
+      const srPobr=a.dni?a.sumPobrKgSzt/a.dni:0;
+      const srNied=a.sumZadane?(a.sumNiedoj/a.sumZadane)*100:0;
+      const srSzt=a.dni?a.sumSzt/a.dni:0;
+      const kosztSzt=(srSzt>0&&a.dni>0)?a.sumKoszt/(srSzt*a.dni):0;
+      return `<tr><td><b>${esc(a.nazwa)}</b></td><td class="num">${a.dni}</td>
+        <td class="num"><b>${fmt(srPobr,1)}</b></td>
+        <td class="num" style="color:${srNied<=3?'var(--zielony-ok)':srNied<=8?'var(--zolty)':'var(--czerwony)'};font-weight:700">${fmt(srNied,1)}%</td>
+        <td class="num">${fmt(kosztSzt,2)}</td><td class="num">${fmt(a.sumKoszt,0)}</td></tr>`;
+    }).join('')}
+    <tr class="suma"><td>SUMA</td><td class="num"></td><td class="num"></td><td class="num"></td><td class="num"></td><td class="num">${fmt(sumKoszt,0)} z\u0142</td></tr>
+    </tbody></table></div>`
+  :'<div class="pusto">Brak danych za ten miesi\u0105c.</div>'}`;
+
+  el.querySelector('#rmM').onchange=e=>{rapMiesiac=e.target.value;renderRaporty(document.getElementById('widok'));};
+  el.querySelector('#rmCsv').onclick=()=>{
+    const r=[['Grupa','Dni','Srednie pobranie kg/szt','Srednie niedojady %','Koszt zl/szt/dobe','Koszt lacznie zl']];
+    lista.forEach(a=>{
+      const srPobr=a.dni?a.sumPobrKgSzt/a.dni:0, srNied=a.sumZadane?(a.sumNiedoj/a.sumZadane)*100:0;
+      const srSzt=a.dni?a.sumSzt/a.dni:0, kosztSzt=(srSzt>0&&a.dni>0)?a.sumKoszt/(srSzt*a.dni):0;
+      r.push([a.nazwa,a.dni,fmt(srPobr,2),fmt(srNied,1),fmt(kosztSzt,2),fmt(a.sumKoszt,2)]);
+    });
+    csvPobierz('miesiac_'+rapLok+'_'+rapMiesiac, r);
+  };
+}
+
+/* ---------- Zużycie surowców ---------- */
+function rapZuzycie(el){
+  const dni=Object.values(store.zywienie).filter(d=>d.lokalizacja===rapLok && d.data>=rapOdDo.od && d.data<=rapOdDo.do);
+  const zuz={};
+  dni.forEach(d=>Object.entries(d.grupy||{}).forEach(([gid,z])=>{
+    if(z.zadaneKg==null) return;
+    const skl=z.skladniki || obliczGrupe(store.grupyTech[gid]||{dawki:[]}).skladniki;
+    const planKgSzt=z.dawkaWyliczonaKgSzt||0;
+    const planGrupa=planKgSzt*(z.sztuk||0);
+    const wsp=planGrupa>0 ? z.zadaneKg/planGrupa : 0;
+    (skl||[]).forEach(sk=>{
+      zuz[sk.surowiecId]=(zuz[sk.surowiecId]||0)+sk.kg*(z.sztuk||0)*wsp;
+    });
+  }));
+  const lista=Object.entries(zuz).map(([sid,kg])=>{
+    const sur=store.surowce[sid];
+    return {nazwa:sur?.nazwa||'?', kg, zl:kg*((sur?.cenaTona||0)/1000)};
+  }).sort((a,b)=>b.zl-a.zl);
+  const sumZl=lista.reduce((s,x)=>s+x.zl,0), sumKg=lista.reduce((s,x)=>s+x.kg,0);
+
+  el.innerHTML=`
+  <div style="padding:12px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:end;border-bottom:1px solid var(--linia)">
+    <div class="pole-grupa" style="margin:0"><label>Od</label><input type="date" id="rzOd" value="${rapOdDo.od}"></div>
+    <div class="pole-grupa" style="margin:0"><label>Do</label><input type="date" id="rzDo" value="${rapOdDo.do}"></div>
+    <span style="flex:1"></span><button class="btn szary maly" id="rzCsv">\u2193 CSV</button>
+  </div>
+  ${lista.length?`<div class="przewijak"><table class="gt-tabela">
+    <thead><tr><th>Surowiec</th><th class="num">Zu\u017cycie kg</th><th class="num">Zu\u017cycie t</th><th class="num">Warto\u015b\u0107 z\u0142</th></tr></thead>
+    <tbody>${lista.map(x=>`<tr><td>${esc(x.nazwa)}</td><td class="num">${fmt(x.kg,1)}</td>
+      <td class="num">${fmt(x.kg/1000,3)}</td><td class="num">${fmt(x.zl,2)}</td></tr>`).join('')}
+    <tr class="suma"><td>SUMA</td><td class="num">${fmt(sumKg,0)}</td><td class="num">${fmt(sumKg/1000,2)}</td><td class="num">${fmt(sumZl,0)} z\u0142</td></tr>
+    </tbody></table></div>
+    <div class="podpis" style="padding:8px 14px">Liczone z faktycznie zadanych kg i receptur dawek obowi\u0105zuj\u0105cych w dniu wpisu.</div>`
+  :'<div class="pusto">Brak wpis\u00f3w \u017cywienia w tym okresie.</div>'}`;
+
+  el.querySelector('#rzOd').onchange=e=>{rapOdDo.od=e.target.value;renderRaporty(document.getElementById('widok'));};
+  el.querySelector('#rzDo').onchange=e=>{rapOdDo.do=e.target.value;renderRaporty(document.getElementById('widok'));};
+  el.querySelector('#rzCsv').onclick=()=>{
+    const r=[['Surowiec','Zuzycie kg','Zuzycie t','Wartosc zl']];
+    lista.forEach(x=>r.push([x.nazwa,fmt(x.kg,2),fmt(x.kg/1000,3),fmt(x.zl,2)]));
+    csvPobierz('zuzycie_'+rapLok+'_'+rapOdDo.od+'_'+rapOdDo.do, r);
+  };
+}
+
+/* ---------- Produkcja mieszalni ---------- */
+function rapProdukcja(el){
+  const p=Object.values(store.produkcja)
+    .filter(x=>!x.data || (x.data>=rapOdDo.od && x.data<=rapOdDo.do))
+    .sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+  const sumKg=p.reduce((s,x)=>s+(x.kg||0),0), sumZl=p.reduce((s,x)=>s+(x.koszt||0),0);
+  el.innerHTML=`
+  <div style="padding:12px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:end;border-bottom:1px solid var(--linia)">
+    <div class="pole-grupa" style="margin:0"><label>Od</label><input type="date" id="rpOd" value="${rapOdDo.od}"></div>
+    <div class="pole-grupa" style="margin:0"><label>Do</label><input type="date" id="rpDo" value="${rapOdDo.do}"></div>
+    <span style="flex:1"></span><button class="btn szary maly" id="rpCsv">\u2193 CSV</button>
+  </div>
+  ${p.length?`<div class="przewijak"><table class="gt-tabela">
+    <thead><tr><th>Data</th><th>Mieszanka</th><th class="num">kg</th><th class="num">Koszt z\u0142</th>
+    <th class="num">z\u0142/kg</th><th>Lokalizacja</th><th>Kto</th></tr></thead>
+    <tbody>${p.map(x=>{const m=store.mieszanki[x.mieszankaId];
+      return `<tr><td>${dataPL(x.data)}</td><td><b>${esc(m?.nazwa||'?')}</b></td>
+      <td class="num">${fmt(x.kg,0)}</td><td class="num">${fmt(x.koszt,2)}</td>
+      <td class="num">${fmt(x.kosztKg,4)}</td>
+      <td><span class="plakietka">${x.lokalizacja==='obie'?'obie':esc(x.lokalizacja||'?')}</span></td>
+      <td class="podpis">${esc(x.uzytkownik||'')}</td></tr>`;}).join('')}
+    <tr class="suma"><td>SUMA</td><td></td><td class="num">${fmt(sumKg,0)}</td><td class="num">${fmt(sumZl,0)} z\u0142</td><td class="num"></td><td></td><td></td></tr>
+    </tbody></table></div>`
+  :'<div class="pusto">Brak produkcji w tym okresie.</div>'}`;
+  el.querySelector('#rpOd').onchange=e=>{rapOdDo.od=e.target.value;renderRaporty(document.getElementById('widok'));};
+  el.querySelector('#rpDo').onchange=e=>{rapOdDo.do=e.target.value;renderRaporty(document.getElementById('widok'));};
+  el.querySelector('#rpCsv').onclick=()=>{
+    const r=[['Data','Mieszanka','kg','Koszt zl','zl/kg','Lokalizacja','Kto']];
+    p.forEach(x=>{const m=store.mieszanki[x.mieszankaId];
+      r.push([dataPL(x.data),m?.nazwa||'',fmt(x.kg,1),fmt(x.koszt,2),fmt(x.kosztKg,4),x.lokalizacja||'',x.uzytkownik||'']);});
+    csvPobierz('produkcja_mieszalni', r);
+  };
+}
+
+/* ---------- Historia dawek (snapshoty) ---------- */
+function rapSnapshoty(el){
+  const s=Object.values(store.snapshoty).sort((a,b)=>(b.ts||0)-(a.ts||0));
+  el.innerHTML = s.length ? s.map(x=>{
+    const d=new Date(x.ts||0);
+    const ile=Object.keys(x.dane||{}).length;
+    return `<div class="hist-row"><span class="data">${dataPL(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))}</span>
+      <span class="podpis">${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}</span>
+      <b>${esc(x.typ||'dawki')}</b><span>${ile} pozycji</span>
+      <span class="podpis">${esc(x.autor||'')}</span></div>`;
+  }).join('') : '<div class="pusto">Brak zapisanych wersji. Snapshot powstaje automatycznie po zmianie dawek (co najwy\u017cej raz na godzin\u0119).</div>';
+}
+
+/* Snapshot dawek — debounce: min. 5 min przerwy, nie częściej niż raz na godzinę */
+let snapTimer=null;
+function zaplanujSnapshot(){
+  clearTimeout(snapTimer);
+  snapTimer=setTimeout(async()=>{
+    const ostatni=Object.values(store.snapshoty).sort((a,b)=>(b.ts||0)-(a.ts||0))[0];
+    const teraz=Date.now();
+    if(ostatni && teraz-(ostatni.ts||0) < 3600000) return;   // max raz na godzinę
+    await DB.zapisz('snapshoty', 'snap_'+teraz, {
+      typ:'dawki', ts:teraz, autor:ROLE[rolaAkt]?.nazwa||'?', dane:store.dawki
+    });
+  }, 300000);   // 5 minut ciszy po ostatniej edycji
+}
+
 /* ===================== USTAWIENIA ========================================= */
 function oknoUstawienia(){
   const st = store.config.settings || {};
@@ -2157,7 +2576,7 @@ document.getElementById('btnInstaluj').onclick = async () => {
 };
 
 /* ===================== REAKCJA NA ZMIANY DANYCH =========================== */
-['surowce','dawki','mieszanki','grupyTech','produkcja'].forEach(kol=>{
+['surowce','dawki','mieszanki','grupyTech','produkcja','zywienie'].forEach(kol=>{
   nasluchuj(kol, ()=>{
     if(!rolaAkt) return;
     const akt = document.activeElement;
