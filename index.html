@@ -256,6 +256,23 @@ input.pole.potw{background:#f0faf3;border-color:#b9dfc6}
 .nd-bilans{padding:6px 10px;border-radius:8px;font-size:12.5px;margin-bottom:10px}
 .nd-bilans.ok{background:#eaf6ee;color:#0f3d1f}
 .nd-bilans.zle{background:#fdecea;color:var(--czerwony);font-weight:600}
+.wybor-data{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1.5px solid var(--linia);
+  border-radius:8px;cursor:pointer}
+.wybor-data:hover{border-color:var(--zielen-jasna);background:#fafcfa}
+.wybor-data input[type=radio]{margin-top:3px}
+.pasek-wersja{background:#fff4d6;border-bottom:1px solid #f0dca6;padding:8px 14px;font-size:13px;
+  display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.pasek-wersja.przyszla{background:#e7f0fb;border-color:#bcd4ef}
+.menu-eks{position:absolute;z-index:130;background:#fff;border:1px solid var(--linia);border-radius:10px;
+  box-shadow:0 8px 28px rgba(0,0,0,.18);overflow:hidden;min-width:220px}
+.menu-eks button{display:block;width:100%;text-align:left;padding:11px 14px;font-size:13.5px;background:#fff}
+.menu-eks button:hover{background:var(--zielen-bardzo-jasna)}
+.menu-eks button+button{border-top:1px solid var(--linia)}
+.dzien-blok{border-bottom:1px solid var(--linia)}
+.dzien-nag{padding:10px 14px;display:flex;gap:12px;align-items:center;cursor:pointer;flex-wrap:wrap;font-size:13.5px}
+.dzien-nag:hover{background:var(--zielen-bardzo-jasna)}
+.dzien-nag.otwarty{background:var(--zielen-bardzo-jasna);font-weight:600}
+.dzien-tresc{background:#fafcfa;border-top:1px solid var(--linia);padding-bottom:8px}
 .gt-det{background:#fff;border:1px solid var(--zielen-jasna);border-radius:var(--r);margin:8px 0;padding:12px 14px}
 .gt-det h4{margin:0 0 8px;font-size:13.5px;color:var(--zielen);font-weight:700}
 .gt-det table{width:100%;font-size:12.5px;margin-bottom:10px}
@@ -468,8 +485,8 @@ const KATEGORIE_START = ['Pasze objętościowe','Zboża','Śruty i białkowe','P
 
 /* ===================== WARSTWA DANYCH ===================================== */
 /* Jedno API dla dwóch trybów: Firestore (źródło prawdy) albo localStorage (tryb lokalny). */
-const KOLEKCJE = ['config','surowce','dawki','mieszanki','produkcja','snapshoty','grupyTech','zywienie','zmianyDawek'];
-const store = {config:{},surowce:{},dawki:{},mieszanki:{},produkcja:{},snapshoty:{},grupyTech:{},zywienie:{},zmianyDawek:{}};
+const KOLEKCJE = ['config','surowce','dawki','mieszanki','produkcja','snapshoty','grupyTech','zywienie','zmianyDawek','wersjeDawek'];
+const store = {config:{},surowce:{},dawki:{},mieszanki:{},produkcja:{},snapshoty:{},grupyTech:{},zywienie:{},zmianyDawek:{},wersjeDawek:{}};
 const sluchacze = {};
 const pierwszySnapshot = {}; // kol -> true po pierwszym snapshocie z Firestore
 let FS = null;               // {db, funkcje...}
@@ -609,6 +626,7 @@ function bladSplash(t){
   }
 
   await zasiej();
+  try{ await zastosujZaplanowane(); }catch(e){ console.error('Zaplanowane zmiany:', e); }
   stanSplash('Gotowe');
   document.getElementById('splash').hidden = true;
 
@@ -1058,6 +1076,7 @@ function renderSurowce(w){
       Surowce
       <span class="licznik">${lista.length}${lista.length!==wszystkie?' z '+wszystkie:''} poz.</span>
       <span style="flex:1"></span>
+      ${przyciskEksportu('#tabSurowce','surowce','Surowce — ceny i kategorie')}
       ${edycja?'<button class="btn maly" id="btnDodajSur">+ Surowiec</button>':'<span class="podpis">tryb podglądu</span>'}
     </div>
     <div class="pasek">
@@ -1263,12 +1282,140 @@ function usunSurowiec(id){
   potwierdz('Usunąć surowiec?', `„${esc(s.nazwa)}”${ostrz}`, ()=>{ DB.usun('surowce', id); toast('Usunięto surowiec.'); });
 }
 
+/* ===================== WERSJONOWANIE DAWEK ===============================
+   Zmiana dawki może obowiązywać od dziś albo od wskazanej daty w przyszłości.
+   Wersja = pełna migawka dawek i udziałów grup, ważna od `odData` w przód.
+   Dzięki temu raport z dowolnego dnia pokazuje stan faktycznie wtedy obowiązujący.
+   ========================================================================= */
+let wersjaOd = null;        // data obowiązywania edycji w tej sesji
+let wersjaPytano = false;   // czy w tej sesji zapytano "od kiedy"
+
+function idWersji(data){ return 'w_'+data; }
+
+function wersjeWgDaty(){
+  return Object.values(store.wersjeDawek).sort((a,b)=>(a.odData||'').localeCompare(b.odData||''));
+}
+function wersjeZaplanowane(){
+  return wersjeWgDaty().filter(w=>w.zaplanowana && w.odData>dzisiaj());
+}
+
+/* Dawki obowiązujące danego dnia — na potrzeby raportów historycznych */
+function dawkiNaDzien(data){
+  const pasujace = wersjeWgDaty().filter(w=>!w.zaplanowana && (w.odData||'')<=data);
+  if(!pasujace.length) return store.dawki;
+  return pasujace[pasujace.length-1].dawki || store.dawki;
+}
+
+/* Źródło danych dla macierzy Dawek: przy edycji wersji przyszłej pokazujemy JĄ,
+   żeby użytkownik widział to, co faktycznie edytuje. */
+function zrodloDawek(){
+  if(wersjaOd && wersjaOd>dzisiaj()){
+    const w = store.wersjeDawek[idWersji(wersjaOd)];
+    if(w?.dawki) return w.dawki;
+  }
+  return store.dawki;
+}
+
+function klonDawek(){
+  const k={}; for(const [id,d] of Object.entries(store.dawki)) k[id]={...d, skladniki:[...(d.skladniki||[])]};
+  return k;
+}
+function klonGrup(){
+  const k={}; for(const [id,g] of Object.entries(store.grupyTech)) k[id]={...g, dawki:[...(g.dawki||[])]};
+  return k;
+}
+
+/* Zapis migawki obowiązującej od podanego dnia (dla zmian wchodzących od razu) */
+async function zapiszWersje(odData){
+  await DB.zapisz('wersjeDawek', idWersji(odData), {
+    odData, ts:Date.now(), rola:ROLE[rolaAkt]?.nazwa||'?',
+    zaplanowana:false, dawki:klonDawek(), grupy:klonGrup()
+  });
+}
+
+/* Zmiana wchodząca w przyszłości — trafia do wersji zaplanowanej, nie rusza bieżących dawek */
+async function zapiszDoZaplanowanej(odData, mutator){
+  const id = idWersji(odData);
+  const ist = store.wersjeDawek[id];
+  const baza = (ist?.zaplanowana && ist.dawki) ? {dawki:{...ist.dawki}, grupy:{...(ist.grupy||klonGrup())}}
+                                               : {dawki:klonDawek(), grupy:klonGrup()};
+  mutator(baza);
+  await DB.zapisz('wersjeDawek', id, {
+    odData, ts:Date.now(), rola:ROLE[rolaAkt]?.nazwa||'?',
+    zaplanowana:true, dawki:baza.dawki, grupy:baza.grupy
+  });
+}
+
+/* Wejście w życie zaplanowanych zmian — wywoływane przy starcie aplikacji */
+async function zastosujZaplanowane(){
+  const dzis = dzisiaj();
+  const doZast = Object.values(store.wersjeDawek)
+    .filter(w=>w.zaplanowana && (w.odData||'')<=dzis)
+    .sort((a,b)=>(a.odData||'').localeCompare(b.odData||''));
+  if(!doZast.length) return;
+  for(const w of doZast){
+    for(const [id,d] of Object.entries(w.dawki||{})){
+      if(store.dawki[id]) await DB.zapisz('dawki', id, {skladniki:d.skladniki, nazwa:d.nazwa});
+    }
+    for(const [id,g] of Object.entries(w.grupy||{})){
+      if(store.grupyTech[id]) await DB.zapisz('grupyTech', id, {dawki:g.dawki});
+    }
+    await DB.zapisz('wersjeDawek', w.id, {zaplanowana:false, zastosowanaTs:Date.now()});
+    console.info('Zastosowano zaplanowaną zmianę dawek z', w.odData);
+  }
+  toast(`Weszły w życie zaplanowane zmiany dawek (${doZast.length}).`);
+}
+
+/* Pytanie "od kiedy" — raz na sesję edycji, żeby nie pytać przy każdej komórce */
+function pytajOdKiedy(poWyborze){
+  const jutro = dataPlus(dzisiaj(),1);
+  const za3 = dataPlus(dzisiaj(),3);
+  modal({
+    tytul:'Od kiedy ma obowiązywać zmiana?',
+    tresc:`
+      <div class="podpis" style="margin-bottom:12px">
+        Zmiany wprowadzane teraz zostaną zapisane z datą obowiązywania. Raporty za dni wcześniejsze
+        pozostaną nietknięte — pokażą dawkę, która wtedy faktycznie obowiązywała.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <label class="wybor-data"><input type="radio" name="odk" value="${dzisiaj()}" checked>
+          <span><b>Od dziś</b> — ${dataPL(dzisiaj())}<br><span class="podpis">Zmiana widoczna natychmiast w zakładkach lokalizacji</span></span></label>
+        <label class="wybor-data"><input type="radio" name="odk" value="${jutro}">
+          <span><b>Od jutra</b> — ${dataPL(jutro)}</span></label>
+        <label class="wybor-data"><input type="radio" name="odk" value="${za3}">
+          <span><b>Za 3 dni</b> — ${dataPL(za3)}</span></label>
+        <label class="wybor-data"><input type="radio" name="odk" value="__data">
+          <span><b>Inna data</b><br><input type="date" id="okData" min="${dzisiaj()}" value="${za3}" style="margin-top:5px"></span></label>
+      </div>`,
+    przyciski:[
+      {tekst:'Anuluj', akcja:()=>{ poWyborze(null); }},
+      {tekst:'Potwierdź', klasa:'', akcja:(n)=>{
+        const wyb = n.querySelector('input[name=odk]:checked')?.value;
+        const d = wyb==='__data' ? n.querySelector('#okData').value : wyb;
+        if(!d){ toast('Wybierz datę.',true); return false; }
+        poWyborze(d);
+      }}
+    ]
+  });
+}
+
+/* Upewnia się, że wiemy od kiedy obowiązuje zmiana; potem wykonuje akcję */
+function zOdKiedy(akcja){
+  if(wersjaPytano && wersjaOd){ akcja(wersjaOd); return; }
+  pytajOdKiedy(d=>{
+    if(!d) return;                 // anulowano — nie zapisujemy
+    wersjaOd = d; wersjaPytano = true;
+    akcja(d);
+    render();
+  });
+}
+
 /* ===================== ZAKŁADKA: DAWKI (macierz) ========================== */
 let dRozwiniete = new Set();     // surowce z rozwiniętym składem mieszanki
 let dRenderOdlozony = false;
 
 function dawkiSorted(){
-  return Object.values(store.dawki).sort((a,b)=>(a.kolejnosc??99)-(b.kolejnosc??99));
+  return Object.values(zrodloDawek()).sort((a,b)=>(a.kolejnosc??99)-(b.kolejnosc??99));
 }
 
 function wierszeDawek(){
@@ -1310,28 +1457,45 @@ function kosztDawki(dawka){
 }
 
 function zapiszKomorke(dawkaId, surowiecId, wartoscStr){
-  const dawka = store.dawki[dawkaId]; if(!dawka) return;
+  const zrodlo = zrodloDawek();
+  const dawka = zrodlo[dawkaId]; if(!dawka) return;
   const v = liczba(wartoscStr);
-  let skladniki = [...(dawka.skladniki||[])];
-  const i = skladniki.findIndex(s=>s.surowiecId===surowiecId);
-  const stara = i>=0 ? skladniki[i].kg : 0;
+  const biezace = [...(dawka.skladniki||[])];
+  const i = biezace.findIndex(s=>s.surowiecId===surowiecId);
+  const stara = i>=0 ? biezace[i].kg : 0;
   if(Math.abs(stara - v) < 0.0001) return;          // nic się nie zmieniło
-  if(v > 0){
-    if(i>=0) skladniki[i] = {...skladniki[i], kg:v};
-    else skladniki.push({surowiecId, kg:v});
-  } else {
-    if(i>=0) skladniki.splice(i,1);
-  }
-  DB.zapisz('dawki', dawkaId, {skladniki});
-  zapiszZmiane(dawkaId, surowiecId, stara, v);
-  zapiszSnapshotDnia();
+
+  zOdKiedy(async(odData)=>{
+    const przyszla = odData > dzisiaj();
+    if(przyszla){
+      await zapiszDoZaplanowanej(odData, (baza)=>{
+        const d = baza.dawki[dawkaId]; if(!d) return;
+        const sk = [...(d.skladniki||[])];
+        const j = sk.findIndex(s=>s.surowiecId===surowiecId);
+        if(v>0){ if(j>=0) sk[j]={...sk[j],kg:v}; else sk.push({surowiecId,kg:v}); }
+        else if(j>=0) sk.splice(j,1);
+        baza.dawki[dawkaId] = {...d, skladniki:sk};
+      });
+    }else{
+      const sk = [...(store.dawki[dawkaId]?.skladniki||[])];
+      const j = sk.findIndex(s=>s.surowiecId===surowiecId);
+      if(v>0){ if(j>=0) sk[j]={...sk[j],kg:v}; else sk.push({surowiecId,kg:v}); }
+      else if(j>=0) sk.splice(j,1);
+      await DB.zapisz('dawki', dawkaId, {skladniki:sk});
+      await zapiszWersje(odData);
+      zapiszSnapshotDnia();
+    }
+    zapiszZmiane(dawkaId, surowiecId, stara, v, odData, przyszla);
+  });
 }
 
 /* Rejestr zmian dawek — kto (rola), kiedy, co, z czego na co */
-function zapiszZmiane(dawkaId, surowiecId, stara, nowa){
+function zapiszZmiane(dawkaId, surowiecId, stara, nowa, odData, zaplanowana){
   const ts = Date.now();
   DB.zapisz('zmianyDawek', 'zm_'+ts+'_'+Math.random().toString(36).slice(2,6), {
     ts, data: dzisiaj(),
+    odData: odData || dzisiaj(),
+    zaplanowana: !!zaplanowana,
     rola: ROLE[rolaAkt]?.nazwa || '?',
     dawkaId, dawkaNazwa: store.dawki[dawkaId]?.nazwa || '?',
     surowiecId, surowiecNazwa: store.surowce[surowiecId]?.nazwa || '?',
@@ -1426,16 +1590,33 @@ function renderDawki(w){
   // Wiersz kosztu
   let kosztyKomorki = dawki.map(d=>`<td class="num">${fmt(kosztDawki(d),2)} zł</td>`).join('');
 
+  const zapl = wersjeZaplanowane();
+  const trybPrzyszly = wersjaOd && wersjaOd>dzisiaj();
   w.innerHTML = `
   <div class="panel">
     <div class="panel-tyt">
       Dawki
       <span class="licznik">${dawki.length} grup żywieniowych · ${wiersze.length} surowców</span>
       <span style="flex:1"></span>
+      ${przyciskEksportu('#macierzDawek','dawki','Dawki żywieniowe — kg/szt/dobę')}
       ${edycja?`<button class="btn maly szary" id="btnDodWiersz">+ Surowiec</button>
                 <button class="btn maly" id="btnNowaDawka">+ Grupa żywieniowa</button>`
               :'<span class="podpis">tryb podglądu</span>'}
     </div>
+    ${edycja && wersjaPytano ? `<div class="pasek-wersja ${trybPrzyszly?'przyszla':''}">
+      ${trybPrzyszly
+        ? `<b>✎ Edytujesz wersję obowiązującą od ${dataPL(wersjaOd)}</b>
+           <span class="podpis">Poniższe wartości to stan zaplanowany, nie obecny.</span>`
+        : `<b>✎ Zmiany obowiązują od dziś (${dataPL(wersjaOd)})</b>`}
+      <span style="flex:1"></span>
+      <button class="btn maly szary" id="btnZmienOd">Zmień datę</button>
+      ${trybPrzyszly?'<button class="btn maly szary" id="btnWrocDzis">Wróć do wersji bieżącej</button>':''}
+    </div>` : ''}
+    ${zapl.length ? `<div class="pasek-wersja przyszla">
+      <b>⏳ Zaplanowane zmiany dawek:</b>
+      ${zapl.map(v=>`<button class="btn maly szary" data-podglad="${v.odData}">od ${dataPL(v.odData)}</button>`).join('')}
+      <span class="podpis">kliknij, żeby podejrzeć lub edytować</span>
+    </div>` : ''}
     <div class="macierz" id="macierzDawek">
       <table>
         <thead><tr><th class="lipka">Surowiec</th>${thKols}</tr></thead>
@@ -1489,7 +1670,15 @@ function renderDawki(w){
     // + Grupa
     const btnND = w.querySelector('#btnNowaDawka');
     if(btnND) btnND.onclick = ()=>oknoDawka();
+    // Pasek wersji
+    const bz = w.querySelector('#btnZmienOd');
+    if(bz) bz.onclick = ()=>pytajOdKiedy(d=>{ if(d){ wersjaOd=d; wersjaPytano=true; render(); } });
+    const bw = w.querySelector('#btnWrocDzis');
+    if(bw) bw.onclick = ()=>{ wersjaOd=dzisiaj(); render(); };
   }
+  w.querySelectorAll('[data-podglad]').forEach(b=>{
+    b.onclick=()=>{ wersjaOd=b.dataset.podglad; wersjaPytano=true; render(); };
+  });
   // Rozwiń skład mieszanki
   w.querySelectorAll('[data-rozmix]').forEach(b=>{
     b.onclick=()=>{ const id=b.dataset.rozmix; dRozwiniete.has(id)?dRozwiniete.delete(id):dRozwiniete.add(id); renderDawki(w); };
@@ -1612,6 +1801,229 @@ function usunDawke(id){
     ()=>{ DB.usun('dawki', id); toast('Usunięto grupę.'); }, 'Usuń');
 }
 
+/* ===================== UNIWERSALNY EKSPORT ===============================
+   Jeden mechanizm dla wszystkich tabel. Czyta zawartość bezpośrednio z DOM,
+   więc eksportuje dokładnie to, co użytkownik widzi — z filtrami, wpisanymi
+   wartościami i aktualnym stanem rozwinięć.
+   ========================================================================= */
+function czytajTabele(tab){
+  const wiersze=[];
+  tab.querySelectorAll('tr').forEach(tr=>{
+    const kom=[];
+    tr.querySelectorAll('th,td').forEach(c=>{
+      const inp=c.querySelector('input,select');
+      let v;
+      if(inp){
+        v = inp.tagName==='SELECT' ? (inp.selectedOptions[0]?.textContent||'') : (inp.value||inp.placeholder||'');
+      }else{
+        v = (c.innerText ?? c.textContent ?? '').replace(/\s*\n\s*/g,' ').trim();
+      }
+      const span = parseInt(c.getAttribute('colspan')||'1');
+      kom.push(v==='—'?'':v);
+      for(let i=1;i<span;i++) kom.push('');
+    });
+    if(kom.some(x=>x!=='')) wiersze.push(kom);
+  });
+  return wiersze;
+}
+
+function eksportCSV(tab, nazwa){
+  const w = czytajTabele(tab);
+  if(!w.length){ toast('Nie ma czego eksportować.', true); return; }
+  csvPobierz(nazwa, w);
+}
+
+function eksportDruk(tab, tytul){
+  const st = store.config.settings?.nazwaGospodarstwa || 'OHZ Lubiana';
+  const okno = window.open('', '_blank', 'width=1200,height=800');
+  if(!okno){ toast('Przeglądarka zablokowała okno wydruku.', true); return; }
+  okno.document.write(`<!DOCTYPE html><html lang="pl"><head><meta charset="utf-8">
+    <title>${esc(tytul)}</title>
+    <style>
+      @page{size:A4 landscape;margin:10mm}
+      body{font-family:system-ui,Arial,sans-serif;font-size:10px;color:#111;margin:0;padding:8px}
+      h1{font-size:15px;margin:0 0 2px}
+      .meta{font-size:10px;color:#555;margin-bottom:10px}
+      table{border-collapse:collapse;width:100%}
+      th{background:#14532d;color:#fff;font-size:9px;padding:4px 5px;text-align:left;border:1px solid #0d3d20}
+      td{padding:3px 5px;border:1px solid #ccc;font-size:9.5px}
+      tr:nth-child(even) td{background:#f6f8f6}
+      .num,td:not(:first-child){text-align:right}
+      th:first-child,td:first-child{text-align:left}
+      tfoot{display:table-row-group}
+      @media print{ .noprint{display:none} }
+    </style></head><body>
+    <h1>${esc(tytul)}</h1>
+    <div class="meta">${esc(st)} · wydruk ${dataPL(dzisiaj())} ${new Date().toTimeString().slice(0,5)} · ${esc(ROLE[rolaAkt]?.nazwa||'')}</div>
+    <table>${tab.querySelector('table') ? tab.querySelector('table').innerHTML : tab.innerHTML}</table>
+    <script>window.onload=()=>{setTimeout(()=>window.print(),250)}<\/script>
+    </body></html>`);
+  okno.document.close();
+}
+
+/* Przycisk eksportu — po kliknięciu rozwija wybór formatu */
+function przyciskEksportu(cel, nazwa, tytul){
+  return `<button class="btn maly szary btn-eksport" data-eks="${esc(cel)}"
+    data-eks-nazwa="${esc(nazwa)}" data-eks-tytul="${esc(tytul||nazwa)}" title="Eksportuj">⤓ Eksport</button>`;
+}
+
+/* Delegacja na dokumencie — działa niezależnie od tego, która funkcja
+   przerysowała widok. Wcześniejsze podpinanie per przycisk gubiło podzakładki,
+   bo renderują się z pominięciem głównego render(). */
+document.addEventListener('click', (e)=>{
+  const b = e.target.closest?.('.btn-eksport');
+  if(b) obsluzEksport(b, e);
+});
+
+function obsluzEksport(b, e){
+  {
+    {
+      e.stopPropagation();
+      // zamknij inne otwarte menu
+      document.querySelectorAll('.menu-eks').forEach(m=>m.remove());
+      const cel=document.querySelector(b.dataset.eks);
+      if(!cel){ toast('Nie znaleziono tabeli.', true); return; }
+      const m=document.createElement('div');
+      m.className='menu-eks';
+      m.innerHTML=`
+        <button data-f="csv">📄 CSV — Excel, arkusz</button>
+        <button data-f="pdf">🖨 Drukuj / zapisz PDF</button>`;
+      document.body.appendChild(m);
+      const r=b.getBoundingClientRect();
+      m.style.top=(r.bottom+window.scrollY+4)+'px';
+      m.style.left=Math.max(8, Math.min(r.left+window.scrollX, window.innerWidth-230))+'px';
+      m.querySelector('[data-f=csv]').onclick=()=>{ eksportCSV(cel, b.dataset.eksNazwa); m.remove(); };
+      m.querySelector('[data-f=pdf]').onclick=()=>{ eksportDruk(cel, b.dataset.eksTytul); m.remove(); };
+      setTimeout(()=>{
+        const zamknij=(ev)=>{ if(!m.contains(ev.target)){ m.remove(); document.removeEventListener('click',zamknij); } };
+        document.addEventListener('click',zamknij);
+      },10);
+    }
+  }
+}
+
+/* ===================== REALNY SKŁAD DAWKI =================================
+   Kilogram niedojadu ma skład dawki, z której pochodzi. Jeśli dokładamy paszę
+   z grupy o innej recepturze, proporcje na stole się przesuwają — i to musi
+   być widać. Liczymy udziałem masowym, nie kg/szt, bo dokładana masa nie ma
+   nic wspólnego z liczbą sztuk grupy docelowej.
+   ========================================================================= */
+function skladRealnyGrupy(p, dokWczoraj){
+  const wynik = {};
+  // 1) część świeża — receptura własnej grupy przeskalowana do faktycznej masy
+  const wsp = p.planKg>0 ? p.swiezy/p.planKg : 0;
+  (p.skladniki||[]).forEach(sk=>{
+    wynik[sk.surowiecId] = (wynik[sk.surowiecId]||0) + sk.kg*(p.sztuk||0)*wsp;
+  });
+  // 2) odzysk — każde źródło wnosi SWÓJ skład, wg udziału masowego
+  (p.niedojadyZrodla||[]).forEach(zr=>{
+    const zy = dokWczoraj?.grupy?.[zr.grupaId];
+    let sklZr = zy?.skladniki;
+    if(!sklZr || !sklZr.length){
+      const grZr = store.grupyTech[zr.grupaId];
+      sklZr = grZr ? obliczGrupe(grZr).skladniki : [];
+    }
+    const sumaZr = (sklZr||[]).reduce((s,x)=>s+x.kg,0);
+    if(sumaZr<=0) return;
+    sklZr.forEach(x=>{
+      wynik[x.surowiecId] = (wynik[x.surowiecId]||0) + zr.kg*(x.kg/sumaZr);
+    });
+  });
+  return wynik;
+}
+
+/* Pozycje dnia odczytane z zamrożonego dokumentu — na potrzeby raportów */
+function pozycjeDnia(lok, data){
+  const dok = dokDnia(lok,data);
+  if(!dok) return [];
+  return Object.entries(dok.grupy||{}).map(([gid,z])=>{
+    const gr = store.grupyTech[gid];
+    const sztuk = z.sztuk||0;
+    const wylicz = z.dawkaWyliczonaKgSzt||0;
+    const planKg = wylicz*sztuk;
+    const potw = z.zadaneKg!=null;
+    const zadaneKg = potw ? z.zadaneKg : planKg;
+    const odzysk = z.niedojadyDodaneKg||0;
+    const swiezy = Math.max(0, zadaneKg-odzysk);
+    const perSzt = sztuk>0 ? zadaneKg/sztuk : 0;
+    const proc = wylicz>0 ? (perSzt/wylicz)*100 : 0;
+    const pobr = sztuk>0 ? (zadaneKg-(z.niedojadyKg||0))/sztuk : 0;
+    return {gid, nazwa: gr?.nazwa||z.nazwaGrupy||'?', z, sztuk, wylicz, planKg,
+            zadaneKg, odzysk, swiezy, perSzt, proc, pobr, potw,
+            skladniki: z.skladniki||[], niedojadyZrodla: z.niedojadyZrodla||[],
+            koszt: swiezy*(z.kosztKgTMR||0), kolejnosc: gr?.kolejnosc??99};
+  }).filter(p=>p.sztuk>0 || p.zadaneKg>0).sort((a,b)=>a.kolejnosc-b.kolejnosc);
+}
+
+/* Macierz: wiersze = surowce, kolumny = grupy technologiczne, wartość = kg/szt/dobę */
+function macierzSurowcowa(pozycje, dokWczoraj, opcje){
+  opcje = opcje||{};
+  const kolumny = pozycje.filter(p=>p.sztuk>0);
+  if(!kolumny.length) return '<div class="pusto">Brak grup z obsadą.</div>';
+
+  const sklady = {};                       // gid -> {surowiecId: kg total}
+  const uzyte = new Set();
+  kolumny.forEach(p=>{
+    sklady[p.gid] = skladRealnyGrupy(p, dokWczoraj);
+    Object.keys(sklady[p.gid]).forEach(s=>{ if(sklady[p.gid][s]>0.0001) uzyte.add(s); });
+  });
+
+  // Kolejność wierszy jak w macierzy Dawek, reszta na końcu
+  const uklad = wierszeDawek();
+  const wiersze = [...uklad.filter(id=>uzyte.has(id)), ...[...uzyte].filter(id=>!uklad.includes(id))];
+
+  const naglowki = kolumny.map(p=>{
+    const odch = p.wylicz>0 ? ((p.perSzt/p.wylicz)*100) : 100;
+    const kol = Math.abs(odch-100)<=3 ? '' : (Math.abs(odch-100)<=10 ? 'color:#ffe08a' : 'color:#ffb3ad');
+    return `<th><span class="nazwa-kol" title="${esc(p.nazwa)}">${esc(p.nazwa)}</span>
+      <span style="font-size:9.5px;opacity:.85;display:block;font-weight:400">${p.sztuk} szt${p.odzysk?' · +'+fmt(p.odzysk,0)+' kg':''}</span>
+      <span style="font-size:9.5px;display:block;${kol}">${fmt(odch,0)}%</span></th>`;
+  }).join('');
+
+  const body = wiersze.map(sid=>{
+    const sur = store.surowce[sid];
+    return `<tr>
+      <td class="lipka"><span class="nazwaS" title="${esc(sur?.nazwa||'?')}">${esc(sur?.nazwa||'?')}</span></td>
+      ${kolumny.map(p=>{
+        const kgTot = sklady[p.gid][sid]||0;
+        if(kgTot<=0.0001) return '<td class="num">—</td>';
+        const kgSzt = kgTot/(p.sztuk||1);
+        // odchylenie od receptury — pokazujemy na czerwono realne przesunięcie składu
+        const wzor = (p.skladniki||[]).find(x=>x.surowiecId===sid);
+        const plan = wzor ? wzor.kg : 0;
+        const rozne = plan>0 ? Math.abs(kgSzt-plan)/plan > 0.02 : kgSzt>0;
+        return `<td class="num" ${rozne?'style="color:var(--czerwony);font-weight:600"':''}
+                    title="${fmt(kgTot,1)} kg na grupę${plan?' · wg receptury '+fmt(plan,2)+' kg/szt':''}">${fmt(kgSzt,2)}</td>`;
+      }).join('')}
+    </tr>`;
+  }).join('');
+
+  const sumy = kolumny.map(p=>{
+    const s = Object.values(sklady[p.gid]).reduce((a,b)=>a+b,0);
+    return `<td class="num">${fmt(s/(p.sztuk||1),1)}</td>`;
+  }).join('');
+  const sumyGrupa = kolumny.map(p=>{
+    const s = Object.values(sklady[p.gid]).reduce((a,b)=>a+b,0);
+    return `<td class="num">${fmt(s,0)}</td>`;
+  }).join('');
+
+  return `<div class="macierz" style="max-height:none" ${opcje.id?`id="${opcje.id}"`:''}>
+    <table>
+      <thead><tr><th class="lipka">Surowiec</th>${naglowki}</tr></thead>
+      <tbody>
+        ${body}
+        <tr class="suma-wiersz"><td class="lipka">Razem kg/szt/dobę</td>${sumy}</tr>
+        <tr class="koszt-wiersz"><td class="lipka">Razem kg na grupę</td>${sumyGrupa}</tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="podpis" style="padding:8px 14px">
+    Wartości to <b>faktycznie podane kg/szt/dobę</b> po uwzględnieniu zmienionych ilości i domieszanych niedojadów.
+    Na <b style="color:var(--czerwony)">czerwono</b> pozycje odbiegające od receptury o więcej niż 2%.
+    Najedź na komórkę, żeby zobaczyć kg na całą grupę.
+  </div>`;
+}
+
 /* ===================== ZAKŁADKI: NADARZYN / BOGUSZYN ====================== */
 let gtRozwiniete = new Set();
 
@@ -1686,6 +2098,7 @@ function renderLokalizacja(w, lok){
       <span class="licznik">${grupy.length} grup \u00b7 ${sumaSzt} szt</span>
       <span style="flex:1"></span>
       <div class="pole-grupa" style="margin:0"><input type="date" id="lkData" value="${data}" max="${dzisiaj()}" style="padding:7px 10px"></div>
+      ${przyciskEksportu('#tabelaGT','dzien_'+lok+'_'+data, esc(nazwaLok)+' — dzień żywienia '+dataPL(data))}
       ${edycja?'<button class="btn maly" id="btnNowaGrupa">+ Grupa</button>':''}
     </div>
     <div class="pasek">
@@ -1778,15 +2191,17 @@ function renderLokalizacja(w, lok){
     </table></div>`}
   </div>
 
-  <div class="panel zapot-panel">
-    <div class="panel-tyt">Zapotrzebowanie dobowe \u2014 ${esc(nazwaLok)} <span class="licznik">wg faktycznych ilo\u015bci</span></div>
-    <div style="padding:10px 14px"><table>
-      <thead><tr><th>Surowiec</th><th class="num">kg/dob\u0119</th><th class="num">t/dob\u0119</th></tr></thead>
-      <tbody>${Object.entries(zapotrzebowanie).sort((a,b)=>b[1]-a[1]).map(([sid,kg])=>{
-        const sur=store.surowce[sid];
-        return `<tr><td>${esc(sur?.nazwa||'?')}</td><td class="num">${fmt(kg,1)}</td><td class="num">${fmt(kg/1000,3)}</td></tr>`;
-      }).join('')}</tbody>
-    </table></div>
+  <div class="panel">
+    <div class="panel-tyt">Realny sk\u0142ad dawek \u2014 ${esc(nazwaLok)}, ${dataPL(data)}
+      <span class="licznik">kg surowca / sztuk\u0119 / dob\u0119</span>
+      <span style="flex:1"></span>
+      ${przyciskEksportu('#macierzLok','sklad_'+lok+'_'+data, 'Realny sk\u0142ad dawek — '+esc(nazwaLok)+' '+dataPL(data))}
+    </div>
+    ${macierzSurowcowa(dane.map(d=>({
+        gid:d.gr.id, nazwa:d.gr.nazwa, sztuk:d.sztuk, wylicz:d.wylicz, planKg:d.planKg,
+        zadaneKg:d.zadaneKg, odzysk:d.niedojadyDod, swiezy:d.swiezyTmr, perSzt:d.perSzt,
+        skladniki:d.skladniki, niedojadyZrodla:d.niedojadyZrodla
+      })), dokWczoraj, {id:'macierzLok'})}
   </div>`;
 
   // --- PODPIĘCIA ---
@@ -1931,7 +2346,31 @@ function oknoEdGrupa(lok, edId){
           if(sel.value && u>0) daw.push({dawkaId:sel.value, udzial:u});
         });
         const dane={nazwa,sztuk,parentId,dawki:daw,lokalizacja:lok};
-        if(isEdit){await DB.zapisz('grupyTech',edId,dane);toast('Zapisano.');}
+        if(isEdit){
+          // Czy udziały dawek faktycznie się zmieniły? Jeśli tak — pytamy od kiedy obowiązują.
+          const stareU = JSON.stringify((g.dawki||[]).map(x=>[x.dawkaId,x.udzial]));
+          const noweU  = JSON.stringify(daw.map(x=>[x.dawkaId,x.udzial]));
+          if(stareU!==noweU){
+            zamknijModal();
+            pytajOdKiedy(async(odData)=>{
+              if(!odData) return;
+              if(odData>dzisiaj()){
+                await DB.zapisz('grupyTech',edId,{nazwa,sztuk,parentId});
+                await zapiszDoZaplanowanej(odData,(baza)=>{
+                  if(baza.grupy[edId]) baza.grupy[edId]={...baza.grupy[edId], dawki:daw};
+                });
+                toast(`Zmiana udzia\u0142\u00f3w zaplanowana od ${dataPL(odData)}.`);
+              }else{
+                await DB.zapisz('grupyTech',edId,dane);
+                await zapiszWersje(odData);
+                toast('Zapisano \u2014 obowi\u0105zuje od dzi\u015b.');
+              }
+              render();
+            });
+            return false;
+          }
+          await DB.zapisz('grupyTech',edId,dane);toast('Zapisano.');
+        }
         else{dane.kolejnosc=grupyLok(lok).reduce((m,x)=>Math.max(m,x.kolejnosc??0),0)+1;await DB.zapisz('grupyTech',null,dane);toast('Dodano grup\u0119.');}
       }}
     ]
@@ -2014,7 +2453,9 @@ function oknoNiedojady(lok, data, grupaId){
       </div>
       ${dostepne.length ? `<div class="nd-bilans ok">Wczoraj (${dataPL(wczoraj)}) zebrano niedojady z ${dostepne.length} grup:
         ${dostepne.map(g=>esc(store.grupyTech[g]?.nazwa||'?')+' '+fmt(zebrane[g],0)+' kg').join(' · ')}</div>`
-      : `<div class="nd-bilans zle">Za ${dataPL(wczoraj)} nie wpisano żadnych niedojadów. Możesz mimo to wpisać ilość ręcznie, ale bilans nie będzie się zgadzał.</div>`}
+      : `<div class="nd-bilans zle">Za ${dataPL(wczoraj)} nie zarejestrowano jeszcze niedojadów u żadnej grupy.
+         Wpisane tutaj kilogramy zostaną automatycznie zapisane jako niedojady grup źródłowych za ${dataPL(wczoraj)} —
+         dzięki temu ich pobranie rzeczywiste zostanie poprawnie pomniejszone.</div>`}
       <div id="ndLista">${rysujWiersze()}</div>
       <button class="btn maly szary" id="ndDodaj" style="margin-top:4px">+ Źródło</button>
       <hr style="border:none;border-top:1px solid var(--linia);margin:14px 0">
@@ -2031,12 +2472,39 @@ function oknoNiedojady(lok, data, grupaId){
           const kg=liczba(inps[i]?.value);
           if(s.value && kg>0) lista.push({grupaId:s.value, kg});
         });
+        // Kilogramy nie biorą się znikąd: sumujemy per grupa źródłowa i sprawdzamy,
+        // czy da się je pokryć tym, co ta grupa faktycznie zostawiła.
+        const perZrodlo={};
+        lista.forEach(x=>{ perZrodlo[x.grupaId]=(perZrodlo[x.grupaId]||0)+x.kg; });
+        const bledy=[];
+        for(const [gid,kg] of Object.entries(perZrodlo)){
+          const limit = (zebrane[gid]||0) - (rozdane[gid]||0);
+          const zebranoWcale = zebrane[gid]!=null;
+          if(zebranoWcale && kg > limit + 0.01){
+            bledy.push(`${store.grupyTech[gid]?.nazwa||'?'}: chcesz ${fmt(kg,0)} kg, dostępne ${fmt(Math.max(0,limit),0)} kg`);
+          }
+        }
+        if(bledy.length){
+          toast('Nie da się rozdysponować więcej, niż zebrano. '+bledy.join(' · '), true);
+          return false;
+        }
         const razem=lista.reduce((s,x)=>s+x.kg,0);
         await zapiszDzien(lok, data, grupaId, {
           niedojadyZrodla: lista,
           niedojadyDodaneKg: razem>0 ? razem : null
         });
-        toast(razem>0 ? `Domieszano ${fmt(razem,0)} kg niedojadów.` : 'Usunięto niedojady.');
+        // DRUGA STRONA OPERACJI: jeśli grupa źródłowa nie ma zarejestrowanych niedojadów
+        // za dzień poprzedni, rejestrujemy je teraz — inaczej jej pobranie byłoby zawyżone.
+        let dopisane=0;
+        for(const [gid,kg] of Object.entries(perZrodlo)){
+          if(zebrane[gid]==null){
+            await zapiszDzien(lok, wczoraj, gid, {niedojadyKg: kg});
+            dopisane++;
+          }
+        }
+        toast(razem>0
+          ? `Domieszano ${fmt(razem,0)} kg.` + (dopisane?` Zarejestrowano niedojady u ${dopisane} grup za ${dataPL(wczoraj)}.`:'')
+          : 'Usunięto niedojady.');
       }}
     ]
   });
@@ -2079,6 +2547,7 @@ function renderMieszalnia(w){
   w.innerHTML = `
   <div class="panel">
     <div class="panel-tyt">Mieszalnia <span class="licznik">${mieszanki.length} receptur</span><span style="flex:1"></span>
+      ${mixZakladka==='receptury'?przyciskEksportu('#tabReceptury','receptury_mieszanek','Receptury mieszanek'):''}
       ${edycja?'<button class="btn maly" id="btnNowaMix">+ Receptura</button>':''}
     </div>
     <div class="pasek">
@@ -2116,6 +2585,36 @@ function renderMixReceptury(el,mieszanki,edycja){
         </tbody></table></div>`:''}
     </div>`;
   }).join('')||'<div class="pusto">Brak receptur.</div>';
+
+  // Zbiorcza tabela wszystkich receptur — źródło dla eksportu i wydruku
+  if(mieszanki.length){
+    const uzyte=new Set();
+    mieszanki.forEach(m=>(m.skladniki||[]).forEach(s=>uzyte.add(s.surowiecId)));
+    const surList=[...uzyte].map(id=>store.surowce[id]).filter(Boolean)
+      .sort((a,b)=>(a.nazwa||'').localeCompare(b.nazwa||'','pl'));
+    el.innerHTML += `
+    <div class="panel-tyt" style="border-top:8px solid var(--tlo)">Zestawienie receptur <span class="licznik">udzia\u0142y %</span></div>
+    <div class="macierz" style="max-height:none" id="tabReceptury"><table>
+      <thead><tr><th class="lipka">Sk\u0142adnik</th>
+        ${mieszanki.map(m=>`<th><span class="nazwa-kol" title="${esc(m.nazwa)}">${esc(m.nazwa)}</span></th>`).join('')}
+      </tr></thead>
+      <tbody>
+        ${surList.map(s=>`<tr><td class="lipka"><span class="nazwaS">${esc(s.nazwa)}</span></td>
+          ${mieszanki.map(m=>{
+            const sk=(m.skladniki||[]).find(x=>x.surowiecId===s.id);
+            return `<td class="num">${sk?fmt(sk.procent,1):'\u2014'}</td>`;
+          }).join('')}</tr>`).join('')}
+        <tr class="suma-wiersz"><td class="lipka">Suma %</td>
+          ${mieszanki.map(m=>{
+            const suma=(m.skladniki||[]).reduce((a,x)=>a+x.procent,0);
+            return `<td class="num" ${Math.abs(suma-100)>0.5?'style="color:var(--czerwony)"':''}>${fmt(suma,1)}</td>`;
+          }).join('')}</tr>
+        <tr class="koszt-wiersz"><td class="lipka">Koszt z\u0142/t</td>
+          ${mieszanki.map(m=>`<td class="num">${fmt(kosztMieszanki(m)*1000,2)}</td>`).join('')}</tr>
+      </tbody>
+    </table></div>`;
+  }
+
   el.querySelectorAll('[data-rozmix2]').forEach(b=>{b.onclick=e=>{if(e.target.closest('[data-edmix],[data-usunmix]'))return;const id=b.dataset.rozmix2;mixRozwiniete.has(id)?mixRozwiniete.delete(id):mixRozwiniete.add(id);renderMieszalnia(document.getElementById('widok'));};});
   el.querySelectorAll('[data-edmix]').forEach(b=>b.onclick=e=>{e.stopPropagation();oknoMix(b.dataset.edmix);});
   el.querySelectorAll('[data-usunmix]').forEach(b=>b.onclick=e=>{e.stopPropagation();const m=store.mieszanki[b.dataset.usunmix];potwierdz('Usun\u0105\u0107 receptur\u0119?',`\u201e${esc(m?.nazwa)}\u201d`,()=>{DB.usun('mieszanki',b.dataset.usunmix);toast('Usuni\u0119to.');},'Usu\u0144');});
@@ -2212,6 +2711,11 @@ let rapData = null;
 let rapMiesiac = null;
 let rapOdDo = null;
 
+/* Dawki, mieszalnia i snapshoty są wspólne dla gospodarstwa — selektor lokalizacji
+   w tych podzakładkach sugerowałby nieprawdę. */
+function zalezyOdLokalizacji(pz){
+  return ['kalendarz','historia','miesiac','zuzycie'].includes(pz);
+}
 function lokDostepne(){
   return (ROLE[rolaAkt]?.lokalizacje||[]).filter(l=>l==='nadarzyn'||l==='boguszyn');
 }
@@ -2220,6 +2724,7 @@ function mozeWpisDnia(lok){
 }
 function idDnia(lok,data){ return lok+'_'+data; }
 function dokDnia(lok,data){ return store.zywienie[idDnia(lok,data)] || null; }
+function dataPlus(iso,dni){ return dataMinus(iso,-dni); }
 function dataMinus(iso,dni){
   const d=new Date(iso+'T12:00:00'); d.setDate(d.getDate()-dni);
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
@@ -2233,16 +2738,22 @@ async function zapiszDzien(lok, data, grupaId, pola){
   const gr = store.grupyTech[grupaId];
   const grupy = {...(stary.grupy||{})};
   const poprz = grupy[grupaId] || {};
+  // Dzień POTWIERDZONY (wpisano kg) ma dane zamrożone. Niepotwierdzony przelicza się
+  // z aktualnie obowiązującej wersji dawek — zgodnie z ustaleniem "od dziś" działa dziś.
+  const potwierdzony = poprz.zadaneKg!=null || pola.zadaneKg!=null;
   let baza = {};
-  if(gr && poprz.dawkaWyliczonaKgSzt==null){
+  if(gr && (!potwierdzony || poprz.dawkaWyliczonaKgSzt==null)){
     const o = obliczGrupe(gr);
     baza = {
       dawkaWyliczonaKgSzt: Math.round(o.kgSzt*1000)/1000,
       kosztKgTMR: o.kgSzt>0 ? Math.round((o.kosztSzt/o.kgSzt)*10000)/10000 : 0,
       nazwaGrupy: gr.nazwa,
-      skladniki: o.skladniki
+      skladniki: o.skladniki,
+      udzialy: (gr.dawki||[]).map(d=>({dawkaId:d.dawkaId, udzial:d.udzial}))  // zamrożone udziały
     };
   }
+  // Liczba sztuk MUSI być zapisana — bez niej raporty liczą zadane = dawka × 0 i wiersz znika
+  if(gr && poprz.sztuk==null && pola.sztuk==null) baza.sztuk = gr.sztuk||0;
   grupy[grupaId] = {...poprz, ...baza, ...pola, autor:ROLE[rolaAkt]?.nazwa||'?', ts:Date.now()};
   await DB.zapisz('zywienie', id, {lokalizacja:lok, data, grupy});
 }
@@ -2279,16 +2790,16 @@ function renderRaporty(w){
     {id:'historia', txt:'Historia \u017cywienia'},
     {id:'miesiac',  txt:'Zestawienie miesi\u0119czne'},
     {id:'zuzycie',  txt:'Zu\u017cycie surowc\u00f3w'},
-    {id:'produkcja',txt:'Produkcja mieszalni'},
-    {id:'snapshoty',txt:'Historia dawek'}
+    {id:'produkcja',txt:'Produkcja mieszalni'}
   ];
 
   w.innerHTML = `
   <div class="panel">
     <div class="panel-tyt">Raporty<span style="flex:1"></span>
-      ${loki.length>1?`<select id="rapLokSel" style="padding:6px 10px;border:1.5px solid var(--linia);border-radius:8px">
+      ${!zalezyOdLokalizacji(rapZakladka) ? '<span class="podpis">dane wsp\u00f3lne dla obu lokalizacji</span>'
+        : (loki.length>1?`<select id="rapLokSel" style="padding:6px 10px;border:1.5px solid var(--linia);border-radius:8px">
         ${loki.map(l=>`<option value="${l}" ${l===rapLok?'selected':''}>${l==='nadarzyn'?'Nadarzyn':'Boguszyn'}</option>`).join('')}
-      </select>`:`<span class="plakietka">${rapLok==='nadarzyn'?'Nadarzyn':'Boguszyn'}</span>`}
+      </select>`:`<span class="plakietka">${rapLok==='nadarzyn'?'Nadarzyn':'Boguszyn'}</span>`)}
     </div>
     <div class="pasek">
       ${podz.map(p=>`<button class="btn ${rapZakladka===p.id?'':'szary'} maly" data-rz="${p.id}">${p.txt}</button>`).join('')}
@@ -2306,8 +2817,7 @@ function renderRaporty(w){
   else if(rapZakladka==='historia') rapHistoria(t);
   else if(rapZakladka==='miesiac') rapMiesiacWidok(t);
   else if(rapZakladka==='zuzycie') rapZuzycie(t);
-  else if(rapZakladka==='produkcja') rapProdukcja(t);
-  else rapSnapshoty(t);
+  else rapProdukcja(t);
 }
 
 /* ---------- Kalendarz: cofnij się do dowolnego dnia ---------- */
@@ -2413,9 +2923,9 @@ function rysujDzienSzczegoly(el, dataISO){
     <div class="panel-tyt">Raport dnia ${dataPL(dataISO)} — ${rapLok==='nadarzyn'?'Nadarzyn':'Boguszyn'}
       <span class="licznik">${poz.length} grup · ${sumSzt} szt · ${fmt(sumKoszt,0)} zł</span>
       <span style="flex:1"></span>
-      <button class="btn szary maly" id="kalCsv">↓ CSV</button>
+      ${przyciskEksportu('#tabDzienKal','raport_dnia_'+rapLok+'_'+dataISO,'Raport dnia '+dataPL(dataISO)+' — '+(rapLok==='nadarzyn'?'Nadarzyn':'Boguszyn'))}
     </div>
-    <div class="przewijak"><table class="gt-tabela">
+    <div class="przewijak"><table class="gt-tabela" id="tabDzienKal">
       <thead><tr><th>Grupa</th><th class="num">Sztuk</th><th class="num">Dawka wylicz.<br>kg/szt</th>
       <th class="num">Odzysk<br>kg</th><th class="num">Świeży TMR<br>kg</th><th class="num">Podane<br>kg</th>
       <th class="num">Niedojady<br>kg</th><th class="num">Pobranie<br>kg/szt</th><th class="num">Koszt<br>zł</th></tr></thead>
@@ -2463,149 +2973,217 @@ function rysujDzienSzczegoly(el, dataISO){
     : '<div class="podpis" style="padding:12px 14px">Brak zapisanej wersji dawek z tego dnia — dawek wtedy nie zmieniano.</div>'}
   </div>`;
 
-  el.querySelector('#kalCsv').onclick=()=>{
-    const r=[['Data','Grupa','Sztuk','Dawka wyliczona kg/szt','Odzysk kg','Swiezy TMR kg','Podane kg','Niedojady kg','Pobranie kg/szt','Koszt zl']];
-    poz.forEach(p=>r.push([dataPL(dataISO),p.nazwa,p.z.sztuk||0,fmt(p.wylicz,2),fmt(p.odzysk,1),
-      fmt(p.swiezy,1),fmt(p.zadEff,1),p.z.niedojadyKg!=null?fmt(p.z.niedojadyKg,1):'',fmt(p.pobr,2),fmt(p.koszt,2)]));
-    r.push([]);
-    r.push(['Zuzycie surowcow']);
-    Object.entries(zuz).sort((a,b)=>b[1]-a[1]).forEach(([sid,kg])=>
-      r.push(['',store.surowce[sid]?.nazwa||'?',fmt(kg,2)]));
-    csvPobierz('raport_dnia_'+rapLok+'_'+dataISO, r);
-  };
 }
 
-/* ---------- Zmiany dawek: pełna macierz + rejestr edycji ---------- */
-function rapZmiany(el){
-  const zmiany = Object.values(store.zmianyDawek).sort((a,b)=>(b.ts||0)-(a.ts||0));
-  // Najnowsza data edycji — te wartości świecą na czerwono. Starsze wracają do czerni.
-  const najnowszaData = zmiany.length ? zmiany[0].data : null;
-  // Ostatnia zmiana dla każdej komórki (klucz: dawkaId|surowiecId)
-  const ostatnia = {};
-  zmiany.forEach(z=>{
-    const k = z.dawkaId+'|'+z.surowiecId;
-    if(!ostatnia[k]) ostatnia[k] = z;      // lista posortowana malejąco, więc pierwsza = najnowsza
-  });
+/* ---------- Zmiany dawek: stan aktualny + rejestr z historycznymi tabelami ---------- */
+let zmianyRozwiniete = new Set();
 
-  const dawki = dawkiSorted();
-  const wiersze = wierszeDawek();
+/* Macierz dawek z dowolnego zestawu danych — używana i dla stanu bieżącego, i dla historii */
+function macierzDawekHTML(dawkiObj, opcje){
+  opcje = opcje||{};
+  const dawki = Object.values(dawkiObj).sort((a,b)=>(a.kolejnosc??99)-(b.kolejnosc??99));
+  if(!dawki.length) return '<div class="pusto">Brak danych.</div>';
+  const uzyte = new Set();
+  dawki.forEach(d=>(d.skladniki||[]).forEach(s=>{ if(s.kg>0) uzyte.add(s.surowiecId); }));
+  const uklad = wierszeDawek();
+  const wiersze = [...uklad.filter(id=>uzyte.has(id)), ...[...uzyte].filter(id=>!uklad.includes(id))];
+  const kg = (d,sid)=>{ const s=(d.skladniki||[]).find(x=>x.surowiecId===sid); return s?s.kg:0; };
+  const suma = d=>(d.skladniki||[]).reduce((s,x)=>s+x.kg,0);
+  const koszt = d=>(d.skladniki||[]).reduce((s,x)=>{
+    const sur=store.surowce[x.surowiecId]; return s+x.kg*((sur?.cenaTona||0)/1000);
+  },0);
 
-  el.innerHTML = `
-  <div style="padding:12px 14px;border-bottom:1px solid var(--linia);display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-    <span class="podpis">Na <b style="color:var(--czerwony)">czerwono</b> warto\u015bci zmienione ostatniego dnia edycji${najnowszaData?' ('+dataPL(najnowszaData)+')':''}. Najedź kursorem, żeby zobaczyć kto i kiedy.</span>
-    <span style="flex:1"></span>
-    <button class="btn szary maly" id="rzmCsv">\u2193 CSV rejestru</button>
-  </div>
-
-  <div class="macierz" style="max-height:none">
+  return `<div class="macierz" style="max-height:none" ${opcje.id?`id="${opcje.id}"`:''}>
     <table>
       <thead><tr><th class="lipka">Surowiec</th>
-        ${dawki.map(d=>`<th><span class="nazwa-kol" title="${esc(d.nazwa)}">${esc(d.nazwa)}</span>${d.suchyTMR?'<span style="font-size:9px;opacity:.7;display:block">(suchy TMR)</span>':''}</th>`).join('')}
+        ${dawki.map(d=>`<th><span class="nazwa-kol" title="${esc(d.nazwa)}">${esc(d.nazwa)}</span>
+          ${d.suchyTMR?'<span style="font-size:9px;opacity:.7;display:block">(suchy TMR)</span>':''}</th>`).join('')}
       </tr></thead>
       <tbody>
         ${wiersze.map(sid=>{
-          const sur=store.surowce[sid]; if(!sur) return '';
-          return `<tr>
-            <td class="lipka"><span class="nazwaS" title="${esc(sur.nazwa)}">${esc(sur.nazwa)}</span></td>
-            ${dawki.map(d=>{
-              const v = kgWDawce(d, sid);
-              const z = ostatnia[d.id+'|'+sid];
-              const swiezo = z && najnowszaData && z.data===najnowszaData;
-              const tyt = z ? `${z.rola} \u00b7 ${dataPL(z.data)} ${new Date(z.ts).toTimeString().slice(0,5)} \u00b7 ${fmt(z.stara,1)} \u2192 ${fmt(z.nowa,1)} kg` : '';
-              return `<td class="num" ${tyt?`title="${esc(tyt)}"`:''} style="${swiezo?'color:var(--czerwony);font-weight:700':''}">${v?fmt(v,1):'\u2014'}</td>`;
-            }).join('')}
-          </tr>`;
+          const sur=store.surowce[sid];
+          return `<tr><td class="lipka"><span class="nazwaS" title="${esc(sur?.nazwa||'?')}">${esc(sur?.nazwa||'?')}</span></td>
+          ${dawki.map(d=>{
+            const v=kg(d,sid);
+            const pod = opcje.podswietl && opcje.podswietl[d.id+'|'+sid];
+            const tyt = pod ? `${pod.rola} \u00b7 ${dataPL(pod.data)} ${new Date(pod.ts).toTimeString().slice(0,5)} \u00b7 ${fmt(pod.stara,1)} \u2192 ${fmt(pod.nowa,1)} kg` : '';
+            return `<td class="num" ${tyt?`title="${esc(tyt)}"`:''} ${pod?'style="color:var(--czerwony);font-weight:700"':''}>${v?fmt(v,1):'\u2014'}</td>`;
+          }).join('')}</tr>`;
         }).join('')}
         <tr class="suma-wiersz"><td class="lipka">Ca\u0142o\u015b\u0107 kg/szt</td>
-          ${dawki.map(d=>`<td class="num">${fmt(sumaDawki(d),1)}</td>`).join('')}</tr>
+          ${dawki.map(d=>`<td class="num">${fmt(suma(d),1)}</td>`).join('')}</tr>
         <tr class="koszt-wiersz"><td class="lipka">Koszt z\u0142/szt/dob\u0119</td>
-          ${dawki.map(d=>`<td class="num">${fmt(kosztDawki(d),2)} z\u0142</td>`).join('')}</tr>
+          ${dawki.map(d=>`<td class="num">${fmt(koszt(d),2)} z\u0142</td>`).join('')}</tr>
       </tbody>
     </table>
-  </div>
-
-  <div class="panel-tyt" style="border-top:8px solid var(--tlo)">Rejestr edycji <span class="licznik">${zmiany.length} zmian</span></div>
-  ${zmiany.length ? zmiany.slice(0,300).map(z=>{
-    const g = new Date(z.ts);
-    const kier = z.nowa>z.stara ? '\u2191' : '\u2193';
-    const kol = z.nowa>z.stara ? 'var(--zielony-ok)' : 'var(--czerwony)';
-    return `<div class="hist-row">
-      <span class="data">${dataPL(z.data)}</span>
-      <span class="podpis">${String(g.getHours()).padStart(2,'0')}:${String(g.getMinutes()).padStart(2,'0')}</span>
-      <span class="plakietka">${esc(z.rola)}</span>
-      <b>${esc(z.dawkaNazwa)}</b>
-      <span>${esc(z.surowiecNazwa)}</span>
-      <span style="color:${kol};font-weight:700">${fmt(z.stara,1)} ${kier} ${fmt(z.nowa,1)} kg</span>
-    </div>`;
-  }).join('') : '<div class="pusto">Brak zarejestrowanych zmian. Rejestr zapisuje ka\u017cd\u0105 edycj\u0119 warto\u015bci w macierzy Dawek.</div>'}`;
-
-  el.querySelector('#rzmCsv').onclick=()=>{
-    const r=[['Data','Godzina','Rola','Grupa zywieniowa','Surowiec','Bylo kg','Jest kg','Zmiana kg']];
-    zmiany.forEach(z=>{
-      const g=new Date(z.ts);
-      r.push([dataPL(z.data), String(g.getHours()).padStart(2,'0')+':'+String(g.getMinutes()).padStart(2,'0'),
-        z.rola, z.dawkaNazwa, z.surowiecNazwa, fmt(z.stara,2), fmt(z.nowa,2), fmt(z.nowa-z.stara,2)]);
-    });
-    csvPobierz('rejestr_zmian_dawek', r);
-  };
+  </div>`;
 }
 
-/* ---------- Historia żywienia ---------- */
-function rapHistoria(el){
-  const dni = Object.values(store.zywienie)
-    .filter(d=>d.lokalizacja===rapLok && d.data>=rapOdDo.od && d.data<=rapOdDo.do)
-    .sort((a,b)=>b.data.localeCompare(a.data));
-  const rows=[];
-  dni.forEach(d=>{
-    Object.entries(d.grupy||{}).forEach(([gid,z])=>{
-      const gr=store.grupyTech[gid];
-      const potw = z.zadaneKg!=null;
-      const zadEff = potw ? z.zadaneKg : (z.dawkaWyliczonaKgSzt||0)*(z.sztuk||0);
-      if(!zadEff && z.niedojadyKg==null) return;
-      const zadKgSzt=(z.sztuk>0)?zadEff/z.sztuk:null;
-      const odchKg=(zadKgSzt!=null&&z.dawkaWyliczonaKgSzt)?zadKgSzt-z.dawkaWyliczonaKgSzt:null;
-      const odchProc=(odchKg!=null&&z.dawkaWyliczonaKgSzt>0)?(odchKg/z.dawkaWyliczonaKgSzt)*100:null;
-      const pobr=(z.sztuk>0)?(zadEff-(z.niedojadyKg||0))/z.sztuk:null;
-      const odzysk=z.niedojadyDodaneKg||0;
-      const swiezy=Math.max(0, zadEff-odzysk);
-      rows.push({data:d.data, nazwa:gr?.nazwa||z.nazwaGrupy||'?', z, zadEff, potw, zadKgSzt, odchKg, odchProc, pobr, odzysk, swiezy});
-    });
-  });
+function rapZmiany(el){
+  const zmiany = Object.values(store.zmianyDawek).sort((a,b)=>(b.ts||0)-(a.ts||0));
+  const najnowszaData = zmiany.length ? zmiany[0].data : null;
+  const ostatnia = {};
+  zmiany.forEach(z=>{ const k=z.dawkaId+'|'+z.surowiecId; if(!ostatnia[k]) ostatnia[k]=z; });
+  const podswietl = {};
+  Object.entries(ostatnia).forEach(([k,z])=>{ if(najnowszaData && z.data===najnowszaData) podswietl[k]=z; });
 
-  el.innerHTML=`
-  <div style="padding:12px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:end;border-bottom:1px solid var(--linia)">
-    <div class="pole-grupa" style="margin:0"><label>Od</label><input type="date" id="rhOd" value="${rapOdDo.od}"></div>
-    <div class="pole-grupa" style="margin:0"><label>Do</label><input type="date" id="rhDo" value="${rapOdDo.do}"></div>
-    <span style="flex:1"></span><button class="btn szary maly" id="rhCsv">\u2193 CSV</button>
+  // Grupowanie rejestru po dniach
+  const dni = {};
+  zmiany.forEach(z=>{ (dni[z.data] ||= []).push(z); });
+  const listaDni = Object.keys(dni).sort((a,b)=>b.localeCompare(a));
+  const zapl = wersjeZaplanowane();
+
+  el.innerHTML = `
+  <div style="padding:12px 14px;border-bottom:1px solid var(--linia);display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <span class="podpis">Na <b style="color:var(--czerwony)">czerwono</b> warto\u015bci zmienione ostatniego dnia edycji${najnowszaData?' ('+dataPL(najnowszaData)+')':''}.</span>
+    <span style="flex:1"></span>
+    ${przyciskEksportu('#macierzZmiany','dawki_stan_'+dzisiaj(),'Dawki \u2014 stan na '+dataPL(dzisiaj()))}
+    ${zmiany.length?przyciskEksportu('#tabRejestr','rejestr_zmian_dawek','Rejestr zmian dawek'):''}
   </div>
-  ${rows.length?`<div class="przewijak"><table class="gt-tabela">
-    <thead><tr><th>Data</th><th>Grupa</th><th class="num">Sztuk</th>
-    <th class="num">Wyliczona<br>kg/szt</th><th class="num">Odzysk<br>kg</th><th class="num">\u015awie\u017cy TMR<br>kg</th>
-    <th class="num">Podane<br>kg</th><th class="num">Podane<br>kg/szt</th>
-    <th class="num">Odchylenie</th><th class="num">Niedojady<br>kg</th><th class="num">Pobranie<br>kg/szt</th></tr></thead>
-    <tbody>${rows.map(r=>`<tr>
-      <td>${dataPL(r.data)}</td><td><b>${esc(r.nazwa)}</b></td><td class="num">${r.z.sztuk??'\u2014'}</td>
-      <td class="num">${r.z.dawkaWyliczonaKgSzt!=null?fmt(r.z.dawkaWyliczonaKgSzt,1):'\u2014'}</td>
-      <td class="num">${r.odzysk?'<span style="color:#7a5c00;font-weight:600">'+fmt(r.odzysk,0)+'</span>':'\u2014'}</td>
-      <td class="num">${fmt(r.swiezy,0)}</td>
-      <td class="num">${fmt(r.zadEff,0)}${r.potw?'':' <span class="plakietka auto">plan</span>'}</td>
-      <td class="num">${r.zadKgSzt!=null?fmt(r.zadKgSzt,1):'\u2014'}</td>
-      <td class="num">${r.odchProc!=null?`<span style="color:${odchylenieKolor(r.odchProc)};font-weight:700">${r.odchProc>0?'+':''}${fmt(r.odchProc,0)}%</span>`:'\u2014'}</td>
-      <td class="num">${r.z.niedojadyKg!=null?fmt(r.z.niedojadyKg,0):'\u2014'}</td>
-      <td class="num"><b>${r.pobr!=null?fmt(r.pobr,1):'\u2014'}</b></td>
-    </tr>`).join('')}</tbody></table></div>`
-  :'<div class="pusto">Brak wpis\u00f3w w wybranym okresie.</div>'}`;
+  ${zapl.length?`<div class="pasek-wersja przyszla">
+    <b>\u23f3 Zaplanowane zmiany:</b> ${zapl.map(v=>dataPL(v.odData)).join(', ')}
+    <span class="podpis">wejd\u0105 w \u017cycie automatycznie</span></div>`:''}
 
-  el.querySelector('#rhOd').onchange=e=>{rapOdDo.od=e.target.value;renderRaporty(document.getElementById('widok'));};
-  el.querySelector('#rhDo').onchange=e=>{rapOdDo.do=e.target.value;renderRaporty(document.getElementById('widok'));};
-  el.querySelector('#rhCsv').onclick=()=>{
-    const r=[['Data','Grupa','Sztuk','Wyliczona kg/szt','Odzysk kg','Swiezy TMR kg','Podane kg','Podane kg/szt','Odchylenie kg','Odchylenie %','Niedojady kg','Pobranie kg/szt']];
-    rows.forEach(x=>r.push([dataPL(x.data),x.nazwa,x.z.sztuk??'',x.z.dawkaWyliczonaKgSzt!=null?fmt(x.z.dawkaWyliczonaKgSzt,2):'',
-      fmt(x.odzysk,1),fmt(x.swiezy,1),fmt(x.zadEff,1),x.zadKgSzt!=null?fmt(x.zadKgSzt,2):'',
-      x.odchKg!=null?fmt(x.odchKg,2):'',x.odchProc!=null?fmt(x.odchProc,1):'',
-      x.z.niedojadyKg!=null?fmt(x.z.niedojadyKg,1):'',x.pobr!=null?fmt(x.pobr,2):'']));
-    csvPobierz('historia_zywienia_'+rapLok, r);
+  ${macierzDawekHTML(store.dawki, {id:'macierzZmiany', podswietl})}
+
+  <div class="panel-tyt" style="border-top:8px solid var(--tlo)">
+    Rejestr edycji <span class="licznik">${zmiany.length} zmian w ${listaDni.length} dniach</span>
+    <span style="flex:1"></span>
+    <span class="podpis">kliknij dzie\u0144, \u017ceby zobaczy\u0107 pe\u0142n\u0105 tabel\u0119 dawek z tamtego dnia</span>
+  </div>
+  <table id="tabRejestr" style="display:none"><tbody>
+    <tr><th>Data</th><th>Godzina</th><th>Rola</th><th>Grupa \u017cywieniowa</th><th>Surowiec</th><th>By\u0142o kg</th><th>Jest kg</th><th>Obowi\u0105zuje od</th></tr>
+    ${zmiany.map(z=>{const g=new Date(z.ts);
+      return `<tr><td>${dataPL(z.data)}</td><td>${String(g.getHours()).padStart(2,'0')}:${String(g.getMinutes()).padStart(2,'0')}</td>
+      <td>${esc(z.rola)}</td><td>${esc(z.dawkaNazwa)}</td><td>${esc(z.surowiecNazwa)}</td>
+      <td>${fmt(z.stara,2)}</td><td>${fmt(z.nowa,2)}</td><td>${dataPL(z.odData||z.data)}</td></tr>`;}).join('')}
+  </tbody></table>
+  <div id="rejestrDni">
+  ${listaDni.length ? listaDni.map(d=>{
+    const lista = dni[d];
+    const rozw = zmianyRozwiniete.has(d);
+    const role = [...new Set(lista.map(z=>z.rola))].join(', ');
+    const dawkiZm = [...new Set(lista.map(z=>z.dawkaNazwa))];
+    return `
+    <div class="dzien-blok">
+      <div class="dzien-nag ${rozw?'otwarty':''}" data-dzien="${d}">
+        <span style="width:14px">${rozw?'\u25be':'\u25b8'}</span>
+        <b class="data">${dataPL(d)}</b>
+        <span class="plakietka">${esc(role)}</span>
+        <span>${lista.length} ${lista.length===1?'zmiana':lista.length<5?'zmiany':'zmian'}</span>
+        <span class="podpis">${esc(dawkiZm.slice(0,3).join(', '))}${dawkiZm.length>3?' +'+(dawkiZm.length-3):''}</span>
+      </div>
+      ${rozw?`<div class="dzien-tresc">
+        ${lista.map(z=>{
+          const g=new Date(z.ts);
+          const kier = z.nowa>z.stara?'\u2191':'\u2193';
+          const kol = z.nowa>z.stara?'var(--zielony-ok)':'var(--czerwony)';
+          return `<div class="hist-row">
+            <span class="podpis">${String(g.getHours()).padStart(2,'0')}:${String(g.getMinutes()).padStart(2,'0')}</span>
+            <span class="plakietka">${esc(z.rola)}</span>
+            <b>${esc(z.dawkaNazwa)}</b><span>${esc(z.surowiecNazwa)}</span>
+            <span style="color:${kol};font-weight:700">${fmt(z.stara,1)} ${kier} ${fmt(z.nowa,1)} kg</span>
+            ${z.odData && z.odData!==z.data ? `<span class="plakietka auto">obowi\u0105zuje od ${dataPL(z.odData)}</span>`:''}
+          </div>`;
+        }).join('')}
+        <div class="panel-tyt" style="background:#fafcfa">Tabela dawek \u2014 stan na koniec ${dataPL(d)}
+          <span style="flex:1"></span>
+          ${przyciskEksportu('#macDzien'+d.replace(/-/g,''),'dawki_'+d,'Dawki \u2014 stan na '+dataPL(d))}
+        </div>
+        ${macierzDawekHTML(dawkiZDnia(d), {id:'macDzien'+d.replace(/-/g,'')})}
+      </div>`:''}
+    </div>`;
+  }).join('') : '<div class="pusto">Brak zarejestrowanych zmian.</div>'}
+  </div>`;
+
+  el.querySelectorAll('[data-dzien]').forEach(b=>{
+    b.onclick=()=>{
+      const d=b.dataset.dzien;
+      zmianyRozwiniete.has(d)?zmianyRozwiniete.delete(d):zmianyRozwiniete.add(d);
+      renderRaporty(document.getElementById('widok'));
+    };
+  });
+}
+
+/* Dawki w stanie z końca danego dnia — wersja, snapshot albo stan bieżący */
+function dawkiZDnia(data){
+  const w = wersjeWgDaty().filter(x=>!x.zaplanowana && (x.odData||'')<=data);
+  if(w.length && w[w.length-1].dawki) return w[w.length-1].dawki;
+  const s = store.snapshoty['snap_'+data];
+  if(s?.dane) return s.dane;
+  return store.dawki;
+}
+
+/* ---------- Historia żywienia: macierz realnego składu z wybranego dnia ---------- */
+function rapHistoria(el){
+  if(!rapData) rapData = dzisiaj();
+  const poz = pozycjeDnia(rapLok, rapData);
+  const dokWcz = dokDnia(rapLok, dataMinus(rapData,1));
+  const nazwaLok = rapLok==='nadarzyn'?'Nadarzyn':'Boguszyn';
+  const sumSzt = poz.reduce((s,p)=>s+p.sztuk,0);
+  const sumKoszt = poz.reduce((s,p)=>s+p.koszt,0);
+  const ilePotw = poz.filter(p=>p.potw).length;
+
+  el.innerHTML = `
+  <div style="padding:12px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:end;border-bottom:1px solid var(--linia)">
+    <div class="pole-grupa" style="margin:0"><label>Dzień</label>
+      <input type="date" id="rhData" value="${rapData}" max="${dzisiaj()}"></div>
+    <button class="btn szary maly" id="rhPrev">‹ Poprzedni</button>
+    <button class="btn szary maly" id="rhNext">Następny ›</button>
+    <button class="btn szary maly" id="rhDzis">Dziś</button>
+    <span style="flex:1"></span>
+    <span class="podpis">${poz.length} grup · ${sumSzt} szt · ${ilePotw} potwierdzonych</span>
+  </div>
+  ${!poz.length ? `<div class="pusto">Brak zapisu żywienia za ${dataPL(rapData)} w lokalizacji ${nazwaLok}.</div>` : `
+  <div class="panel-tyt" style="border-bottom:1px solid var(--linia)">
+    Realny skład dawek — ${nazwaLok}, ${dataPL(rapData)}
+    <span class="licznik">kg surowca / sztukę / dobę</span>
+    <span style="flex:1"></span>
+    <span class="podpis">koszt dnia: ${fmt(sumKoszt,0)} zł</span>
+    ${przyciskEksportu('#macierzHist','sklad_'+rapLok+'_'+rapData,'Realny skład dawek — '+nazwaLok+' '+dataPL(rapData))}
+  </div>
+  ${macierzSurowcowa(poz, dokWcz, {id:'macierzHist'})}
+
+  <div class="panel-tyt" style="border-top:8px solid var(--tlo)">Podsumowanie grup<span style="flex:1"></span>
+    ${przyciskEksportu('#tabHistPodsum','podsumowanie_'+rapLok+'_'+rapData,'Podsumowanie grup — '+nazwaLok+' '+dataPL(rapData))}</div>
+  <div class="przewijak"><table class="gt-tabela" id="tabHistPodsum">
+    <thead><tr><th>Grupa</th><th class="num">Sztuk</th><th class="num">Wyliczona<br>kg/szt</th>
+    <th class="num">Odzysk<br>kg</th><th class="num">Świeży TMR<br>kg</th><th class="num">Podane<br>kg</th>
+    <th class="num">Podane<br>kg/szt</th><th class="num">% realiz.</th>
+    <th class="num">Niedojady<br>kg</th><th class="num">Pobranie<br>kg/szt</th><th class="num">Koszt zł</th></tr></thead>
+    <tbody>
+      ${poz.map(p=>{
+        const kol = Math.abs(p.proc-100)<=3?'var(--zielony-ok)':(Math.abs(p.proc-100)<=10?'var(--zolty)':'var(--czerwony)');
+        return `<tr>
+        <td><b>${esc(p.nazwa)}</b>${p.potw?'':' <span class="plakietka auto">plan</span>'}</td>
+        <td class="num">${p.sztuk}</td>
+        <td class="num">${fmt(p.wylicz,1)}</td>
+        <td class="num">${p.odzysk?'<span style="color:#7a5c00;font-weight:600">'+fmt(p.odzysk,0)+'</span>':'—'}</td>
+        <td class="num">${fmt(p.swiezy,0)}</td>
+        <td class="num">${fmt(p.zadaneKg,0)}</td>
+        <td class="num"><b>${fmt(p.perSzt,1)}</b></td>
+        <td class="num" style="color:${kol};font-weight:700">${fmt(p.proc,0)}%</td>
+        <td class="num">${p.z.niedojadyKg!=null?fmt(p.z.niedojadyKg,0):'—'}</td>
+        <td class="num"><b>${fmt(p.pobr,1)}</b></td>
+        <td class="num">${fmt(p.koszt,0)}</td>
+      </tr>`;}).join('')}
+      <tr class="suma"><td>SUMA</td><td class="num">${sumSzt}</td><td class="num"></td>
+        <td class="num">${fmt(poz.reduce((s,p)=>s+p.odzysk,0),0)}</td>
+        <td class="num">${fmt(poz.reduce((s,p)=>s+p.swiezy,0),0)}</td>
+        <td class="num">${fmt(poz.reduce((s,p)=>s+p.zadaneKg,0),0)}</td>
+        <td class="num"></td><td class="num"></td>
+        <td class="num">${fmt(poz.reduce((s,p)=>s+(p.z.niedojadyKg||0),0),0)}</td>
+        <td class="num"></td><td class="num">${fmt(sumKoszt,0)} zł</td></tr>
+    </tbody>
+  </table></div>`}`;
+
+  el.querySelector('#rhData').onchange=e=>{rapData=e.target.value;renderRaporty(document.getElementById('widok'));};
+  el.querySelector('#rhPrev').onclick=()=>{rapData=dataMinus(rapData,1);renderRaporty(document.getElementById('widok'));};
+  el.querySelector('#rhNext').onclick=()=>{
+    const n=dataPlus(rapData,1); if(n<=dzisiaj()){rapData=n;renderRaporty(document.getElementById('widok'));}
+    else toast('To już dziś.');
   };
+  el.querySelector('#rhDzis').onclick=()=>{rapData=dzisiaj();renderRaporty(document.getElementById('widok'));};
 }
 
 /* ---------- Zestawienie miesięczne ---------- */
@@ -2631,9 +3209,9 @@ function rapMiesiacWidok(el){
   el.innerHTML=`
   <div style="padding:12px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:end;border-bottom:1px solid var(--linia)">
     <div class="pole-grupa" style="margin:0"><label>Miesi\u0105c</label><input type="month" id="rmM" value="${rapMiesiac}"></div>
-    <span style="flex:1"></span><button class="btn szary maly" id="rmCsv">\u2193 CSV</button>
+    <span style="flex:1"></span>${lista.length?przyciskEksportu('#tabMiesiac','miesiac_'+rapLok+'_'+rapMiesiac,'Zestawienie miesi\u0119czne — '+rapMiesiac):''}
   </div>
-  ${lista.length?`<div class="przewijak"><table class="gt-tabela">
+  ${lista.length?`<div class="przewijak"><table class="gt-tabela" id="tabMiesiac">
     <thead><tr><th>Grupa</th><th class="num">Dni<br>(potwierdzone)</th><th class="num">\u015arednie pobranie<br>kg/szt/dob\u0119</th>
     <th class="num">\u015arednie<br>niedojady %</th><th class="num">Odzysk<br>kg \u0142\u0105cznie</th>
     <th class="num">Koszt<br>z\u0142/szt/dob\u0119</th><th class="num">Koszt \u0142\u0105cznie<br>z\u0142</th></tr></thead>
@@ -2654,15 +3232,6 @@ function rapMiesiacWidok(el){
   :'<div class="pusto">Brak danych za ten miesi\u0105c.</div>'}`;
 
   el.querySelector('#rmM').onchange=e=>{rapMiesiac=e.target.value;renderRaporty(document.getElementById('widok'));};
-  el.querySelector('#rmCsv').onclick=()=>{
-    const r=[['Grupa','Dni','Srednie pobranie kg/szt','Srednie niedojady %','Koszt zl/szt/dobe','Koszt lacznie zl']];
-    lista.forEach(a=>{
-      const srPobr=a.dni?a.sumPobrKgSzt/a.dni:0, srNied=a.sumZadane?(a.sumNiedoj/a.sumZadane)*100:0;
-      const srSzt=a.dni?a.sumSzt/a.dni:0, kosztSzt=(srSzt>0&&a.dni>0)?a.sumKoszt/(srSzt*a.dni):0;
-      r.push([a.nazwa,a.dni,fmt(srPobr,2),fmt(srNied,1),fmt(kosztSzt,2),fmt(a.sumKoszt,2)]);
-    });
-    csvPobierz('miesiac_'+rapLok+'_'+rapMiesiac, r);
-  };
 }
 
 /* ---------- Zużycie surowców ---------- */
@@ -2691,9 +3260,9 @@ function rapZuzycie(el){
   <div style="padding:12px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:end;border-bottom:1px solid var(--linia)">
     <div class="pole-grupa" style="margin:0"><label>Od</label><input type="date" id="rzOd" value="${rapOdDo.od}"></div>
     <div class="pole-grupa" style="margin:0"><label>Do</label><input type="date" id="rzDo" value="${rapOdDo.do}"></div>
-    <span style="flex:1"></span><button class="btn szary maly" id="rzCsv">\u2193 CSV</button>
+    <span style="flex:1"></span>${lista.length?przyciskEksportu('#tabZuzycie','zuzycie_'+rapLok,'Zu\u017cycie surowc\u00f3w '+dataPL(rapOdDo.od)+' — '+dataPL(rapOdDo.do)):''}
   </div>
-  ${lista.length?`<div class="przewijak"><table class="gt-tabela">
+  ${lista.length?`<div class="przewijak"><table class="gt-tabela" id="tabZuzycie">
     <thead><tr><th>Surowiec</th><th class="num">Zu\u017cycie kg</th><th class="num">Zu\u017cycie t</th><th class="num">Warto\u015b\u0107 z\u0142</th></tr></thead>
     <tbody>${lista.map(x=>`<tr><td>${esc(x.nazwa)}</td><td class="num">${fmt(x.kg,1)}</td>
       <td class="num">${fmt(x.kg/1000,3)}</td><td class="num">${fmt(x.zl,2)}</td></tr>`).join('')}
@@ -2704,11 +3273,6 @@ function rapZuzycie(el){
 
   el.querySelector('#rzOd').onchange=e=>{rapOdDo.od=e.target.value;renderRaporty(document.getElementById('widok'));};
   el.querySelector('#rzDo').onchange=e=>{rapOdDo.do=e.target.value;renderRaporty(document.getElementById('widok'));};
-  el.querySelector('#rzCsv').onclick=()=>{
-    const r=[['Surowiec','Zuzycie kg','Zuzycie t','Wartosc zl']];
-    lista.forEach(x=>r.push([x.nazwa,fmt(x.kg,2),fmt(x.kg/1000,3),fmt(x.zl,2)]));
-    csvPobierz('zuzycie_'+rapLok+'_'+rapOdDo.od+'_'+rapOdDo.do, r);
-  };
 }
 
 /* ---------- Produkcja mieszalni ---------- */
@@ -2721,9 +3285,9 @@ function rapProdukcja(el){
   <div style="padding:12px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:end;border-bottom:1px solid var(--linia)">
     <div class="pole-grupa" style="margin:0"><label>Od</label><input type="date" id="rpOd" value="${rapOdDo.od}"></div>
     <div class="pole-grupa" style="margin:0"><label>Do</label><input type="date" id="rpDo" value="${rapOdDo.do}"></div>
-    <span style="flex:1"></span><button class="btn szary maly" id="rpCsv">\u2193 CSV</button>
+    <span style="flex:1"></span>${p.length?przyciskEksportu('#tabProdukcja','produkcja','Produkcja mieszalni'):''}
   </div>
-  ${p.length?`<div class="przewijak"><table class="gt-tabela">
+  ${p.length?`<div class="przewijak"><table class="gt-tabela" id="tabProdukcja">
     <thead><tr><th>Data</th><th>Mieszanka</th><th class="num">kg</th><th class="num">Koszt z\u0142</th>
     <th class="num">z\u0142/kg</th><th>Lokalizacja</th><th>Kto</th></tr></thead>
     <tbody>${p.map(x=>{const m=store.mieszanki[x.mieszankaId];
@@ -2737,12 +3301,6 @@ function rapProdukcja(el){
   :'<div class="pusto">Brak produkcji w tym okresie.</div>'}`;
   el.querySelector('#rpOd').onchange=e=>{rapOdDo.od=e.target.value;renderRaporty(document.getElementById('widok'));};
   el.querySelector('#rpDo').onchange=e=>{rapOdDo.do=e.target.value;renderRaporty(document.getElementById('widok'));};
-  el.querySelector('#rpCsv').onclick=()=>{
-    const r=[['Data','Mieszanka','kg','Koszt zl','zl/kg','Lokalizacja','Kto']];
-    p.forEach(x=>{const m=store.mieszanki[x.mieszankaId];
-      r.push([dataPL(x.data),m?.nazwa||'',fmt(x.kg,1),fmt(x.koszt,2),fmt(x.kosztKg,4),x.lokalizacja||'',x.uzytkownik||'']);});
-    csvPobierz('produkcja_mieszalni', r);
-  };
 }
 
 /* ---------- Historia dawek (snapshoty) ---------- */
