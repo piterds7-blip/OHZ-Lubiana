@@ -702,9 +702,9 @@ async function zasiej(){
     });
   }
   if(!store.config.passwords){
-    const hasla={};
-    for(const [k,v] of Object.entries(HASLA_STARTOWE)) hasla[k]=sha256(v);
-    await DB.zapisz('config','passwords',{hasla, zmienione:dzisiaj()});
+    const hasla={}, jawne={};
+    for(const [k,v] of Object.entries(HASLA_STARTOWE)){ hasla[k]=sha256(v); jawne[k]=v; }
+    await DB.zapisz('config','passwords',{hasla, jawne, zmienione:dzisiaj()});
     console.info('Zasiano hasła startowe:', HASLA_STARTOWE);
   }
   // Dane przykładowe — tylko gdy baza jest pusta
@@ -3338,14 +3338,20 @@ function oknoUstawienia(){
       ${mozeHasla ? `
       <hr style="border:none;border-top:1px solid var(--linia);margin:18px 0">
       <div style="font-weight:600;margin-bottom:10px">Hasła ról</div>
-      <div class="podpis" style="margin-bottom:10px">Hasła są zapisywane jako skrót SHA-256 i wczytywane na ekranie startowym — zmiana działa od razu na wszystkich urządzeniach.</div>
+      <div class="podpis" style="margin-bottom:10px">Hasła widoczne poniżej to aktualnie obowiązujące. Zmiana działa od razu na wszystkich urządzeniach.
+      <br>Logowanie porównuje skrót SHA-256, ale hasło jest też zapisane jawnie w bazie, żeby dało się je tutaj odczytać —
+      kto ma dostęp do konsoli Firebase, ten je zobaczy.</div>
       ${Object.keys(ROLE).map(r=>{
         const dt = store.config.passwords?.zmienioneRole?.[r];
+        const akt = store.config.passwords?.jawne?.[r];
         return `
         <div class="pole-grupa">
           <label>${esc(ROLE[r].nazwa)}</label>
-          <input data-haslo="${r}" type="text" placeholder="nowe hasło (puste = bez zmiany)" autocomplete="off">
-          <div class="hint">${dt ? '✓ Hasło zmienione: <b>'+dataPL(dt)+'</b>' : 'Hasło startowe — nigdy nie zmieniane'}</div>
+          <input data-haslo="${r}" type="text" value="${esc(akt||'')}"
+                 placeholder="${akt?'':'hasło nieznane — wpisz nowe'}" autocomplete="off" spellcheck="false">
+          <div class="hint">${akt
+            ? (dt ? 'Zmienione '+dataPL(dt) : 'Hasło startowe')
+            : '<b style="color:var(--zolty)">Hasło ustawiono przed aktualizacją — nie da się go odczytać. Wpisz nowe, żeby było widoczne.</b>'}</div>
         </div>`;}).join('')}
       ` : ''}
       <div class="podpis">Wersja: ${esc(WERSJA_APP)} · Tryb: ${trybLokalny?'lokalny':'Firestore'}</div>`,
@@ -3358,20 +3364,26 @@ function oknoUstawienia(){
           nazwaGospodarstwa: n.querySelector('#uNazwa').value.trim() || 'OHZ Lubiana',
           kategorie: n.querySelector('#uKat').value.split('\n').map(x=>x.trim()).filter(Boolean)
         };
-        let noweHasla = null, noweDaty = null;
+        let noweHasla = null, noweDaty = null, noweJawne = null;
         if(mozeHasla){
           const hasla = {...(store.config.passwords?.hasla||{})};
+          const jawne = {...(store.config.passwords?.jawne||{})};
           const daty  = {...(store.config.passwords?.zmienioneRole||{})};
-          let zmiany=0;
+          let zmiany=0, puste=[];
           n.querySelectorAll('[data-haslo]').forEach(inp=>{
-            const v=inp.value.trim();
-            if(v){ hasla[inp.dataset.haslo]=sha256(v); daty[inp.dataset.haslo]=dzisiaj(); zmiany++; }
+            const r = inp.dataset.haslo;
+            const v = inp.value.trim();
+            if(!v){ if(jawne[r]) puste.push(ROLE[r].nazwa); return; }   // puste = zostaw stare
+            if(v === jawne[r]) return;                                  // bez zmiany
+            hasla[r]=sha256(v); jawne[r]=v; daty[r]=dzisiaj(); zmiany++;
           });
-          if(zmiany){ noweHasla = hasla; noweDaty = daty; }
+          if(puste.length){ toast('Puste pole nie kasuje hasła: '+puste.join(', ')); }
+          if(zmiany){ noweHasla=hasla; noweJawne=jawne; noweDaty=daty; }
         }
         // Teraz bezpiecznie zapisujemy — inputy już nie są potrzebne
         await DB.zapisz('config','settings',dane);
-        if(noweHasla) await DB.zapisz('config','passwords',{hasla:noweHasla, zmienioneRole:noweDaty, zmienione:dzisiaj()});
+        if(noweHasla) await DB.zapisz('config','passwords',
+          {hasla:noweHasla, jawne:noweJawne, zmienioneRole:noweDaty, zmienione:dzisiaj()});
         document.getElementById('hNazwa').textContent = dane.nazwaGospodarstwa;
         render();
         toast(noweHasla ? 'Zapisano ustawienia i hasła.' : 'Zapisano ustawienia.');
@@ -3513,8 +3525,8 @@ document.getElementById('btnInstaluj').onclick = async () => {
   nasluchuj(kol, ()=>{
     if(!rolaAkt) return;
     const akt = document.activeElement;
-    if(akt && akt.closest && akt.closest('#tabSurowce')){ renderOdlozony=true; return; }
-    if(akt && akt.closest && akt.closest('#macierzDawek')){ dRenderOdlozony=true; return; }
+    if(akt && akt.tagName==='INPUT' && akt.closest && akt.closest('#tabSurowce')){ renderOdlozony=true; return; }
+    if(akt && akt.tagName==='INPUT' && akt.closest && akt.closest('#macierzDawek')){ dRenderOdlozony=true; return; }
     render();
   });
 });
@@ -3523,7 +3535,7 @@ nasluchuj('config', ()=>{
   document.getElementById('hNazwa').textContent = store.config.settings?.nazwaGospodarstwa || 'OHZ Lubiana';
   // Kolejność wierszy macierzy siedzi w config/ukladDawki — bez tego strzałki nie odświeżały widoku
   const akt = document.activeElement;
-  if(akt && akt.closest && akt.closest('#macierzDawek')) return;
+  if(akt && akt.tagName==='INPUT' && akt.closest && akt.closest('#macierzDawek')) return;
   render();
 });
 document.addEventListener('focusout', e=>{
