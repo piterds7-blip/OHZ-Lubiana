@@ -1521,6 +1521,9 @@ function zapiszUkladWierszy(wiersze){
 }
 
 function renderDawki(w){
+  // Zapamiętaj scroll, żeby przy 20 kolumnach edycja nie cofała do początku
+  const staraMacierz = w.querySelector('#macierzDawek');
+  const scrollL = staraMacierz ? staraMacierz.scrollLeft : 0;
   const edycja = mozeEdytowac('dawki');
   const dawki = dawkiSorted();
   const wiersze = wierszeDawek();
@@ -1551,9 +1554,9 @@ function renderDawki(w){
     const rozw = dRozwiniete.has(sid);
     let komorki = dawki.map(d=>{
       const v = kgWDawce(d, sid);
-      if(!edycja) return `<td class="num">${v?fmt(v,1):'—'}</td>`;
+      if(!edycja) return `<td class="num">${v?fmt(v,2):'—'}</td>`;
       return `<td><input class="komorka ${v?'':'puste'}" data-d="${d.id}" data-s="${sid}"
-        value="${v?fmt(v,1):''}" placeholder="—" inputmode="decimal"></td>`;
+        value="${v?fmt(v,2):''}" placeholder="—" inputmode="decimal"></td>`;
     }).join('');
 
     let html = `<tr class="${rozw?'rozwiniety':''}">
@@ -1586,7 +1589,7 @@ function renderDawki(w){
   }).join('');
 
   // Wiersz sumy
-  let sumyKomorki = dawki.map(d=>`<td class="num">${fmt(sumaDawki(d),1)}</td>`).join('');
+  let sumyKomorki = dawki.map(d=>`<td class="num">${fmt(sumaDawki(d),2)}</td>`).join('');
   // Wiersz kosztu
   let kosztyKomorki = dawki.map(d=>`<td class="num">${fmt(kosztDawki(d),2)} zł</td>`).join('');
 
@@ -1640,7 +1643,7 @@ function renderDawki(w){
       inp.onfocus = ()=>{ const v=liczba(inp.value); inp.value = v||''; inp.classList.remove('puste'); };
       inp.onblur  = ()=>{
         const v=liczba(inp.value);
-        inp.value = v ? fmt(v,1) : '';
+        inp.value = v ? fmt(v,2) : '';
         inp.classList.toggle('puste', !v);
         zapiszKomorke(inp.dataset.d, inp.dataset.s, inp.value);
         setTimeout(()=>{ if(!document.activeElement?.closest?.('#macierzDawek')) odswiezSumy(); }, 80);
@@ -1679,6 +1682,9 @@ function renderDawki(w){
   w.querySelectorAll('[data-podglad]').forEach(b=>{
     b.onclick=()=>{ wersjaOd=b.dataset.podglad; wersjaPytano=true; render(); };
   });
+  // Przywróć pozycję scrolla
+  const nowaMacierz = w.querySelector('#macierzDawek');
+  if(nowaMacierz && scrollL) nowaMacierz.scrollLeft = scrollL;
   // Rozwiń skład mieszanki
   w.querySelectorAll('[data-rozmix]').forEach(b=>{
     b.onclick=()=>{ const id=b.dataset.rozmix; dRozwiniete.has(id)?dRozwiniete.delete(id):dRozwiniete.add(id); renderDawki(w); };
@@ -1766,7 +1772,10 @@ function oknoDawka(edId){
       </div>
       ${isEdit?`<div class="podpis">Zawiera ${ileSk} surowców z wartościami.${d?.suchyTMR?' Oznaczona jako suchy TMR.':''}</div>
       <hr style="border:none;border-top:1px solid var(--linia);margin:14px 0">
-      <button class="btn czerw maly" id="dnUsun">✕ Usuń tę grupę żywieniową</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn szary maly" id="dnEksport">\u2913 Eksport / druk tej dawki</button>
+        <button class="btn czerw maly" id="dnUsun">\u2715 Usu\u0144 t\u0119 grup\u0119 \u017cywieniow\u0105</button>
+      </div>
       <div class="podpis" style="margin-top:5px">Usunięcie kasuje całą kolumnę razem z wpisanymi wartościami.</div>`:''}`,
     przyciski:[
       {tekst:'Anuluj'},
@@ -1790,6 +1799,25 @@ function oknoDawka(edId){
   });
   const bu = document.getElementById('dnUsun');
   if(bu) bu.onclick = ()=>{ zamknijModal(); usunDawke(edId); };
+  const be = document.getElementById('dnEksport');
+  if(be) be.onclick = ()=>{
+    const daw = store.dawki[edId]; if(!daw) return;
+    const skl = (daw.skladniki||[]).filter(s=>s.kg>0).sort((a,b)=>b.kg-a.kg);
+    const suma = skl.reduce((s,x)=>s+x.kg,0);
+    const koszt = skl.reduce((s,x)=>{const sur=store.surowce[x.surowiecId]; return s+x.kg*((sur?.cenaTona||0)/1000);},0);
+    const tmp = document.createElement('div');
+    tmp.innerHTML = `<table><thead><tr><th>Surowiec</th><th>kg/szt/dob\u0119</th><th>Udzia\u0142 %</th><th>Koszt z\u0142/szt</th></tr></thead>
+      <tbody>${skl.map(x=>{
+        const sur=store.surowce[x.surowiecId];
+        const kz=x.kg*((sur?.cenaTona||0)/1000);
+        return `<tr><td>${esc(sur?.nazwa||'?')}</td><td>${fmt(x.kg,2)}</td><td>${fmt(suma>0?x.kg/suma*100:0,1)}%</td><td>${fmt(kz,4)}</td></tr>`;
+      }).join('')}
+      <tr style="font-weight:700"><td>RAZEM</td><td>${fmt(suma,2)}</td><td>100%</td><td>${fmt(koszt,2)}</td></tr>
+      </tbody></table>`;
+    document.body.appendChild(tmp);
+    eksportDruk(tmp, 'Dawka: '+daw.nazwa);
+    tmp.remove();
+  };
   document.getElementById('dnNazwa').focus();
 }
 
@@ -2139,14 +2167,14 @@ function renderLokalizacja(w, lok){
                   ${d.potw?'':'<span class="plakietka auto">wg planu</span>'}</td>
               <td class="num">${mozeWpis?`<input class="pole num" data-szt="${gr.id}" value="${d.sztuk}" style="width:56px" inputmode="numeric">`:d.sztuk}</td>
               <td>${esc(opis)}${bladU?` <span class="blad-udzial">\u26a0 ${d.sumaUdzialow}%</span>`:''}</td>
-              <td class="num">${fmt(d.wylicz,1)}</td>
+              <td class="num">${fmt(d.wylicz,2)}</td>
               <td class="num">${fmt(d.planKg,0)}</td>
               <td class="num">${mozeWpis
                   ? `<button class="btn-nied ${d.niedojadyDod?'ma':''}" data-nied="${gr.id}" title="Rozpisz sk\u0105d pochodz\u0105 niedojady">${d.niedojadyDod?fmt(d.niedojadyDod,0):'+'}</button>`
                   : (d.niedojadyDod?fmt(d.niedojadyDod,0):'\u2014')}</td>
               <td class="num">${mozeWpis?`<input class="pole num ${d.potw?'potw':''}" data-zad="${gr.id}" value="${d.potw?fmt(d.zadaneKg,0):''}" placeholder="${fmt(d.planKg,0)}" style="width:82px" inputmode="decimal">`:fmt(d.zadaneKg,0)}</td>
               <td class="num" style="color:var(--zielen);font-weight:600">${fmt(d.swiezyTmr,0)}</td>
-              <td class="num"><b>${fmt(d.perSzt,1)}</b></td>
+              <td class="num"><b>${fmt(d.perSzt,2)}</b></td>
               <td class="num" style="color:${kolProc(d.proc)};font-weight:700">${fmt(d.proc,0)}%</td>
               <td class="num">${fmt(d.kosztSzt*d.wsp,2)}</td>
               ${edycja?`<td class="akcje"><button class="ikonka" data-edgt="${gr.id}" title="Edytuj grup\u0119">\u270e</button></td>`:''}
@@ -2330,7 +2358,10 @@ function oknoEdGrupa(lok, edId){
       <div style="font-weight:600;margin-bottom:8px">Przypisane dawki</div>
       <div id="gnDawki">${renderDawkiEdycja()}</div>
       <button class="btn maly szary" id="gnDodDaw" style="margin-top:4px">+ Dawka</button>
-      <div class="podpis" style="margin-top:6px" id="gnSumaInfo">Suma udzia\u0142\u00f3w: ${dawkiGrupy.reduce((s,d)=>s+(d.udzial||0),0)}%</div>`,
+      <div class="podpis" style="margin-top:6px" id="gnSumaInfo">Suma udzia\u0142\u00f3w: ${dawkiGrupy.reduce((s,d)=>s+(d.udzial||0),0)}%</div>
+      ${isEdit?`<hr style="border:none;border-top:1px solid var(--linia);margin:14px 0">
+        <button class="btn czerw maly" id="gnUsun">\u2715 Usu\u0144 t\u0119 grup\u0119 technologiczn\u0105</button>
+        <div class="podpis" style="margin-top:5px">Usuni\u0119cie kasuje grup\u0119 razem z przypisanymi dawkami i histori\u0105 wpis\u00f3w.</div>`:''}`,
     przyciski:[
       {tekst:'Anuluj'},
       {tekst:isEdit?'Zapisz':'Dodaj', klasa:'', akcja:async(n)=>{
@@ -2388,6 +2419,12 @@ function oknoEdGrupa(lok, edId){
   }
   podepnijDawki();
   document.getElementById('gnDodDaw').onclick=()=>{dawkiGrupy.push({dawkaId:dawkiList[0]?.id||'',udzial:0});odswiez();};
+  const buU = document.getElementById('gnUsun');
+  if(buU) buU.onclick = ()=>{
+    zamknijModal();
+    potwierdz('Usun\u0105\u0107 grup\u0119?', `\u201e${esc(g?.nazwa)}\u201d \u2014 dane zostan\u0105 utracone.`,
+      ()=>{ DB.usun('grupyTech', edId); toast('Usuni\u0119to grup\u0119.'); }, 'Usu\u0144');
+  };
 }
 
 /* Rozdzielnik niedojadów: skąd fizycznie pochodzą kilogramy domieszane do tej grupy.
@@ -2646,7 +2683,13 @@ function renderMixProdukcja(el,mieszanki){
       <table><thead><tr><th>Sk\u0142adnik</th><th class="num">%</th><th class="num">kg</th><th class="num">W mieszalniku</th></tr></thead><tbody>${w}</tbody></table>
       <div style="margin-top:8px"><b>Koszt partii: ${fmt(koszt,2)} z\u0142</b> \u00b7 ${fmt(koszt/partiaKg,4)} z\u0142/kg</div>
       <button class="btn" id="mpZapisz" style="margin-top:10px">\ud83d\udcbe Zapisz parti\u0119 do historii</button>
+      <button class="btn szary maly" id="mpDruk" style="margin-top:10px;margin-left:8px">\u2913 Eksport / druk</button>
     </div>`;
+    document.getElementById('mpDruk').onclick=()=>{
+      const tab=document.querySelector('#mpKarta table');
+      if(!tab){ toast('Najpierw oblicz kart\u0119.',true); return; }
+      eksportDruk(document.getElementById('mpKarta'), 'Karta za\u0142adunku: '+m.nazwa+' \u2014 '+fmt(partiaKg,0)+' kg');
+    };
     document.getElementById('mpZapisz').onclick=async()=>{
       const kosztKg=koszt/partiaKg;
       await DB.zapisz('produkcja',null,{data:document.getElementById('mpData').value,mieszankaId:mixId,kg:partiaKg,koszt:Math.round(koszt*100)/100,kosztKg:Math.round(kosztKg*10000)/10000,lokalizacja:document.getElementById('mpLok').value,uzytkownik:ROLE[rolaAkt]?.nazwa||'?',ts:Date.now()});
