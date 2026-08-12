@@ -1697,7 +1697,7 @@ function odswiezSumy(){
   const sumTds = document.querySelectorAll('.suma-wiersz td:not(.lipka)');
   const kosTds = document.querySelectorAll('.koszt-wiersz td:not(.lipka)');
   dawki.forEach((d,i)=>{
-    if(sumTds[i]) sumTds[i].textContent = fmt(sumaDawki(d),1);
+    if(sumTds[i]) sumTds[i].textContent = fmt(sumaDawki(d),2);
     if(kosTds[i]) kosTds[i].textContent = fmt(kosztDawki(d),2)+' zł';
   });
 }
@@ -1869,6 +1869,11 @@ function eksportDruk(tab, tytul){
     <title>${esc(tytul)}</title>
     <style>
       @page{size:A4 portrait;margin:12mm}
+      @media print{
+        html,body{width:210mm;max-width:210mm}
+        table{font-size:9px}
+        .noprint{display:none}
+      }
       body{font-family:system-ui,Arial,sans-serif;font-size:10px;color:#111;margin:0;padding:8px}
       h1{font-size:15px;margin:0 0 2px}
       .meta{font-size:10px;color:#555;margin-bottom:10px}
@@ -2028,7 +2033,7 @@ function macierzSurowcowa(pozycje, dokWczoraj, opcje){
 
   const sumy = kolumny.map(p=>{
     const s = Object.values(sklady[p.gid]).reduce((a,b)=>a+b,0);
-    return `<td class="num">${fmt(s/(p.sztuk||1),1)}</td>`;
+    return `<td class="num">${fmt(s/(p.sztuk||1),2)}</td>`;
   }).join('');
   const sumyGrupa = kolumny.map(p=>{
     const s = Object.values(sklady[p.gid]).reduce((a,b)=>a+b,0);
@@ -2998,7 +3003,7 @@ function rysujDzienSzczegoly(el, dataISO){
       <thead><tr><th>Surowiec</th><th class="num">kg</th><th class="num">t</th></tr></thead>
       <tbody>${Object.entries(zuz).sort((a,b)=>b[1]-a[1]).map(([sid,kg])=>{
         const sur=store.surowce[sid];
-        return `<tr><td>${esc(sur?.nazwa||'?')}</td><td class="num">${fmt(kg,1)}</td><td class="num">${fmt(kg/1000,3)}</td></tr>`;
+        return `<tr><td>${esc(sur?.nazwa||'?')}</td><td class="num">${fmt(kg,2)}</td><td class="num">${fmt(kg/1000,3)}</td></tr>`;
       }).join('')}</tbody>
     </table></div>
 
@@ -3009,8 +3014,8 @@ function rysujDzienSzczegoly(el, dataISO){
         <tbody>${Object.values(snap.dane||{}).sort((a,b)=>(a.kolejnosc??99)-(b.kolejnosc??99)).map(dw=>{
           const suma=(dw.skladniki||[]).reduce((s,x)=>s+x.kg,0);
           const skl=(dw.skladniki||[]).filter(x=>x.kg>0).sort((a,b)=>b.kg-a.kg)
-            .map(x=>esc(store.surowce[x.surowiecId]?.nazwa||'?')+' '+fmt(x.kg,1)).join(' · ');
-          return `<tr><td><b>${esc(dw.nazwa)}</b></td><td class="num">${fmt(suma,1)}</td><td class="podpis">${skl||'—'}</td></tr>`;
+            .map(x=>esc(store.surowce[x.surowiecId]?.nazwa||'?')+' '+fmt(x.kg,2)).join(' · ');
+          return `<tr><td><b>${esc(dw.nazwa)}</b></td><td class="num">${fmt(suma,2)}</td><td class="podpis">${skl||'—'}</td></tr>`;
         }).join('')}</tbody>
       </table></div>`
     : '<div class="podpis" style="padding:12px 14px">Brak zapisanej wersji dawek z tego dnia — dawek wtedy nie zmieniano.</div>'}
@@ -3049,12 +3054,12 @@ function macierzDawekHTML(dawkiObj, opcje){
           ${dawki.map(d=>{
             const v=kg(d,sid);
             const pod = opcje.podswietl && opcje.podswietl[d.id+'|'+sid];
-            const tyt = pod ? `${pod.rola} \u00b7 ${dataPL(pod.data)} ${new Date(pod.ts).toTimeString().slice(0,5)} \u00b7 ${fmt(pod.stara,1)} \u2192 ${fmt(pod.nowa,1)} kg` : '';
-            return `<td class="num" ${tyt?`title="${esc(tyt)}"`:''} ${pod?'style="color:var(--czerwony);font-weight:700"':''}>${v?fmt(v,1):'\u2014'}</td>`;
+            const tyt = pod ? `${pod.rola} \u00b7 ${dataPL(pod.data)} ${new Date(pod.ts).toTimeString().slice(0,5)} \u00b7 ${fmt(pod.stara,2)} \u2192 ${fmt(pod.nowa,2)} kg` : '';
+            return `<td class="num" ${tyt?`title="${esc(tyt)}"`:''} ${pod?'style="color:var(--czerwony);font-weight:700"':''}>${v?fmt(v,2):'\u2014'}</td>`;
           }).join('')}</tr>`;
         }).join('')}
         <tr class="suma-wiersz"><td class="lipka">Ca\u0142o\u015b\u0107 kg/szt</td>
-          ${dawki.map(d=>`<td class="num">${fmt(suma(d),1)}</td>`).join('')}</tr>
+          ${dawki.map(d=>`<td class="num">${fmt(suma(d),2)}</td>`).join('')}</tr>
         <tr class="koszt-wiersz"><td class="lipka">Koszt z\u0142/szt/dob\u0119</td>
           ${dawki.map(d=>`<td class="num">${fmt(koszt(d),2)} z\u0142</td>`).join('')}</tr>
       </tbody>
@@ -3125,7 +3130,7 @@ function rapZmiany(el){
             <span class="podpis">${String(g.getHours()).padStart(2,'0')}:${String(g.getMinutes()).padStart(2,'0')}</span>
             <span class="plakietka">${esc(z.rola)}</span>
             <b>${esc(z.dawkaNazwa)}</b><span>${esc(z.surowiecNazwa)}</span>
-            <span style="color:${kol};font-weight:700">${fmt(z.stara,1)} ${kier} ${fmt(z.nowa,1)} kg</span>
+            <span style="color:${kol};font-weight:700">${fmt(z.stara,2)} ${kier} ${fmt(z.nowa,2)} kg</span>
             ${z.odData && z.odData!==z.data ? `<span class="plakietka auto">obowi\u0105zuje od ${dataPL(z.odData)}</span>`:''}
           </div>`;
         }).join('')}
@@ -3204,7 +3209,7 @@ function rapHistoria(el){
         <td class="num">${p.odzysk?'<span style="color:#7a5c00;font-weight:600">'+fmt(p.odzysk,0)+'</span>':'—'}</td>
         <td class="num">${fmt(p.swiezy,0)}</td>
         <td class="num">${fmt(p.zadaneKg,0)}</td>
-        <td class="num"><b>${fmt(p.perSzt,1)}</b></td>
+        <td class="num"><b>${fmt(p.perSzt,2)}</b></td>
         <td class="num" style="color:${kol};font-weight:700">${fmt(p.proc,0)}%</td>
         <td class="num">${p.z.niedojadyKg!=null?fmt(p.z.niedojadyKg,0):'—'}</td>
         <td class="num"><b>${fmt(p.pobr,1)}</b></td>
@@ -3307,7 +3312,7 @@ function rapZuzycie(el){
   </div>
   ${lista.length?`<div class="przewijak"><table class="gt-tabela" id="tabZuzycie">
     <thead><tr><th>Surowiec</th><th class="num">Zu\u017cycie kg</th><th class="num">Zu\u017cycie t</th><th class="num">Warto\u015b\u0107 z\u0142</th></tr></thead>
-    <tbody>${lista.map(x=>`<tr><td>${esc(x.nazwa)}</td><td class="num">${fmt(x.kg,1)}</td>
+    <tbody>${lista.map(x=>`<tr><td>${esc(x.nazwa)}</td><td class="num">${fmt(x.kg,2)}</td>
       <td class="num">${fmt(x.kg/1000,3)}</td><td class="num">${fmt(x.zl,2)}</td></tr>`).join('')}
     <tr class="suma"><td>SUMA</td><td class="num">${fmt(sumKg,0)}</td><td class="num">${fmt(sumKg/1000,2)}</td><td class="num">${fmt(sumZl,0)} z\u0142</td></tr>
     </tbody></table></div>
