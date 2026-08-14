@@ -273,6 +273,46 @@ input.pole.potw{background:#f0faf3;border-color:#b9dfc6}
 .dzien-nag:hover{background:var(--zielen-bardzo-jasna)}
 .dzien-nag.otwarty{background:var(--zielen-bardzo-jasna);font-weight:600}
 .dzien-tresc{background:#fafcfa;border-top:1px solid var(--linia);padding-bottom:8px}
+
+/* ---------- PASZOWÓZ ---------- */
+.pz-siatka{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;padding:14px}
+.pz-woz{border:2px solid var(--linia);border-radius:12px;background:#fff;overflow:hidden;transition:.15s}
+.pz-woz.stan-ok{border-color:#4ade80;box-shadow:0 2px 8px rgba(74,222,128,.15)}
+.pz-woz.stan-zle{border-color:#fbbf24;box-shadow:0 2px 8px rgba(251,191,36,.15)}
+.pz-woz.stan-brak{border-color:var(--linia);border-style:dashed}
+.pz-woz-nag{padding:10px 12px;background:linear-gradient(180deg,#f6faf7,#eef4f0);border-bottom:1px solid var(--linia);
+  display:flex;gap:8px;align-items:center}
+.pz-nazwa{flex:1;border:none;background:transparent;font-size:14.5px;font-weight:700;color:var(--zielen);padding:2px 4px}
+.pz-nazwa:focus{outline:none;background:#fff;border-radius:4px;box-shadow:0 0 0 2px var(--zielen-jasna)}
+.pz-stan{font-size:20px;line-height:1}
+.pz-stan.ok{color:#22c55e}
+.pz-stan.zle{color:#f59e0b}
+.pz-stan.brak{color:var(--linia)}
+.pz-woz-pola{padding:10px 14px;border-bottom:1px solid var(--linia)}
+.pz-woz-pola label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--tekst-slaby);margin-bottom:4px;font-weight:600}
+.pz-input{width:100%;padding:8px 10px;border:1.5px solid var(--linia);border-radius:7px;font-size:14px;background:#fff}
+.pz-input.num{font-variant-numeric:tabular-nums;text-align:right;font-weight:700;font-size:16px}
+.pz-input:focus{outline:none;border-color:var(--zielen);box-shadow:0 0 0 3px var(--zielen-bardzo-jasna)}
+.pz-hint{font-size:11px;color:var(--tekst-slaby);margin-top:4px}
+.pz-rozdziel{padding:10px 14px 12px;background:#fafcfa}
+.pz-rozdziel-nag{display:flex;gap:8px;align-items:center;font-size:12px;font-weight:600;
+  color:var(--tekst-slaby);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px}
+.pz-suma-r{font-family:tabular-nums;font-weight:700;font-size:13px;padding:2px 8px;border-radius:12px}
+.pz-suma-r.ok{background:#dcfce7;color:#166534}
+.pz-suma-r.zle{background:#fef3c7;color:#92400e}
+.pz-rz{display:flex;gap:6px;margin-bottom:5px;align-items:center}
+.pz-rz select{flex:1;padding:6px 8px;border:1px solid var(--linia);border-radius:6px;font-size:13px;background:#fff;min-width:0}
+.pz-rz input{width:80px;padding:6px 8px;border:1px solid var(--linia);border-radius:6px;font-size:13px;text-align:right;font-variant-numeric:tabular-nums}
+.pz-rz .ikonka.usun{color:var(--czerwony)}
+.pz-pusto{padding:14px 8px;text-align:center;color:var(--tekst-slaby);font-size:12.5px;font-style:italic}
+.pz-alert{margin-top:8px;padding:6px 10px;border-radius:6px;font-size:12.5px;font-weight:600}
+.pz-alert.brak{background:#fef3c7;color:#92400e}
+.pz-alert.nadmiar{background:#fecaca;color:#991b1b}
+.ikonka.dodaj{color:var(--zielen);font-weight:700;font-size:16px;padding:0 6px}
+@media(max-width:700px){
+  .pz-siatka{grid-template-columns:1fr;padding:8px}
+  .pz-input.num{font-size:15px}
+}
 .gt-det{background:#fff;border:1px solid var(--zielen-jasna);border-radius:var(--r);margin:8px 0;padding:12px 14px}
 .gt-det h4{margin:0 0 8px;font-size:13.5px;color:var(--zielen);font-weight:700}
 .gt-det table{width:100%;font-size:12.5px;margin-bottom:10px}
@@ -449,7 +489,7 @@ function sha256(txt){
 /* poziomy: 'pelny' | 'podglad' | 'wpis' (tylko kg zadane + niedojady) */
 const ROLE = {
   tworca:      {nazwa:'Twórca',                lokalizacje:['nadarzyn','boguszyn'], hasla:true,
-                zakl:{surowce:'pelny',dawki:'pelny',nadarzyn:'pelny',boguszyn:'pelny',mieszalnia:'pelny',raporty:'pelny'}},
+                zakl:{surowce:'pelny',dawki:'pelny',nadarzyn:'pelny',boguszyn:'pelny',mieszalnia:'pelny',raporty:'pelny',paszowozN:'pelny',paszowozB:'pelny'}},
   hodowca:     {nazwa:'Główny hodowca',        lokalizacje:['nadarzyn','boguszyn'], hasla:false,
                 zakl:{surowce:'pelny',dawki:'pelny',nadarzyn:'pelny',boguszyn:'pelny',mieszalnia:'pelny',raporty:'pelny'}},
   zootechnikN: {nazwa:'Zootechnik Nadarzyn',   lokalizacje:['nadarzyn'], hasla:false,
@@ -477,6 +517,8 @@ const ZAKLADKI = [
   {id:'dawki',      etykieta:'Dawki'},
   {id:'nadarzyn',   etykieta:'Nadarzyn'},
   {id:'boguszyn',   etykieta:'Boguszyn'},
+  {id:'paszowozN',  etykieta:'🚛 Paszowóz N'},
+  {id:'paszowozB',  etykieta:'🚛 Paszowóz B'},
   {id:'mieszalnia', etykieta:'Mieszalnia'},
   {id:'raporty',    etykieta:'Raporty'}
 ];
@@ -485,8 +527,8 @@ const KATEGORIE_START = ['Pasze objętościowe','Zboża','Śruty i białkowe','P
 
 /* ===================== WARSTWA DANYCH ===================================== */
 /* Jedno API dla dwóch trybów: Firestore (źródło prawdy) albo localStorage (tryb lokalny). */
-const KOLEKCJE = ['config','surowce','dawki','mieszanki','produkcja','snapshoty','grupyTech','zywienie','zmianyDawek','wersjeDawek'];
-const store = {config:{},surowce:{},dawki:{},mieszanki:{},produkcja:{},snapshoty:{},grupyTech:{},zywienie:{},zmianyDawek:{},wersjeDawek:{}};
+const KOLEKCJE = ['config','surowce','dawki','mieszanki','produkcja','snapshoty','grupyTech','zywienie','zmianyDawek','wersjeDawek','paszowozy'];
+const store = {config:{},surowce:{},dawki:{},mieszanki:{},produkcja:{},snapshoty:{},grupyTech:{},zywienie:{},zmianyDawek:{},wersjeDawek:{},paszowozy:{}};
 const sluchacze = {};
 const pierwszySnapshot = {}; // kol -> true po pierwszym snapshocie z Firestore
 let FS = null;               // {db, funkcje...}
@@ -1022,6 +1064,8 @@ function render(){
   if(zakladkaAkt==='dawki'){ renderDawki(w); return; }
   if(zakladkaAkt==='nadarzyn'){ renderLokalizacja(w,'nadarzyn'); return; }
   if(zakladkaAkt==='boguszyn'){ renderLokalizacja(w,'boguszyn'); return; }
+  if(zakladkaAkt==='paszowozN'){ renderPaszowoz(w,'nadarzyn'); return; }
+  if(zakladkaAkt==='paszowozB'){ renderPaszowoz(w,'boguszyn'); return; }
   if(zakladkaAkt==='mieszalnia'){ renderMieszalnia(w); return; }
   if(zakladkaAkt==='raporty'){ renderRaporty(w); return; }
   w.innerHTML = `<div class="panel">
@@ -1542,6 +1586,7 @@ function renderDawki(w){
     <th>
       <span class="nazwa-kol" title="${esc(d.nazwa)}">${esc(d.nazwa)}</span>
       ${d.suchyTMR?'<span style="font-size:9px;opacity:.7;display:block">(suchy TMR)</span>':''}
+      ${(()=>{const lok=d.lokalizacja||'W';return `<span class="flaga-lok ${lok==='N'?'akt':''}" data-flaga="${d.id}" data-lok="N" title="Nadarzyn">N</span><span class="flaga-lok ${lok==='B'?'akt':''}" data-flaga="${d.id}" data-lok="B" title="Boguszyn">B</span><span class="flaga-lok ${lok==='W'?'akt':''}" data-flaga="${d.id}" data-lok="W" title="Wsp\u00f3lna">W</span>`;})()}
       ${edycja?`<div class="kol-akcje">
         <button title="Edytuj grupę żywieniową" data-edkol="${d.id}">✎</button>
       </div>`:''}
@@ -1667,6 +1712,27 @@ function renderDawki(w){
     w.querySelectorAll('[data-usunwiersz]').forEach(b=> b.onclick=()=>usunWiersz(b.dataset.usunwiersz));
     // Edytuj/usuń kolumnę
     w.querySelectorAll('[data-edkol]').forEach(b=> b.onclick=()=>oknoDawka(b.dataset.edkol));
+    w.querySelectorAll('[data-flaga]').forEach(el=>{
+      el.onclick=(e)=>{
+        e.stopPropagation();
+        const dId=el.dataset.flaga, lok=el.dataset.lok;
+        // Klikni\u0119cie w aktualn\u0105 flag\u0119 = odzwolnienie (wraca na "W")
+        const stara=store.dawki[dId]?.lokalizacja||'W';
+        const nowa=(stara===lok?'W':lok);
+        zOdKiedy(async(odData)=>{
+          const przyszla=odData>dzisiaj();
+          if(przyszla){
+            await zapiszDoZaplanowanej(odData,(baza)=>{
+              if(baza.dawki[dId]) baza.dawki[dId]={...baza.dawki[dId], lokalizacja:nowa};
+            });
+          }else{
+            await DB.zapisz('dawki',dId,{lokalizacja:nowa});
+            await zapiszWersje(odData);
+          }
+          toast('Przypisanie: '+({N:'Nadarzyn',B:'Boguszyn',W:'Wsp\u00f3lna'}[nowa]));
+        });
+      };
+    });
     // + Surowiec
     const btnDW = w.querySelector('#btnDodWiersz');
     if(btnDW) btnDW.onclick = oknoDodajWiersz;
@@ -2569,6 +2635,370 @@ function oknoNiedojady(lok, data, grupaId){
     zrodla.push({grupaId:pierwsza, kg: Math.max(0, Math.round(max))});
     odsw();
   };
+}
+
+/* ===================== ZAKŁADKA: PASZOWÓZ =================================
+   Model: jeden dokument na dzień × lokalizację. Każdy wóz to receptura +
+   waga faktyczna + rozdzielenie na sektory. Realny skład sektora liczy się
+   automatycznie z proporcji wozów, które do niego zjechały.
+   ========================================================================= */
+let pzData = {};   // wybrana data per lokalizacja
+let pzRozwiniete = new Set();
+
+function idPz(lok,data){ return lok+'_'+data; }
+function pzDok(lok,data){ return store.paszowozy[idPz(lok,data)] || null; }
+
+/* Dawki dostępne dla lokalizacji: W (wspólne) + N (Nadarzyn) lub W + B (Boguszyn) */
+function dawkiDlaLok(lok){
+  const flaga = lok==='nadarzyn' ? 'N' : 'B';
+  return dawkiSorted().filter(d=>{
+    const l = d.lokalizacja || 'W';
+    return l==='W' || l===flaga;
+  });
+}
+
+/* Nowy wóz — inicjuje puste rozdzielenie */
+function nowyWoz(nr){
+  return {id:'w'+Date.now()+'_'+Math.random().toString(36).slice(2,5),
+          nazwa:'Wóz '+nr, dawkaId:'', wagaFaktyczna:0, rozdzielenie:[]};
+}
+
+async function zapiszPaszowoz(lok, data, wozy){
+  await DB.zapisz('paszowozy', idPz(lok,data), {lokalizacja:lok, data, wozy,
+    autor:ROLE[rolaAkt]?.nazwa||'?', ts:Date.now()});
+  await synchronizujZywienieZPaszowozu(lok, data, wozy);
+}
+
+/* Po zmianie wozów przelicza zywienie sektorów — bo raporty czytają stamtąd */
+async function synchronizujZywienieZPaszowozu(lok, data, wozy){
+  const grupy = grupyLok(lok);
+  const perGrupa = {};   // gid -> {kg, wklad:[{dawkaId,kg,skladniki,udzialy,koszt}]}
+  wozy.forEach(w=>{
+    const daw = store.dawki[w.dawkaId]; if(!daw) return;
+    const receptura = daw.skladniki||[];
+    const sumaR = receptura.reduce((s,x)=>s+x.kg,0);
+    const kosztKgReceptury = sumaR>0
+      ? receptura.reduce((s,x)=>{const sur=store.surowce[x.surowiecId]; return s+x.kg*((sur?.cenaTona||0)/1000);},0) / sumaR
+      : 0;
+    (w.rozdzielenie||[]).forEach(rz=>{
+      if(!rz.grupaId || !(rz.kg>0)) return;
+      const a = perGrupa[rz.grupaId] || (perGrupa[rz.grupaId]={kg:0, wklad:[]});
+      a.kg += rz.kg;
+      // wkład proporcjonalny — kilogram wozu wnosi swój udział masowy każdego surowca
+      const skl = sumaR>0 ? receptura.map(x=>({surowiecId:x.surowiecId, kg: rz.kg*(x.kg/sumaR)})) : [];
+      a.wklad.push({dawkaId:w.dawkaId, dawkaNazwa:daw.nazwa, kg:rz.kg, skladniki:skl, kosztKgReceptury});
+    });
+  });
+  // zapisujemy do dokumentu dnia — pole "zPaszowozu" mówi że dane pochodzą stąd
+  const id = idDnia(lok,data);
+  const stary = store.zywienie[id] || {lokalizacja:lok, data, grupy:{}};
+  const grupyNowe = {...(stary.grupy||{})};
+  for(const gr of grupy){
+    const a = perGrupa[gr.id];
+    if(a){
+      // scal składniki po surowcach
+      const sum = {};
+      a.wklad.forEach(w=>w.skladniki.forEach(s=>{ sum[s.surowiecId]=(sum[s.surowiecId]||0)+s.kg; }));
+      const skladniki = Object.entries(sum).map(([surowiecId,kg])=>({surowiecId, kg: kg/(gr.sztuk||1)}));
+      // koszt średnioważony (kg × koszt receptury) / suma kg
+      const kosztKgTMR = a.kg>0 ? a.wklad.reduce((s,w)=>s+w.kg*w.kosztKgReceptury,0)/a.kg : 0;
+      grupyNowe[gr.id] = {
+        ...(grupyNowe[gr.id]||{}),
+        sztuk: gr.sztuk, zadaneKg: a.kg,
+        skladniki, kosztKgTMR,
+        dawkaWyliczonaKgSzt: gr.sztuk>0 ? a.kg/gr.sztuk : 0,
+        nazwaGrupy: gr.nazwa,
+        zPaszowozu: true,
+        wklady: a.wklad.map(w=>({dawkaNazwa:w.dawkaNazwa, kg:w.kg})),
+        autor: ROLE[rolaAkt]?.nazwa||'?', ts:Date.now()
+      };
+    }else if(grupyNowe[gr.id]?.zPaszowozu){
+      // sektor był z paszowozu, ale teraz nie ma — kasujemy zadane
+      const {zadaneKg, wklady, zPaszowozu, ...reszta} = grupyNowe[gr.id];
+      grupyNowe[gr.id] = reszta;
+    }
+  }
+  await DB.zapisz('zywienie', id, {lokalizacja:lok, data, grupy:grupyNowe});
+}
+
+function renderPaszowoz(w, lok){
+  const pozR = ROLE[rolaAkt]?.zakl?.[lok==='nadarzyn'?'paszowozN':'paszowozB'];
+  if(!pozR){
+    w.innerHTML = `<div class="panel"><div class="panel-tyt">Brak dostępu</div>
+      <div class="pusto">Ta zakładka nie jest dostępna dla Twojej roli.</div></div>`;
+    return;
+  }
+  if(pozR==='wprzygotowaniu'){
+    w.innerHTML = `<div class="panel">
+      <div class="panel-tyt">🚛 Paszowóz — ${lok==='nadarzyn'?'Nadarzyn':'Boguszyn'}</div>
+      <div class="pusto" style="padding:60px 24px;text-align:center">
+        <div style="font-size:48px;margin-bottom:18px">🚧</div>
+        <div style="font-size:17px;font-weight:600;color:var(--tekst);margin-bottom:8px">Funkcja w przygotowaniu</div>
+        <div style="font-size:14px;color:var(--tekst-slaby);max-width:520px;margin:0 auto;line-height:1.55">
+          Panel zarządzania paszowozem jest testowany.
+          Po zakończeniu prac otrzymasz dostęp od głównego zootechnika.
+        </div>
+      </div>
+    </div>`;
+    return;
+  }
+
+  const edycja = pozR==='pelny';
+  const nazwaLok = lok==='nadarzyn'?'Nadarzyn':'Boguszyn';
+  if(!pzData[lok]) pzData[lok] = dzisiaj();
+  const data = pzData[lok];
+  const dok = pzDok(lok,data);
+  let wozy = dok?.wozy ? [...dok.wozy] : [];
+  const dawki = dawkiDlaLok(lok);
+  const grupy = grupyLok(lok);
+
+  // sumy per sektor — do tabeli zbiorczej i sygnalizacji
+  const sektorKg = {};
+  const sektorWklady = {};
+  wozy.forEach(w=>(w.rozdzielenie||[]).forEach(rz=>{
+    if(!rz.grupaId || !(rz.kg>0)) return;
+    sektorKg[rz.grupaId] = (sektorKg[rz.grupaId]||0)+rz.kg;
+    (sektorWklady[rz.grupaId]=sektorWklady[rz.grupaId]||[]).push({wozId:w.id, dawka:w.dawkaId, kg:rz.kg});
+  }));
+  const iloscWozow = wozy.length;
+  const sumaWagi = wozy.reduce((s,w)=>s+(w.wagaFaktyczna||0),0);
+  const sumaZadana = Object.values(sektorKg).reduce((s,x)=>s+x,0);
+
+  w.innerHTML = `
+  <div class="panel">
+    <div class="panel-tyt">
+      🚛 Paszowóz — ${esc(nazwaLok)}
+      <span class="licznik">${iloscWozow} ${iloscWozow===1?'wóz':iloscWozow<5?'wozy':'wozów'} · ${fmt(sumaWagi,0)} kg</span>
+      <span style="flex:1"></span>
+      <div class="pole-grupa" style="margin:0">
+        <input type="date" id="pzData" value="${data}" max="${dzisiaj()}" style="padding:7px 10px">
+      </div>
+      ${przyciskEksportu('#pzZawartosc','paszowoz_'+lok+'_'+data,'Paszowóz '+nazwaLok+' — '+dataPL(data))}
+      ${edycja?'<button class="btn maly szary" id="pzDuplikuj" title="Skopiuj wozy z poprzedniego dnia">⎘ Duplikuj z wczoraj</button>':''}
+      ${edycja?'<button class="btn maly" id="pzDodaj">+ Wóz</button>':''}
+    </div>
+    <div class="pasek">
+      <button class="btn szary maly" id="pzPrev">‹ Poprzedni dzień</button>
+      <button class="btn szary maly" id="pzDzis">Dziś</button>
+      <span style="flex:1"></span>
+      ${dok ? '<span class="podpis">Zapisano: '+esc(dok.autor||'')+' · '+new Date(dok.ts).toTimeString().slice(0,5)+'</span>' : '<span class="podpis">Brak zapisu — nowy dzień</span>'}
+    </div>
+
+    <div id="pzZawartosc">
+    ${wozy.length ? `
+    <div class="pz-siatka">
+      ${wozy.map((woz,i)=>{
+        const daw = store.dawki[woz.dawkaId];
+        const sumaRozdz = (woz.rozdzielenie||[]).reduce((s,r)=>s+(r.kg||0),0);
+        const roznica = (woz.wagaFaktyczna||0) - sumaRozdz;
+        const stan = !woz.dawkaId ? 'brak' : !woz.wagaFaktyczna ? 'brak' :
+                     !woz.rozdzielenie?.length ? 'zle' :
+                     Math.abs(roznica)<0.5 ? 'ok' : 'zle';
+        return `
+        <div class="pz-woz stan-${stan}" data-woz="${woz.id}">
+          <div class="pz-woz-nag">
+            <input class="pz-nazwa" data-woz-nazwa="${woz.id}" value="${esc(woz.nazwa)}" ${edycja?'':'readonly'}>
+            <span class="pz-stan ${stan}" title="${stan==='ok'?'Wóz zbilansowany':stan==='zle'?'Niezgodność wagi i rozdzielenia':'Uzupełnij dane'}">${stan==='ok'?'●':stan==='zle'?'●':'○'}</span>
+            ${edycja?`<button class="ikonka usun" data-woz-usun="${woz.id}" title="Usuń wóz">✕</button>`:''}
+          </div>
+          <div class="pz-woz-pola">
+            <label>Receptura z Dawek</label>
+            <select class="pz-input" data-woz-dawka="${woz.id}" ${edycja?'':'disabled'}>
+              <option value="">— wybierz —</option>
+              ${dawki.map(d=>`<option value="${d.id}" ${d.id===woz.dawkaId?'selected':''}>${esc(d.nazwa)}${d.lokalizacja==='W'?' (W)':''}</option>`).join('')}
+            </select>
+            ${daw ? `<div class="pz-hint">plan: ${fmt(daw.skladniki?.reduce((s,x)=>s+x.kg,0)||0,2)} kg/szt</div>`:''}
+
+            <label style="margin-top:10px">Waga faktyczna (kg z wagi wozu)</label>
+            <input class="pz-input num" data-woz-waga="${woz.id}" type="number" step="1" min="0" value="${woz.wagaFaktyczna||''}" placeholder="0" ${edycja?'':'readonly'}>
+          </div>
+
+          <div class="pz-rozdziel">
+            <div class="pz-rozdziel-nag">Rozdzielenie na sektory
+              ${edycja?`<button class="ikonka dodaj" data-woz-dodaj="${woz.id}" title="Dodaj sektor">+</button>`:''}
+              <span style="flex:1"></span>
+              <span class="pz-suma-r ${Math.abs(roznica)<0.5?'ok':'zle'}">${fmt(sumaRozdz,0)} kg</span>
+            </div>
+            ${(woz.rozdzielenie||[]).length ? (woz.rozdzielenie||[]).map((rz,ri)=>`
+              <div class="pz-rz">
+                <select data-rz-grupa="${woz.id}|${ri}" ${edycja?'':'disabled'}>
+                  <option value="">— sektor —</option>
+                  ${grupy.map(g=>`<option value="${g.id}" ${g.id===rz.grupaId?'selected':''}>${esc(g.nazwa)} (${g.sztuk||0})</option>`).join('')}
+                </select>
+                <input type="number" step="1" min="0" data-rz-kg="${woz.id}|${ri}" value="${rz.kg||''}" placeholder="kg" ${edycja?'':'readonly'}>
+                ${edycja?`<button class="ikonka usun" data-rz-usun="${woz.id}|${ri}" title="Usuń">✕</button>`:''}
+              </div>`).join('') : '<div class="pz-pusto">Kliknij + żeby dodać sektor</div>'}
+            ${Math.abs(roznica)>=0.5 && woz.wagaFaktyczna ? `
+              <div class="pz-alert ${roznica>0?'brak':'nadmiar'}">${roznica>0?'⚠ Brakuje '+fmt(roznica,0)+' kg do rozdzielenia':'⚠ Rozdzielono o '+fmt(-roznica,0)+' kg za dużo'}</div>` : ''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <div class="panel-tyt" style="margin-top:24px;border-top:1px solid var(--linia)">
+      Zbiorczo per sektor <span class="licznik">${Object.keys(sektorKg).length} obsłużonych · razem ${fmt(sumaZadana,0)} kg</span>
+    </div>
+    <div class="przewijak"><table class="gt-tabela" id="pzZbiorczo">
+      <thead><tr>
+        <th>Sektor</th><th class="num">Sztuk</th>
+        <th class="num">Z ilu wozów</th><th class="num">Razem kg</th>
+        <th class="num">Per sztukę kg</th><th>Z wozów</th>
+      </tr></thead>
+      <tbody>
+        ${grupy.map(gr=>{
+          const kg = sektorKg[gr.id]||0;
+          if(!kg && !edycja) return '';
+          const wkl = sektorWklady[gr.id]||[];
+          const opis = wkl.map(w=>{
+            const wz = wozy.find(x=>x.id===w.wozId);
+            return `${esc(wz?.nazwa||'?')}: ${fmt(w.kg,0)} kg`;
+          }).join(' · ');
+          return `<tr class="${!kg?'wgplanu':''}">
+            <td><b>${esc(gr.nazwa)}</b></td>
+            <td class="num">${gr.sztuk||0}</td>
+            <td class="num">${wkl.length||'—'}</td>
+            <td class="num"><b>${kg?fmt(kg,0):'—'}</b></td>
+            <td class="num"><b>${kg&&gr.sztuk>0?fmt(kg/gr.sztuk,2):'—'}</b></td>
+            <td class="podpis">${opis||'—'}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table></div>
+
+    <div class="panel-tyt" style="margin-top:24px;border-top:1px solid var(--linia)">
+      Realny skład dawek per sektor <span class="licznik">kg surowca / sztukę / dobę</span>
+    </div>
+    ${(()=>{
+      const dokWczoraj = dokDnia(lok, dataMinus(data,1));
+      const pozycje = grupy.map(gr=>{
+        const kg = sektorKg[gr.id]||0;
+        const skl = {};
+        (sektorWklady[gr.id]||[]).forEach(w=>{
+          const daw = store.dawki[w.dawka]; if(!daw) return;
+          const sumaR = (daw.skladniki||[]).reduce((s,x)=>s+x.kg,0);
+          if(sumaR<=0) return;
+          daw.skladniki.forEach(x=>{ skl[x.surowiecId] = (skl[x.surowiecId]||0) + w.kg*(x.kg/sumaR); });
+        });
+        return {gid:gr.id, gr, sztuk:gr.sztuk||0, kg, skl};
+      }).filter(p=>p.kg>0);
+      if(!pozycje.length) return '<div class="pusto">Brak wozów przypisanych do sektorów.</div>';
+      return macierzZWozow(pozycje, {id:'pzRealny'});
+    })()}
+    ` : `<div class="pusto" style="padding:40px 20px;text-align:center">
+      <div style="font-size:44px;margin-bottom:14px">🚛</div>
+      <div style="font-size:15px;font-weight:600;color:var(--tekst);margin-bottom:6px">Brak wozów na ten dzień</div>
+      <div class="podpis" style="max-width:440px;margin:0 auto">Kliknij <b>+ Wóz</b> żeby dodać pierwszy, albo <b>⎘ Duplikuj z wczoraj</b> jeśli układ jest podobny.</div>
+    </div>`}
+    </div>
+  </div>`;
+
+  // ===== PODPIĘCIA =====
+  w.querySelector('#pzData').onchange = e=>{ pzData[lok]=e.target.value; renderPaszowoz(w,lok); };
+  w.querySelector('#pzPrev').onclick = ()=>{ pzData[lok]=dataMinus(data,1); renderPaszowoz(w,lok); };
+  w.querySelector('#pzDzis').onclick = ()=>{ pzData[lok]=dzisiaj(); renderPaszowoz(w,lok); };
+
+  if(!edycja) return;
+
+  w.querySelector('#pzDodaj').onclick = async ()=>{
+    wozy.push(nowyWoz(wozy.length+1));
+    await zapiszPaszowoz(lok, data, wozy);
+  };
+  w.querySelector('#pzDuplikuj').onclick = async ()=>{
+    if(wozy.length){ if(!confirm('Zastąpić bieżące wozy tymi z poprzedniego dnia?')) return; }
+    const wczoraj = dataMinus(data,1);
+    const src = pzDok(lok, wczoraj);
+    if(!src?.wozy?.length){ toast('Brak wozów za '+dataPL(wczoraj), true); return; }
+    const kopia = src.wozy.map((w,i)=>({...w, id:'w'+Date.now()+'_'+i}));
+    await zapiszPaszowoz(lok, data, kopia);
+    toast(`Skopiowano ${kopia.length} wozów z ${dataPL(wczoraj)}.`);
+  };
+
+  w.querySelectorAll('[data-woz-nazwa]').forEach(i=>{
+    i.onchange = async ()=>{
+      const woz = wozy.find(x=>x.id===i.dataset.wozNazwa); if(woz){ woz.nazwa=i.value.trim()||woz.nazwa; await zapiszPaszowoz(lok,data,wozy); }
+    };
+  });
+  w.querySelectorAll('[data-woz-dawka]').forEach(s=>{
+    s.onchange = async ()=>{
+      const woz = wozy.find(x=>x.id===s.dataset.wozDawka); if(woz){ woz.dawkaId=s.value; await zapiszPaszowoz(lok,data,wozy); }
+    };
+  });
+  w.querySelectorAll('[data-woz-waga]').forEach(i=>{
+    i.onchange = async ()=>{
+      const woz = wozy.find(x=>x.id===i.dataset.wozWaga); if(woz){ woz.wagaFaktyczna=Math.max(0,liczba(i.value)); await zapiszPaszowoz(lok,data,wozy); }
+    };
+  });
+  w.querySelectorAll('[data-woz-usun]').forEach(b=>{
+    b.onclick = async ()=>{
+      if(!confirm('Usunąć ten wóz?')) return;
+      wozy = wozy.filter(x=>x.id!==b.dataset.wozUsun);
+      await zapiszPaszowoz(lok,data,wozy);
+    };
+  });
+  w.querySelectorAll('[data-woz-dodaj]').forEach(b=>{
+    b.onclick = async ()=>{
+      const woz = wozy.find(x=>x.id===b.dataset.wozDodaj); if(!woz) return;
+      woz.rozdzielenie = woz.rozdzielenie||[];
+      // domyślnie dopełnij brakującą wagą do pierwszego sektora bez wpisu
+      const sumaRozdz = woz.rozdzielenie.reduce((s,r)=>s+(r.kg||0),0);
+      const brakuje = Math.max(0, (woz.wagaFaktyczna||0) - sumaRozdz);
+      woz.rozdzielenie.push({grupaId:'', kg: brakuje>0 ? Math.round(brakuje) : 0});
+      await zapiszPaszowoz(lok,data,wozy);
+    };
+  });
+  w.querySelectorAll('[data-rz-grupa]').forEach(s=>{
+    s.onchange = async ()=>{
+      const [wid,i] = s.dataset.rzGrupa.split('|');
+      const woz = wozy.find(x=>x.id===wid); if(woz){ woz.rozdzielenie[+i].grupaId=s.value; await zapiszPaszowoz(lok,data,wozy); }
+    };
+  });
+  w.querySelectorAll('[data-rz-kg]').forEach(i=>{
+    i.onchange = async ()=>{
+      const [wid,idx] = i.dataset.rzKg.split('|');
+      const woz = wozy.find(x=>x.id===wid); if(woz){ woz.rozdzielenie[+idx].kg=Math.max(0,liczba(i.value)); await zapiszPaszowoz(lok,data,wozy); }
+    };
+  });
+  w.querySelectorAll('[data-rz-usun]').forEach(b=>{
+    b.onclick = async ()=>{
+      const [wid,idx] = b.dataset.rzUsun.split('|');
+      const woz = wozy.find(x=>x.id===wid); if(woz){ woz.rozdzielenie.splice(+idx,1); await zapiszPaszowoz(lok,data,wozy); }
+    };
+  });
+}
+
+/* Macierz surowce × sektory dla widoku Paszowóz — na podstawie realnych wozów */
+function macierzZWozow(pozycje, opcje){
+  opcje = opcje||{};
+  const uzyte = new Set();
+  pozycje.forEach(p=>Object.entries(p.skl).forEach(([sid,kg])=>{ if(kg>0.001) uzyte.add(sid); }));
+  const uklad = wierszeDawek();
+  const wiersze = [...uklad.filter(id=>uzyte.has(id)), ...[...uzyte].filter(id=>!uklad.includes(id))];
+  const naglowki = pozycje.map(p=>{
+    const perSzt = p.sztuk>0 ? p.kg/p.sztuk : 0;
+    return `<th><span class="nazwa-kol" title="${esc(p.gr.nazwa)}">${esc(p.gr.nazwa)}</span>
+      <span style="font-size:9.5px;opacity:.85;display:block;font-weight:400">${p.sztuk} szt · ${fmt(perSzt,1)} kg/szt</span></th>`;
+  }).join('');
+  const body = wiersze.map(sid=>{
+    const sur = store.surowce[sid];
+    return `<tr>
+      <td class="lipka"><span class="nazwaS" title="${esc(sur?.nazwa||'?')}">${esc(sur?.nazwa||'?')}</span></td>
+      ${pozycje.map(p=>{
+        const kgTot = p.skl[sid]||0;
+        if(kgTot<=0.001) return '<td class="num">—</td>';
+        const kgSzt = kgTot/(p.sztuk||1);
+        return `<td class="num" title="${fmt(kgTot,1)} kg na sektor">${fmt(kgSzt,2)}</td>`;
+      }).join('')}
+    </tr>`;
+  }).join('');
+  const sumy = pozycje.map(p=>`<td class="num">${fmt(p.sztuk>0?p.kg/p.sztuk:0,2)}</td>`).join('');
+  return `<div class="macierz" style="max-height:none" ${opcje.id?`id="${opcje.id}"`:''}>
+    <table>
+      <thead><tr><th class="lipka">Surowiec</th>${naglowki}</tr></thead>
+      <tbody>${body}
+        <tr class="suma-wiersz"><td class="lipka">Razem kg/szt</td>${sumy}</tr>
+      </tbody>
+    </table>
+  </div>`;
 }
 
 /* ===================== ZAKŁADKA: MIESZALNIA =============================== */
