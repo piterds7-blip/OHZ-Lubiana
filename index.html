@@ -223,6 +223,14 @@ select.pole:focus{outline:none;border-color:var(--zielen-jasna);background:#fff}
 .flaga-lok.wsp.akt{color:#0066cc}
 .flaga-lok.brak.akt{color:#999;background:#f0f0f0}
 .flaga-lok.brak{font-size:11px}
+/* Panel uprawnień w Ustawieniach */
+.upr-tab{border-collapse:collapse;font-size:13px;width:100%}
+.upr-tab th{background:var(--zielen);color:#fff;padding:6px 8px;font-size:11px;font-weight:600;
+  text-align:center;border:1px solid var(--zielen-ciemna);white-space:nowrap}
+.upr-tab td{padding:4px 6px;border:1px solid var(--linia);vertical-align:middle}
+.upr-tab select{padding:4px 6px;border:1px solid var(--linia);border-radius:5px;font-size:12px;background:#fff;width:100%;min-width:76px}
+.upr-tab select:disabled{background:#f0f8f0;color:var(--zielen);font-weight:600}
+.upr-tab tbody tr:nth-child(even) td{background:#fafcfa}
 .macierz tbody td{padding:2px 3px}
 .macierz tbody td.lipka{padding-left:6px;font-size:13px;white-space:nowrap}
 .macierz tbody td.lipka .nazwaS{display:inline-block;max-width:150px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
@@ -505,11 +513,11 @@ function sha256(txt){
 
 /* ===================== ROLE I UPRAWNIENIA ================================= */
 /* poziomy: 'pelny' | 'podglad' | 'wpis' (tylko kg zadane + niedojady) */
-const ROLE = {
+const ROLE_BAZOWE = {
   tworca:      {nazwa:'Twórca',                lokalizacje:['nadarzyn','boguszyn'], hasla:true,
                 zakl:{surowce:'pelny',dawki:'pelny',nadarzyn:'pelny',boguszyn:'pelny',mieszalnia:'pelny',raporty:'pelny',paszowozN:'pelny',paszowozB:'pelny'}},
   hodowca:     {nazwa:'Główny hodowca',        lokalizacje:['nadarzyn','boguszyn'], hasla:false,
-                zakl:{surowce:'pelny',dawki:'pelny',nadarzyn:'pelny',boguszyn:'pelny',mieszalnia:'pelny',raporty:'pelny'}},
+                zakl:{surowce:'pelny',dawki:'pelny',nadarzyn:'pelny',boguszyn:'pelny',mieszalnia:'pelny',raporty:'pelny',paszowozN:'pelny',paszowozB:'pelny'}},
   zootechnikN: {nazwa:'Zootechnik Nadarzyn',   lokalizacje:['nadarzyn'], hasla:false,
                 zakl:{surowce:'podglad',dawki:'podglad',nadarzyn:'pelny',raporty:'pelny',paszowozN:'pelny'}},
   zootechnikB: {nazwa:'Zootechnik Boguszyn',   lokalizacje:['boguszyn'], hasla:false,
@@ -521,6 +529,26 @@ const ROLE = {
   mieszalnia:  {nazwa:'Mieszalnia',            lokalizacje:['nadarzyn','boguszyn'], hasla:false,
                 zakl:{surowce:'podglad',mieszalnia:'pelny',raporty:'podglad'}}
 };
+
+/* ROLE = ROLE_BAZOWE + nadpisania z config/uprawnienia
+   Twórca zawsze ma pełny dostęp — inaczej ktoś mógłby odciąć się od aplikacji. */
+const ROLE = new Proxy({}, {
+  get(_, rola){
+    const bazowa = ROLE_BAZOWE[rola];
+    if(!bazowa) return undefined;
+    if(rola==='tworca') return bazowa;   // Twórca — nietykalny
+    const nadpis = store.config?.uprawnienia?.[rola];
+    if(!nadpis) return bazowa;
+    // Puste wartości ('' albo brak) traktujemy jako "brak dostępu do zakładki"
+    const zakl = {};
+    for(const [z,poz] of Object.entries(nadpis)){
+      if(poz && poz!=='brak') zakl[z] = poz;
+    }
+    return {...bazowa, zakl};
+  },
+  ownKeys(){ return Object.keys(ROLE_BAZOWE); },
+  getOwnPropertyDescriptor(){ return {enumerable:true, configurable:true}; }
+});
 
 /* hasła startowe — do zmiany w Ustawieniach przez Twórcę */
 const HASLA_STARTOWE = {
@@ -3896,6 +3924,44 @@ function oknoUstawienia(){
             : '<b style="color:var(--zolty)">Hasło ustawiono przed aktualizacją — nie da się go odczytać. Wpisz nowe, żeby było widoczne.</b>'}</div>
         </div>`;}).join('')}
       ` : ''}
+      ${rolaAkt==='tworca' ? `
+      <hr style="border:none;border-top:1px solid var(--linia);margin:18px 0">
+      <div style="font-weight:600;margin-bottom:10px">Uprawnienia ról</div>
+      <div class="podpis" style="margin-bottom:12px">
+        Wiersze = role, kolumny = zakładki. Zmień komórkę, żeby dać rolę dostęp do zakładki.
+        Poziomy: <b>—</b> brak (zakładka niewidoczna), <b>podgląd</b> tylko odczyt,
+        <b>wpis</b> może wpisywać dane, <b>pełny</b> edycja wszystkiego.<br>
+        <b style="color:var(--zielen)">Twórca jest zawsze pełny</b> — nie da się mu odebrać dostępu, żeby nie zablokować sobie aplikacji.
+      </div>
+      <div style="overflow-x:auto;margin-bottom:6px">
+      <table class="upr-tab">
+        <thead><tr>
+          <th style="text-align:left">Rola</th>
+          ${ZAKLADKI.map(z=>`<th title="${esc(z.etykieta)}">${esc(z.etykieta.replace('🚛 ',''))}</th>`).join('')}
+        </tr></thead>
+        <tbody>
+          ${Object.keys(ROLE_BAZOWE).map(r=>{
+            const bazowe = ROLE_BAZOWE[r];
+            const nadpis = store.config?.uprawnienia?.[r] || {};
+            const tworca = r==='tworca';
+            return `<tr>
+              <td style="text-align:left;font-weight:600">${esc(bazowe.nazwa)}${tworca?' <span class="podpis">(nietykalny)</span>':''}</td>
+              ${ZAKLADKI.map(z=>{
+                const aktualny = tworca ? 'pelny' : (nadpis[z.id] ?? bazowe.zakl[z.id] ?? '');
+                return `<td><select data-upr-rola="${r}" data-upr-zakl="${z.id}" ${tworca?'disabled':''}>
+                  <option value="" ${!aktualny?'selected':''}>—</option>
+                  <option value="podglad" ${aktualny==='podglad'?'selected':''}>podgląd</option>
+                  <option value="wpis" ${aktualny==='wpis'?'selected':''}>wpis</option>
+                  <option value="pelny" ${aktualny==='pelny'?'selected':''}>pełny</option>
+                </select></td>`;
+              }).join('')}
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+      </div>
+      <div class="podpis">Zmiana zapisuje się z pozostałymi ustawieniami po kliknięciu <b>Zapisz</b>. Odświeżenie na urządzeniach ról następuje automatycznie.</div>
+      ` : ''}
       <div class="podpis">Wersja: ${esc(WERSJA_APP)} · Tryb: ${trybLokalny?'lokalny':'Firestore'}</div>`,
     przyciski:[
       {tekst:'Zamknij'},
@@ -3922,13 +3988,27 @@ function oknoUstawienia(){
           if(puste.length){ toast('Puste pole nie kasuje hasła: '+puste.join(', ')); }
           if(zmiany){ noweHasla=hasla; noweJawne=jawne; noweDaty=daty; }
         }
+        // Uprawnienia — tylko Twórca może zmieniać (widok jest ukryty dla innych ról)
+        let noweUprawnienia = null;
+        if(rolaAkt==='tworca'){
+          const upr = {};
+          n.querySelectorAll('[data-upr-rola]').forEach(sel=>{
+            const r = sel.dataset.uprRola, z = sel.dataset.uprZakl, v = sel.value;
+            if(r==='tworca') return;   // pomijamy — Twórca nietykalny
+            (upr[r] ||= {})[z] = v || 'brak';
+          });
+          noweUprawnienia = upr;
+        }
         // Teraz bezpiecznie zapisujemy — inputy już nie są potrzebne
         await DB.zapisz('config','settings',dane);
         if(noweHasla) await DB.zapisz('config','passwords',
           {hasla:noweHasla, jawne:noweJawne, zmienioneRole:noweDaty, zmienione:dzisiaj()});
+        if(noweUprawnienia) await DB.zapisz('config','uprawnienia', noweUprawnienia);
         document.getElementById('hNazwa').textContent = dane.nazwaGospodarstwa;
-        render();
-        toast(noweHasla ? 'Zapisano ustawienia i hasła.' : 'Zapisano ustawienia.');
+        zbudujTaby(); render();
+        toast(noweHasla || noweUprawnienia
+          ? 'Zapisano ustawienia' + (noweHasla?', hasła':'') + (noweUprawnienia?' i uprawnienia':'') + '.'
+          : 'Zapisano ustawienia.');
       }}]:[])
     ]
   });
@@ -4075,6 +4155,8 @@ document.getElementById('btnInstaluj').onclick = async () => {
 nasluchuj('config', ()=>{
   if(!rolaAkt) return;
   document.getElementById('hNazwa').textContent = store.config.settings?.nazwaGospodarstwa || 'OHZ Lubiana';
+  // Uprawnienia mogły się zmienić — przebuduj pasek zakładek
+  if(typeof zbudujTaby === 'function') zbudujTaby();
   // Kolejność wierszy macierzy siedzi w config/ukladDawki — bez tego strzałki nie odświeżały widoku
   const akt = document.activeElement;
   if(akt && akt.tagName==='INPUT' && akt.closest && akt.closest('#macierzDawek')) return;
