@@ -2203,7 +2203,7 @@ function renderLokalizacja(w, lok){
     sumaKoszt+=o.kosztSzt*sztuk*wsp;
     potw?ilePotw++:ileAuto++;
     o.skladniki.forEach(sk=>{ zapotrzebowanie[sk.surowiecId]=(zapotrzebowanie[sk.surowiecId]||0)+sk.kg*sztuk*wsp; });
-    return {gr,...o,sztuk,wylicz,planKg,zadaneKg,niedojadyDod,niedojadyZrodla,swiezyTmr,perSzt,proc,wsp,potw,realKg:zadaneKg,kgSzt:wylicz,dataDnia:data};
+    return {gr,...o,sztuk,wylicz,planKg,zadaneKg,niedojadyDod,niedojadyZrodla,swiezyTmr,perSzt,proc,wsp,potw,realKg:zadaneKg,kgSzt:wylicz,dataDnia:data,zPaszowozu:z.zPaszowozu,wklady:z.wklady};
   });
 
   const kolProc = p => Math.abs(p-100)<=3 ? 'var(--zielony-ok)' : (Math.abs(p-100)<=10 ? 'var(--zolty)' : 'var(--czerwony)');
@@ -2245,10 +2245,22 @@ function renderLokalizacja(w, lok){
             const gr=d.gr;
             const pod = !!gr.parentId;
             const parent = pod ? store.grupyTech[gr.parentId] : null;
-            const opis = (gr.dawki||[]).map(x=>{
-              const daw=store.dawki[x.dawkaId]; return `${daw?.nazwa||'?'} ${x.udzial}%`;
-            }).join(' + ');
-            const bladU = d.sumaUdzialow!==100 && (gr.dawki||[]).length>0;
+            // Jeśli grupa pochodzi z Paszowozu — pokazujemy FAKTYCZNE proporcje wozów,
+            // a nie planowe przypisanie z Dawek. To odzwierciedla to, co rzeczywiście
+            // trafiło do zwierząt (np. 2 wozy różnych receptur w proporcji 88:12).
+            let opis;
+            if(d.zPaszowozu && d.wklady?.length){
+              const suma = d.wklady.reduce((s,w)=>s+(w.kg||0),0);
+              opis = d.wklady.map(w=>{
+                const proc = suma>0 ? Math.round(w.kg/suma*100) : 0;
+                return `${w.dawkaNazwa} ${proc}%`;
+              }).join(' + ') + ' 🚛';
+            }else{
+              opis = (gr.dawki||[]).map(x=>{
+                const daw=store.dawki[x.dawkaId]; return `${daw?.nazwa||'?'} ${x.udzial}%`;
+              }).join(' + ');
+            }
+            const bladU = !d.zPaszowozu && d.sumaUdzialow!==100 && (gr.dawki||[]).length>0;
             const rozw = gtRozwiniete.has(gr.id);
             return `
             <tr class="${pod?'podgrupa':''} ${rozw?'rozwiniety':''} ${d.potw?'':'wgplanu'}" data-rozgt="${gr.id}">
