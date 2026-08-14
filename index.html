@@ -2721,20 +2721,30 @@ async function synchronizujZywienieZPaszowozu(lok, data, wozy){
       const skladniki = Object.entries(sum).map(([surowiecId,kg])=>({surowiecId, kg: kg/(gr.sztuk||1)}));
       // koszt średnioważony (kg × koszt receptury) / suma kg
       const kosztKgTMR = a.kg>0 ? a.wklad.reduce((s,w)=>s+w.kg*w.kosztKgReceptury,0)/a.kg : 0;
+      // WAŻNE: dawkaWyliczonaKgSzt to PLAN wg receptury grupy, nie faktyczne zadanie —
+      // dzięki temu % realizacji porównuje realne z planem, a nie z samym sobą.
+      const wyliczonaZReceptury = obliczGrupe(gr).kgSzt;
       grupyNowe[gr.id] = {
         ...(grupyNowe[gr.id]||{}),
         sztuk: gr.sztuk, zadaneKg: a.kg,
         skladniki, kosztKgTMR,
-        dawkaWyliczonaKgSzt: gr.sztuk>0 ? a.kg/gr.sztuk : 0,
+        dawkaWyliczonaKgSzt: wyliczonaZReceptury,
         nazwaGrupy: gr.nazwa,
         zPaszowozu: true,
         wklady: a.wklad.map(w=>({dawkaNazwa:w.dawkaNazwa, kg:w.kg})),
         autor: ROLE[rolaAkt]?.nazwa||'?', ts:Date.now()
       };
-    }else if(grupyNowe[gr.id]?.zPaszowozu){
-      // sektor był z paszowozu, ale teraz nie ma — kasujemy zadane
-      const {zadaneKg, wklady, zPaszowozu, ...reszta} = grupyNowe[gr.id];
-      grupyNowe[gr.id] = reszta;
+    }
+  }
+  // Defensywne czyszczenie sierot: iterujemy po wszystkich wpisach żywienia,
+  // nie tylko po aktualnych grupach. Kasujemy każdy, który nosi ślad paszowozu
+  // (flaga zPaszowozu albo pole wklady), ale nie ma odpowiednika w bieżących wozach.
+  for(const gid of Object.keys(grupyNowe)){
+    if(perGrupa[gid]) continue;
+    const g = grupyNowe[gid];
+    if(g?.zPaszowozu || g?.wklady){
+      const {zadaneKg, wklady, zPaszowozu, ...reszta} = g;
+      grupyNowe[gid] = reszta;
     }
   }
   await DB.zapisz('zywienie', id, {lokalizacja:lok, data, grupy:grupyNowe});
@@ -2860,8 +2870,13 @@ function renderPaszowoz(w, lok){
     <div class="przewijak"><table class="gt-tabela" id="pzZbiorczo">
       <thead><tr>
         <th>Sektor</th><th class="num">Sztuk</th>
-        <th class="num">Z ilu wozów</th><th class="num">Razem kg</th>
-        <th class="num">Per sztukę kg</th><th>Z wozów</th>
+        <th class="num">Plan wg<br>receptury<br>kg/szt</th>
+        <th class="num">Plan<br>kg/grupę</th>
+        <th class="num">Podane<br>kg</th>
+        <th class="num">Per sztukę<br>kg</th>
+        <th class="num">% realiz.</th>
+        <th class="num">Z ilu<br>wozów</th>
+        <th>Z wozów</th>
       </tr></thead>
       <tbody>
         ${grupy.map(gr=>{
@@ -2872,17 +2887,31 @@ function renderPaszowoz(w, lok){
             const wz = wozy.find(x=>x.id===w.wozId);
             return `${esc(wz?.nazwa||'?')}: ${fmt(w.kg,0)} kg`;
           }).join(' · ');
+          // plan liczony z aktualnej receptury grupy (miksuje udziały jak w Dawkach)
+          const planKgSzt = obliczGrupe(gr).kgSzt;
+          const planKgGrupa = planKgSzt * (gr.sztuk||0);
+          const perSzt = gr.sztuk>0 ? kg/gr.sztuk : 0;
+          const proc = planKgSzt>0 ? (perSzt/planKgSzt)*100 : 0;
+          const kolProc = p => Math.abs(p-100)<=3 ? 'var(--zielony-ok)' : (Math.abs(p-100)<=10 ? 'var(--zolty)' : 'var(--czerwony)');
           return `<tr class="${!kg?'wgplanu':''}">
             <td><b>${esc(gr.nazwa)}</b></td>
             <td class="num">${gr.sztuk||0}</td>
-            <td class="num">${wkl.length||'—'}</td>
+            <td class="num">${planKgSzt>0?fmt(planKgSzt,2):'—'}</td>
+            <td class="num">${planKgGrupa>0?fmt(planKgGrupa,0):'—'}</td>
             <td class="num"><b>${kg?fmt(kg,0):'—'}</b></td>
-            <td class="num"><b>${kg&&gr.sztuk>0?fmt(kg/gr.sztuk,2):'—'}</b></td>
+            <td class="num"><b>${kg&&gr.sztuk>0?fmt(perSzt,2):'—'}</b></td>
+            <td class="num" style="${kg&&planKgSzt>0?'color:'+kolProc(proc)+';font-weight:700':'color:var(--tekst-slaby)'}">${kg&&planKgSzt>0?fmt(proc,0)+'%':'—'}</td>
+            <td class="num">${wkl.length||'—'}</td>
             <td class="podpis">${opis||'—'}</td>
           </tr>`;
         }).join('')}
       </tbody>
     </table></div>
+    <div class="podpis" style="padding:8px 14px">
+      <b>Plan</b> to ilość TMR wg receptury grupy × liczba sztuk. <b>% realizacji</b> = podane per sztukę ÷ plan per sztukę.
+      Kolory: zielony ±3%, żółty ±10%, czerwony powyżej. Uwaga: 100% masy nie znaczy że skład był zgodny —
+      to widać niżej w macierzy realnego składu.
+    </div>
 
     <div class="panel-tyt" style="margin-top:24px;border-top:1px solid var(--linia)">
       Realny skład dawek per sektor <span class="licznik">kg surowca / sztukę / dobę</span>
