@@ -200,13 +200,29 @@ select.pole:focus{outline:none;border-color:var(--zielen-jasna);background:#fff}
 
 /* ---------- MACIERZ DAWEK ---------- */
 .macierz{overflow:auto;max-height:calc(100vh - 220px);-webkit-overflow-scrolling:touch;position:relative}
-.macierz table{min-width:800px}
-.macierz thead th{position:sticky;top:0;z-index:4;padding:6px 4px;font-size:11.5px;text-align:center;min-width:90px;vertical-align:bottom}
-.macierz thead th.lipka{z-index:6;min-width:180px;text-align:left;padding-left:10px}
+.macierz table{min-width:800px;table-layout:fixed}
+.macierz thead th{position:sticky;top:0;z-index:4;padding:6px 4px;font-size:11.5px;text-align:center;width:120px;min-width:120px;vertical-align:bottom}
+.macierz thead th.lipka{z-index:6;width:220px;min-width:220px;text-align:left;padding-left:10px}
+.macierz tbody td{width:120px;min-width:120px}
+.macierz tbody td.lipka{width:220px;min-width:220px}
 .macierz thead th .nazwa-kol{writing-mode:horizontal-tb;max-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;margin:0 auto}
 .macierz thead th .kol-akcje{display:flex;gap:2px;justify-content:center;margin-top:3px}
 .macierz thead th .kol-akcje button{color:rgba(255,255,255,.7);font-size:11px;width:18px;height:18px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;padding:0}
 .macierz thead th .kol-akcje button:hover{color:#fff;background:rgba(255,255,255,.2)}
+/* Flagi przypisania dawki do lokalizacji: N, B, W, — (brak) */
+.flagi-lok{display:flex;gap:2px;justify-content:center;margin:4px 0 2px}
+.flaga-lok{display:inline-flex;align-items:center;justify-content:center;
+  width:20px;height:20px;line-height:1;text-align:center;
+  border:1.5px solid rgba(255,255,255,.4);border-radius:5px;
+  font-size:11px;font-weight:800;letter-spacing:0;
+  color:rgba(255,255,255,.7);background:rgba(0,0,0,.2);
+  cursor:pointer;user-select:none;transition:all .12s;
+  font-family:system-ui,Arial,sans-serif}
+.flaga-lok:hover{background:rgba(255,255,255,.25);color:#fff;border-color:#fff;transform:scale(1.1)}
+.flaga-lok.akt{background:#fff;border-color:#fff;color:var(--zielen);box-shadow:0 0 0 1px var(--zielen)}
+.flaga-lok.wsp.akt{color:#0066cc}
+.flaga-lok.brak.akt{color:#999;background:#f0f0f0}
+.flaga-lok.brak{font-size:14px}
 .macierz tbody td{padding:2px 3px}
 .macierz tbody td.lipka{padding-left:6px;font-size:13px;white-space:nowrap}
 .macierz tbody td.lipka .nazwaS{display:inline-block;max-width:150px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
@@ -229,10 +245,12 @@ select.pole:focus{outline:none;border-color:var(--zielen-jasna);background:#fff}
 /* Na telefonie macierz zostaje — przewijana poziomo, tak jak na komputerze */
 @media(max-width:720px){
   .macierz{max-height:calc(100vh - 190px)}
-  .macierz thead th.lipka{min-width:130px}
+  .macierz thead th.lipka{width:150px;min-width:150px}
+  .macierz tbody td.lipka{width:150px;min-width:150px}
   .macierz tbody td.lipka .nazwaS{max-width:100px;font-size:12px}
   .macierz input.komorka{width:64px;font-size:12px;padding:4px}
-  .macierz thead th{min-width:74px;font-size:10.5px}
+  .macierz thead th{width:90px;min-width:90px;font-size:10.5px}
+  .macierz tbody td{width:90px;min-width:90px}
 }
 
 /* ---------- LOKALIZACJE (grupy technologiczne) ---------- */
@@ -1586,7 +1604,7 @@ function renderDawki(w){
     <th>
       <span class="nazwa-kol" title="${esc(d.nazwa)}">${esc(d.nazwa)}</span>
       ${d.suchyTMR?'<span style="font-size:9px;opacity:.7;display:block">(suchy TMR)</span>':''}
-      ${(()=>{const lok=d.lokalizacja||'W';return `<span class="flaga-lok ${lok==='N'?'akt':''}" data-flaga="${d.id}" data-lok="N" title="Nadarzyn">N</span><span class="flaga-lok ${lok==='B'?'akt':''}" data-flaga="${d.id}" data-lok="B" title="Boguszyn">B</span><span class="flaga-lok ${lok==='W'?'akt':''}" data-flaga="${d.id}" data-lok="W" title="Wsp\u00f3lna">W</span>`;})()}
+      ${(()=>{const lok=d.lokalizacja||'W';return `<div class="flagi-lok" onclick="event.stopPropagation()"><span class="flaga-lok ${lok==='N'?'akt':''}" data-flaga="${d.id}" data-lok="N" title="Tylko Nadarzyn">N</span><span class="flaga-lok ${lok==='B'?'akt':''}" data-flaga="${d.id}" data-lok="B" title="Tylko Boguszyn">B</span><span class="flaga-lok wsp ${lok==='W'?'akt':''}" data-flaga="${d.id}" data-lok="W" title="Wsp\u00f3lna \u2014 obie lokalizacje">W</span><span class="flaga-lok brak ${lok==='X'?'akt':''}" data-flaga="${d.id}" data-lok="X" title="Bez przypisania \u2014 dawka nie pojawi si\u0119 w Paszowozie">\u2014</span></div>`;})()}
       ${edycja?`<div class="kol-akcje">
         <button title="Edytuj grupę żywieniową" data-edkol="${d.id}">✎</button>
       </div>`:''}
@@ -1677,8 +1695,8 @@ function renderDawki(w){
     </div>
   </div>
   <div class="podpis" style="padding:4px 4px 10px">
-    Wartości w <b>kg świeżej masy / sztukę / dobę</b>. Koszty wyliczane z cen w zakładce Surowce (zł/t → zł/kg).
-    ${edycja?'Kliknij ✎ w nagłówku kolumny, żeby zmienić nazwę grupy lub ✕ żeby ją usunąć.':''}
+    Wartości w <b>kg świeżej masy / sztukę / dobę</b>. Koszty wyliczane z cen w zakładce Surowce (zł/t → zł/kg).<br>
+    ${edycja?'Pod nazwą kolumny cztery flagi: <b>N</b> tylko Nadarzyn, <b>B</b> tylko Boguszyn, <b>W</b> wspólna (obie), <b>—</b> bez przypisania (dawka nie pojawi się w Paszowozie). Kliknij ✎, żeby zmienić nazwę lub usunąć grupę.':''}
   </div>`;
 
   // --- PODPIĘCIA ---
@@ -1729,7 +1747,7 @@ function renderDawki(w){
             await DB.zapisz('dawki',dId,{lokalizacja:nowa});
             await zapiszWersje(odData);
           }
-          toast('Przypisanie: '+({N:'Nadarzyn',B:'Boguszyn',W:'Wsp\u00f3lna'}[nowa]));
+          toast('Przypisanie: '+({N:'Nadarzyn',B:'Boguszyn',W:'Wsp\u00f3lna',X:'brak (dawka pomini\u0119ta w Paszowozie)'}[nowa]));
         });
       };
     });
@@ -2653,6 +2671,7 @@ function dawkiDlaLok(lok){
   const flaga = lok==='nadarzyn' ? 'N' : 'B';
   return dawkiSorted().filter(d=>{
     const l = d.lokalizacja || 'W';
+    // 'X' = brak przypisania — dawka istnieje w Dawkach, ale nie wchodzi do Paszowozu
     return l==='W' || l===flaga;
   });
 }
