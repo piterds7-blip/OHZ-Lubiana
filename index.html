@@ -342,15 +342,13 @@ input.pole.potw{background:#f0faf3;border-color:#b9dfc6}
 }
 /* Niedojady w Paszowozie */
 .pz-niedojady{padding:10px 14px}
-.pz-nd-row{display:flex;gap:10px;align-items:end;margin-bottom:10px;padding:10px 12px;
-  background:#fffbf0;border:1px solid #f0e4c0;border-radius:10px;flex-wrap:wrap}
-.pz-nd-blok{flex:1;min-width:200px}
-.pz-nd-blok label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.4px;
-  color:var(--tekst-slaby);margin-bottom:3px;font-weight:600}
-.pz-nd-blok select,.pz-nd-blok input{width:100%;padding:6px 8px;border:1px solid var(--linia);
-  border-radius:6px;font-size:13px;background:#fff;margin-bottom:4px}
-.pz-nd-blok input{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
-.pz-nd-strzalka{font-size:20px;color:var(--tekst-slaby);padding-bottom:20px;font-weight:700}
+.pz-zebr-row{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+.pz-zebr-row select{flex:1;min-width:160px;padding:6px 8px;border:1px solid var(--linia);border-radius:6px;font-size:13px;background:#fff}
+.pz-zebr-row input{width:80px;padding:6px 8px;border:1px solid var(--linia);border-radius:6px;font-size:13px;text-align:right;font-variant-numeric:tabular-nums}
+.pz-zebr-suma{padding:6px 0;font-size:12.5px;color:var(--tekst-slaby)}
+.pz-nd-woz{padding:8px 14px 10px;background:#fffbf0;border-top:1px solid #f0e4c0}
+.pz-nd-chip{background:#fff8e8}
+.nd-badge{font-size:14px;line-height:1}
 .gt-det{background:#fff;border:1px solid var(--zielen-jasna);border-radius:var(--r);margin:8px 0;padding:12px 14px}
 .gt-det h4{margin:0 0 8px;font-size:13.5px;color:var(--zielen);font-weight:700}
 .gt-det table{width:100%;font-size:12.5px;margin-bottom:10px}
@@ -2592,13 +2590,34 @@ async function synchronizujZywienieZPaszowozu(lok, data, wozy, niedojady){
     const kosztKgReceptury = sumaR>0
       ? receptura.reduce((s,x)=>{const sur=store.surowce[x.surowiecId]; return s+x.kg*((sur?.cenaTona||0)/1000);},0) / sumaR
       : 0;
+    // Niedojady w wozie — każdy ma skład dawki sektora, z którego pochodzi
+    const sumaNdWozu = (w.niedojady||[]).reduce((s,x)=>s+(x.kg||0),0);
+    const swiezyWozu = Math.max(0, (w.wagaFaktyczna||0) - sumaNdWozu);
     (w.rozdzielenie||[]).forEach(rz=>{
       if(!rz.grupaId || !(rz.kg>0)) return;
       const a = perGrupa[rz.grupaId] || (perGrupa[rz.grupaId]={kg:0, wklad:[]});
       a.kg += rz.kg;
-      // wkład proporcjonalny — kilogram wozu wnosi swój udział masowy każdego surowca
-      const skl = sumaR>0 ? receptura.map(x=>({surowiecId:x.surowiecId, kg: rz.kg*(x.kg/sumaR)})) : [];
-      a.wklad.push({dawkaId:w.dawkaId, dawkaNazwa:daw.nazwa, kg:rz.kg, skladniki:skl, kosztKgReceptury});
+      // Proporcja wozu: ile z każdego kg zjeżdżającego na sektor to świeży TMR, ile niedojady
+      const wagaWozu = w.wagaFaktyczna||0;
+      if(wagaWozu<=0) return;
+      const udzialSwiezy = swiezyWozu / wagaWozu;
+      // Skład świeżej części — wg receptury
+      const sklSwiezy = sumaR>0 ? receptura.map(x=>({surowiecId:x.surowiecId, kg: rz.kg*udzialSwiezy*(x.kg/sumaR)})) : [];
+      // Skład niedojadów — każdy niedojad wnosi skład dawki sektora źródłowego
+      const sklNd = [];
+      (w.niedojady||[]).forEach(nd=>{
+        if(!nd.zrodloId || !(nd.kg>0)) return;
+        const udzialNd = nd.kg / wagaWozu;
+        const grZr = store.grupyTech[nd.zrodloId];
+        const dawkiZr = grZr ? obliczGrupe(grZr).skladniki : [];
+        const sumaZr = dawkiZr.reduce((s,x)=>s+x.kg,0);
+        if(sumaZr<=0) return;
+        dawkiZr.forEach(x=>{
+          sklNd.push({surowiecId:x.surowiecId, kg: rz.kg*udzialNd*(x.kg/sumaZr)});
+        });
+      });
+      a.wklad.push({dawkaId:w.dawkaId, dawkaNazwa:daw.nazwa, kg:rz.kg,
+        skladniki:[...sklSwiezy,...sklNd], kosztKgReceptury});
     });
   });
   // zapisujemy do dokumentu dnia — pole "zPaszowozu" mówi że dane pochodzą stąd
@@ -2778,7 +2797,36 @@ function renderPaszowoz(w, lok){
 
             <label style="margin-top:10px">Waga faktyczna (kg z wagi wozu)</label>
             <input class="pz-input num" data-woz-waga="${woz.id}" type="number" step="1" min="0" value="${woz.wagaFaktyczna||''}" placeholder="0" ${edycja?'':'readonly'}>
+            <div class="pz-hint">Waga łączna (z niedojadami, jeśli są w wozie)</div>
           </div>
+
+          ${(()=>{
+            /* Niedojady przypisane do tego wozu */
+            const ndWozu = (woz.niedojady||[]);
+            const sumaNd = ndWozu.reduce((s,x)=>s+(x.kg||0),0);
+            const swiezy = (woz.wagaFaktyczna||0) - sumaNd;
+            if(!ndWozu.length && !edycja) return '';
+            return `<div class="pz-nd-woz">
+              <div class="pz-rozdziel-nag">♻ Niedojady w wozie (${fmt(sumaNd,0)} kg)
+                ${edycja?`<button class="ikonka dodaj" data-woz-dodnd="${woz.id}" title="Dodaj niedojad do wozu">+</button>`:''}
+                <span style="flex:1"></span>
+                ${sumaNd>0?`<span class="pz-hint">Świeży TMR: ${fmt(swiezy,0)} kg</span>`:''}
+              </div>
+              ${ndWozu.map((nd,ni)=>{
+                const grZr = store.grupyTech[nd.zrodloId];
+                return `<div class="pz-rz pz-nd-chip">
+                  <span class="nd-badge">♻</span>
+                  <select data-wnd-zrodlo="${woz.id}|${ni}" ${edycja?'':'disabled'}>
+                    <option value="">— źródło —</option>
+                    ${grupy.map(g=>`<option value="${g.id}" ${g.id===nd.zrodloId?'selected':''}>${esc(g.nazwa)}</option>`).join('')}
+                  </select>
+                  <input type="number" step="1" min="0" data-wnd-kg="${woz.id}|${ni}" value="${nd.kg||''}" placeholder="kg" ${edycja?'':'readonly'}>
+                  ${edycja?`<button class="ikonka usun" data-wnd-usun="${woz.id}|${ni}" title="Usuń">✕</button>`:''}
+                </div>`;
+              }).join('')}
+              ${!ndWozu.length?'<div class="pz-pusto">Kliknij + żeby dodać niedojady do tego wozu</div>':''}
+            </div>`;
+          })()}
 
           <div class="pz-rozdziel">
             <div class="pz-rozdziel-nag">Rozdzielenie na sektory
@@ -2803,39 +2851,41 @@ function renderPaszowoz(w, lok){
     </div>
 
     <div class="panel-tyt" style="margin-top:24px;border-top:1px solid var(--linia)">
-      Niedojady zebrane rano <span class="licznik">korekta pobrania za ${dataPL(dataMinus(data,1))}</span>
+      ♻ Zebrane niedojady <span class="licznik">korekta pobrania za ${dataPL(dataMinus(data,1))}</span>
       <span style="flex:1"></span>
-      ${edycja?'<button class="btn maly szary" id="pzDodNied">+ Niedojad</button>':''}
+      ${edycja?'<button class="btn maly szary" id="pzDodZebr">+ Zbieranie</button>':''}
     </div>
-    ${niedojady.length ? `
-    <div class="pz-niedojady">
-      ${niedojady.map((nd,i)=>{
-        return `<div class="pz-nd-row">
-          <div class="pz-nd-blok">
-            <label>Źródło (skąd zebrano)</label>
-            <select data-nd-zrodlo="${i}" ${edycja?'':'disabled'}>
+    ${(()=>{
+      const zebrane = niedojady;
+      const sumaZebr = zebrane.reduce((s,x)=>s+(x.zebranoKg||0),0);
+      const przypisane = {};
+      wozy.forEach(w=>(w.niedojady||[]).forEach(nd=>{
+        przypisane[nd.zrodloId]=(przypisane[nd.zrodloId]||0)+(nd.kg||0);
+      }));
+      const sumaPrzyp = Object.values(przypisane).reduce((s,x)=>s+x,0);
+      if(!zebrane.length) return '<div class="pusto" style="padding:12px">Brak niedojadów. Kliknij + żeby wpisać co zebrano rano z sektorów.</div>';
+      return `<div class="pz-niedojady">
+        ${zebrane.map((nd,i)=>{
+          const gr=store.grupyTech[nd.zrodloId];
+          return `<div class="pz-zebr-row">
+            <select data-zebr-zrodlo="${i}" ${edycja?'':'disabled'}>
               <option value="">— sektor —</option>
               ${grupy.map(g=>`<option value="${g.id}" ${g.id===nd.zrodloId?'selected':''}>${esc(g.nazwa)} (${g.sztuk||0})</option>`).join('')}
             </select>
-            <input type="number" step="1" min="0" data-nd-zebrano="${i}" value="${nd.zebranoKg||''}" placeholder="kg zebranych" ${edycja?'':'readonly'}>
-          </div>
-          <div class="pz-nd-strzalka">→</div>
-          <div class="pz-nd-blok">
-            <label>Domieszano do sektora</label>
-            <select data-nd-cel="${i}" ${edycja?'':'disabled'}>
-              <option value="">— sektor docelowy —</option>
-              ${grupy.map(g=>`<option value="${g.id}" ${g.id===nd.celId?'selected':''}>${esc(g.nazwa)} (${g.sztuk||0})</option>`).join('')}
-            </select>
-            <input type="number" step="1" min="0" data-nd-domieszano="${i}" value="${nd.domieszanoKg||''}" placeholder="kg domieszanych" ${edycja?'':'readonly'}>
-          </div>
-          ${edycja?`<button class="ikonka usun" data-nd-usun="${i}" title="Usuń">✕</button>`:''}
-        </div>`;
-      }).join('')}
-    </div>
-    ` : '<div class="pusto" style="padding:12px">Brak niedojadów. Kliknij + żeby dodać wpis z porannego zbierania.</div>'}
+            <input type="number" step="1" min="0" data-zebr-kg="${i}" value="${nd.zebranoKg||''}" placeholder="kg" ${edycja?'':'readonly'}>
+            <span class="pz-hint">kg</span>
+            ${edycja?`<button class="ikonka usun" data-zebr-usun="${i}" title="Usuń">✕</button>`:''}
+          </div>`;
+        }).join('')}
+        <div class="pz-zebr-suma">Zebrano łącznie: <b>${fmt(sumaZebr,0)} kg</b>
+          ${sumaPrzyp>0?' · w wozach: <b>'+fmt(sumaPrzyp,0)+' kg</b>':''}
+          ${sumaZebr>sumaPrzyp+0.5?' · <span style="color:var(--zolty)">nieprzypisane: '+fmt(sumaZebr-sumaPrzyp,0)+' kg</span>':''}
+        </div>
+      </div>`;
+    })()}
 
     ${(()=>{
-      /* Tabela pobrania realnego za WCZORAJ — bo dopiero dziś rano zebraliśmy niedojady */
+      /* Tabela pobrania realnego za WCZORAJ */
       const wczoraj = dataMinus(data,1);
       const dokWcz = dokDnia(lok, wczoraj);
       if(!dokWcz?.grupy) return '';
@@ -2853,7 +2903,7 @@ function renderPaszowoz(w, lok){
       if(!poz.length) return '';
       const kolProc = p => Math.abs(p-100)<=3 ? 'var(--zielony-ok)' : (Math.abs(p-100)<=10 ? 'var(--zolty)' : 'var(--czerwony)');
       return `
-      <div class="panel-tyt" style="margin-top:24px;border-top:1px solid var(--linia)">
+      <div class="panel-tyt" style="margin-top:16px">
         Realne pobranie za ${dataPL(wczoraj)} <span class="licznik">zadane − niedojady zebrane rano</span>
         <span style="flex:1"></span>
         ${przyciskEksportu('#pzPobranie','pobranie_'+lok+'_'+wczoraj,'Pobranie realne — '+nazwaLok+' '+dataPL(wczoraj))}
@@ -3028,27 +3078,50 @@ function renderPaszowoz(w, lok){
     };
   });
 
-  // === NIEDOJADY ===
-  const btnNied = w.querySelector('#pzDodNied');
-  if(btnNied) btnNied.onclick = async ()=>{
-    niedojady.push({zrodloId:'', zebranoKg:0, celId:'', domieszanoKg:0});
+  // === ZEBRANE NIEDOJADY ===
+  const btnZebr = w.querySelector('#pzDodZebr');
+  if(btnZebr) btnZebr.onclick = async ()=>{
+    niedojady.push({zrodloId:'', zebranoKg:0});
     await zapiszPaszowoz(lok, data, wozy, niedojady);
   };
-  w.querySelectorAll('[data-nd-zrodlo]').forEach(s=>{
-    s.onchange = async ()=>{ niedojady[+s.dataset.ndZrodlo].zrodloId=s.value; await zapiszPaszowoz(lok,data,wozy,niedojady); };
+  w.querySelectorAll('[data-zebr-zrodlo]').forEach(s=>{
+    s.onchange = async ()=>{ niedojady[+s.dataset.zebrZrodlo].zrodloId=s.value; await zapiszPaszowoz(lok,data,wozy,niedojady); };
   });
-  w.querySelectorAll('[data-nd-zebrano]').forEach(i=>{
-    i.onchange = async ()=>{ niedojady[+i.dataset.ndZebrano].zebranoKg=Math.max(0,liczba(i.value)); await zapiszPaszowoz(lok,data,wozy,niedojady); };
+  w.querySelectorAll('[data-zebr-kg]').forEach(i=>{
+    i.onchange = async ()=>{ niedojady[+i.dataset.zebrKg].zebranoKg=Math.max(0,liczba(i.value)); await zapiszPaszowoz(lok,data,wozy,niedojady); };
   });
-  w.querySelectorAll('[data-nd-cel]').forEach(s=>{
-    s.onchange = async ()=>{ niedojady[+s.dataset.ndCel].celId=s.value; await zapiszPaszowoz(lok,data,wozy,niedojady); };
+  w.querySelectorAll('[data-zebr-usun]').forEach(b=>{
+    b.onclick = async ()=>{ niedojady.splice(+b.dataset.zebrUsun,1); await zapiszPaszowoz(lok,data,wozy,niedojady); };
   });
-  w.querySelectorAll('[data-nd-domieszano]').forEach(i=>{
-    i.onchange = async ()=>{ niedojady[+i.dataset.ndDomieszano].domieszanoKg=Math.max(0,liczba(i.value)); await zapiszPaszowoz(lok,data,wozy,niedojady); };
+
+  // === NIEDOJADY W WOZACH ===
+  w.querySelectorAll('[data-woz-dodnd]').forEach(b=>{
+    b.onclick = async ()=>{
+      const woz = wozy.find(x=>x.id===b.dataset.wozDodnd); if(!woz) return;
+      woz.niedojady = woz.niedojady||[];
+      woz.niedojady.push({zrodloId:'', kg:0});
+      await zapiszPaszowoz(lok, data, wozy, niedojady);
+    };
   });
-  w.querySelectorAll('[data-nd-usun]').forEach(b=>{
-    b.onclick = async ()=>{ niedojady.splice(+b.dataset.ndUsun,1); await zapiszPaszowoz(lok,data,wozy,niedojady); };
+  w.querySelectorAll('[data-wnd-zrodlo]').forEach(s=>{
+    s.onchange = async ()=>{
+      const [wid,ni] = s.dataset.wndZrodlo.split('|');
+      const woz = wozy.find(x=>x.id===wid); if(woz){ woz.niedojady[+ni].zrodloId=s.value; await zapiszPaszowoz(lok,data,wozy,niedojady); }
+    };
   });
+  w.querySelectorAll('[data-wnd-kg]').forEach(i=>{
+    i.onchange = async ()=>{
+      const [wid,ni] = i.dataset.wndKg.split('|');
+      const woz = wozy.find(x=>x.id===wid); if(woz){ woz.niedojady[+ni].kg=Math.max(0,liczba(i.value)); await zapiszPaszowoz(lok,data,wozy,niedojady); }
+    };
+  });
+  w.querySelectorAll('[data-wnd-usun]').forEach(b=>{
+    b.onclick = async ()=>{
+      const [wid,ni] = b.dataset.wndUsun.split('|');
+      const woz = wozy.find(x=>x.id===wid); if(woz){ woz.niedojady.splice(+ni,1); await zapiszPaszowoz(lok,data,wozy,niedojady); }
+    };
+  });
+
 }
 
 /* Macierz surowce × sektory dla widoku Paszowóz — na podstawie realnych wozów */
