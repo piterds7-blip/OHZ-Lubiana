@@ -349,6 +349,21 @@ input.pole.potw{background:#f0faf3;border-color:#b9dfc6}
 .pz-nd-woz{padding:8px 14px 10px;background:#fffbf0;border-top:1px solid #f0e4c0}
 .pz-nd-chip{background:#fff8e8}
 .nd-badge{font-size:14px;line-height:1}
+.pz-chip-pool{display:flex;flex-wrap:wrap;gap:8px;padding:10px 0;min-height:40px}
+.pz-chip,.pz-chip-w{display:inline-flex;gap:6px;align-items:center;padding:8px 12px;
+  background:#fff8e8;border:2px solid #f0d890;border-radius:10px;font-size:13px;
+  cursor:grab;user-select:none;transition:all .15s;touch-action:none}
+.pz-chip:hover,.pz-chip-w:hover{border-color:#e0c050;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+.pz-chip.dragging{opacity:.4;transform:scale(.95)}
+.pz-chip.wybrany{border-color:var(--zielen);box-shadow:0 0 0 3px var(--zielen-bardzo-jasna);background:#f0faf0}
+.pz-chip-w{background:#fff;border-color:#e0e8e0;cursor:default}
+.pz-ghost{box-shadow:0 8px 24px rgba(0,0,0,.2) !important}
+.pz-drop-zone{min-height:48px;transition:background .12s,border-color .12s}
+.pz-drop-zone.drag-over{background:#f0faf0 !important;border-color:var(--zielen) !important;
+  box-shadow:inset 0 0 0 2px var(--zielen-jasna)}
+.pz-drop-hint{padding:10px 8px;text-align:center;color:var(--tekst-slaby);font-size:12.5px;font-style:italic}
+.pz-zebr-row.przypisany{opacity:.55}
+.pz-zebr-row.przypisany select,.pz-zebr-row.przypisany input{background:#f4f4f4}
 .gt-det{background:#fff;border:1px solid var(--zielen-jasna);border-radius:var(--r);margin:8px 0;padding:12px 14px}
 .gt-det h4{margin:0 0 8px;font-size:13.5px;color:var(--zielen);font-weight:700}
 .gt-det table{width:100%;font-size:12.5px;margin-bottom:10px}
@@ -2801,30 +2816,24 @@ function renderPaszowoz(w, lok){
           </div>
 
           ${(()=>{
-            /* Niedojady przypisane do tego wozu */
+            /* Niedojady przypisane do tego wozu — tylko z puli zebranych */
             const ndWozu = (woz.niedojady||[]);
             const sumaNd = ndWozu.reduce((s,x)=>s+(x.kg||0),0);
             const swiezy = (woz.wagaFaktyczna||0) - sumaNd;
-            if(!ndWozu.length && !edycja) return '';
-            return `<div class="pz-nd-woz">
+            return `<div class="pz-nd-woz pz-drop-zone" data-drop-woz="${woz.id}">
               <div class="pz-rozdziel-nag">♻ Niedojady w wozie (${fmt(sumaNd,0)} kg)
-                ${edycja?`<button class="ikonka dodaj" data-woz-dodnd="${woz.id}" title="Dodaj niedojad do wozu">+</button>`:''}
                 <span style="flex:1"></span>
                 ${sumaNd>0?`<span class="pz-hint">Świeży TMR: ${fmt(swiezy,0)} kg</span>`:''}
               </div>
-              ${ndWozu.map((nd,ni)=>{
+              ${ndWozu.length ? ndWozu.map((nd,ni)=>{
                 const grZr = store.grupyTech[nd.zrodloId];
-                return `<div class="pz-rz pz-nd-chip">
+                return `<div class="pz-chip-w" draggable="true" data-chip-woz="${woz.id}|${ni}">
                   <span class="nd-badge">♻</span>
-                  <select data-wnd-zrodlo="${woz.id}|${ni}" ${edycja?'':'disabled'}>
-                    <option value="">— źródło —</option>
-                    ${grupy.map(g=>`<option value="${g.id}" ${g.id===nd.zrodloId?'selected':''}>${esc(g.nazwa)}</option>`).join('')}
-                  </select>
-                  <input type="number" step="1" min="0" data-wnd-kg="${woz.id}|${ni}" value="${nd.kg||''}" placeholder="kg" ${edycja?'':'readonly'}>
-                  ${edycja?`<button class="ikonka usun" data-wnd-usun="${woz.id}|${ni}" title="Usuń">✕</button>`:''}
+                  <b>${esc(grZr?.nazwa||'?')}</b>
+                  <span>${fmt(nd.kg,0)} kg</span>
+                  ${edycja?`<button class="ikonka usun" data-wnd-usun="${woz.id}|${ni}" title="Wyjmij z wozu">✕</button>`:''}
                 </div>`;
-              }).join('')}
-              ${!ndWozu.length?'<div class="pz-pusto">Kliknij + żeby dodać niedojady do tego wozu</div>':''}
+              }).join('') : `<div class="pz-drop-hint">${edycja?'Przeciągnij niedojady tutaj':'—'}</div>`}
             </div>`;
           })()}
 
@@ -2858,28 +2867,50 @@ function renderPaszowoz(w, lok){
     ${(()=>{
       const zebrane = niedojady;
       const sumaZebr = zebrane.reduce((s,x)=>s+(x.zebranoKg||0),0);
-      const przypisane = {};
+      // Sprawdź które z zebranych są przypisane do wozów (po zrodloId + kg)
+      const wWozach = new Set();
       wozy.forEach(w=>(w.niedojady||[]).forEach(nd=>{
-        przypisane[nd.zrodloId]=(przypisane[nd.zrodloId]||0)+(nd.kg||0);
+        // Znajdź pasujący wpis w zebranych (pierwszy nieużyty o tym samym źródle i kg)
+        for(let i=0;i<zebrane.length;i++){
+          if(wWozach.has(i)) continue;
+          if(zebrane[i].zrodloId===nd.zrodloId && Math.abs((zebrane[i].zebranoKg||0)-(nd.kg||0))<0.5){
+            wWozach.add(i); break;
+          }
+        }
       }));
-      const sumaPrzyp = Object.values(przypisane).reduce((s,x)=>s+x,0);
-      if(!zebrane.length) return '<div class="pusto" style="padding:12px">Brak niedojadów. Kliknij + żeby wpisać co zebrano rano z sektorów.</div>';
+      const sumaPrzyp = [...wWozach].reduce((s,i)=>s+(zebrane[i]?.zebranoKg||0),0);
+      const wolne = zebrane.map((nd,i)=>({...nd, idx:i, przypisany:wWozach.has(i)}));
+      if(!zebrane.length) return `<div class="pusto" style="padding:12px">Brak niedojadów. Kliknij <b>+ Zbieranie</b> żeby wpisać co zebrano rano z sektorów.</div>`;
       return `<div class="pz-niedojady">
-        ${zebrane.map((nd,i)=>{
-          const gr=store.grupyTech[nd.zrodloId];
-          return `<div class="pz-zebr-row">
-            <select data-zebr-zrodlo="${i}" ${edycja?'':'disabled'}>
-              <option value="">— sektor —</option>
-              ${grupy.map(g=>`<option value="${g.id}" ${g.id===nd.zrodloId?'selected':''}>${esc(g.nazwa)} (${g.sztuk||0})</option>`).join('')}
-            </select>
-            <input type="number" step="1" min="0" data-zebr-kg="${i}" value="${nd.zebranoKg||''}" placeholder="kg" ${edycja?'':'readonly'}>
-            <span class="pz-hint">kg</span>
-            ${edycja?`<button class="ikonka usun" data-zebr-usun="${i}" title="Usuń">✕</button>`:''}
-          </div>`;
-        }).join('')}
+        <div class="pz-zebr-form">
+          ${zebrane.map((nd,i)=>{
+            const gr=store.grupyTech[nd.zrodloId];
+            const przyp = wWozach.has(i);
+            return `<div class="pz-zebr-row ${przyp?'przypisany':''}">
+              <select data-zebr-zrodlo="${i}" ${edycja&&!przyp?'':'disabled'}>
+                <option value="">— sektor —</option>
+                ${grupy.map(g=>`<option value="${g.id}" ${g.id===nd.zrodloId?'selected':''}>${esc(g.nazwa)} (${g.sztuk||0})</option>`).join('')}
+              </select>
+              <input type="number" step="1" min="0" data-zebr-kg="${i}" value="${nd.zebranoKg||''}" placeholder="kg" ${edycja&&!przyp?'':'readonly'}>
+              <span class="pz-hint">kg</span>
+              ${edycja&&!przyp?`<button class="ikonka usun" data-zebr-usun="${i}" title="Usuń">✕</button>`:''}
+              ${przyp?'<span class="plakietka recept">w wozie ✓</span>':''}
+            </div>`;
+          }).join('')}
+        </div>
+        <div class="pz-chip-pool" id="pzChipPool">
+          ${wolne.filter(nd=>!nd.przypisany && nd.zrodloId).map(nd=>{
+            const gr=store.grupyTech[nd.zrodloId];
+            return `<div class="pz-chip" draggable="true" data-chip-idx="${nd.idx}" data-chip-zrodlo="${nd.zrodloId}" data-chip-kg="${nd.zebranoKg||0}">
+              <span class="nd-badge">♻</span>
+              <b>${esc(gr?.nazwa||'?')}</b>
+              <span>${fmt(nd.zebranoKg,0)} kg</span>
+            </div>`;
+          }).join('') || (zebrane.every(nd=>wWozach.has(nd))?'<div class="pz-drop-hint">Wszystkie niedojady przypisane do wozów ✓</div>':'')}
+        </div>
         <div class="pz-zebr-suma">Zebrano łącznie: <b>${fmt(sumaZebr,0)} kg</b>
           ${sumaPrzyp>0?' · w wozach: <b>'+fmt(sumaPrzyp,0)+' kg</b>':''}
-          ${sumaZebr>sumaPrzyp+0.5?' · <span style="color:var(--zolty)">nieprzypisane: '+fmt(sumaZebr-sumaPrzyp,0)+' kg</span>':''}
+          ${sumaZebr>sumaPrzyp+0.5?' · <span style="color:var(--zolty)">nieprzypisane: '+fmt(Math.max(0,sumaZebr-sumaPrzyp),0)+' kg — przeciągnij na wóz</span>':''}
         </div>
       </div>`;
     })()}
@@ -3094,31 +3125,107 @@ function renderPaszowoz(w, lok){
     b.onclick = async ()=>{ niedojady.splice(+b.dataset.zebrUsun,1); await zapiszPaszowoz(lok,data,wozy,niedojady); };
   });
 
-  // === NIEDOJADY W WOZACH ===
-  w.querySelectorAll('[data-woz-dodnd]').forEach(b=>{
-    b.onclick = async ()=>{
-      const woz = wozy.find(x=>x.id===b.dataset.wozDodnd); if(!woz) return;
+  // === DRAG & DROP + TOUCH dla niedojadów ===
+  // Wyjmij z wozu
+  w.querySelectorAll('[data-wnd-usun]').forEach(b=>{
+    b.onclick = async (e)=>{
+      e.stopPropagation();
+      const [wid,ni] = b.dataset.wndUsun.split('|');
+      const woz = wozy.find(x=>x.id===wid); if(woz){ woz.niedojady.splice(+ni,1); await zapiszPaszowoz(lok,data,wozy,niedojady); }
+    };
+  });
+
+  // Drag & Drop (desktop)
+  w.querySelectorAll('[data-chip-idx]').forEach(chip=>{
+    chip.ondragstart = e=>{
+      e.dataTransfer.setData('text/plain', chip.dataset.chipIdx);
+      chip.classList.add('dragging');
+    };
+    chip.ondragend = ()=> chip.classList.remove('dragging');
+  });
+  w.querySelectorAll('.pz-drop-zone').forEach(zone=>{
+    zone.ondragover = e=>{ e.preventDefault(); zone.classList.add('drag-over'); };
+    zone.ondragleave = ()=> zone.classList.remove('drag-over');
+    zone.ondrop = async e=>{
+      e.preventDefault(); zone.classList.remove('drag-over');
+      const idx = +e.dataTransfer.getData('text/plain');
+      const nd = niedojady[idx]; if(!nd?.zrodloId) return;
+      const wozId = zone.dataset.dropWoz;
+      const woz = wozy.find(x=>x.id===wozId); if(!woz) return;
       woz.niedojady = woz.niedojady||[];
-      woz.niedojady.push({zrodloId:'', kg:0});
+      woz.niedojady.push({zrodloId:nd.zrodloId, kg:nd.zebranoKg||0});
       await zapiszPaszowoz(lok, data, wozy, niedojady);
     };
   });
-  w.querySelectorAll('[data-wnd-zrodlo]').forEach(s=>{
-    s.onchange = async ()=>{
-      const [wid,ni] = s.dataset.wndZrodlo.split('|');
-      const woz = wozy.find(x=>x.id===wid); if(woz){ woz.niedojady[+ni].zrodloId=s.value; await zapiszPaszowoz(lok,data,wozy,niedojady); }
+
+  // Touch support (tablet)
+  let touchChip = null, touchGhost = null;
+  w.querySelectorAll('[data-chip-idx]').forEach(chip=>{
+    chip.ontouchstart = e=>{
+      touchChip = chip;
+      const t = e.touches[0];
+      touchGhost = chip.cloneNode(true);
+      touchGhost.className = 'pz-chip pz-ghost';
+      touchGhost.style.cssText = 'position:fixed;z-index:999;pointer-events:none;opacity:.85;transform:scale(1.05);'+
+        'left:'+(t.clientX-60)+'px;top:'+(t.clientY-20)+'px';
+      document.body.appendChild(touchGhost);
+      chip.classList.add('dragging');
+    };
+    chip.ontouchmove = e=>{
+      if(!touchGhost) return;
+      e.preventDefault();
+      const t = e.touches[0];
+      touchGhost.style.left = (t.clientX-60)+'px';
+      touchGhost.style.top = (t.clientY-20)+'px';
+      // podświetl zone pod palcem
+      document.querySelectorAll('.pz-drop-zone').forEach(z=>z.classList.remove('drag-over'));
+      const el = document.elementFromPoint(t.clientX, t.clientY);
+      const zone = el?.closest?.('.pz-drop-zone');
+      if(zone) zone.classList.add('drag-over');
+    };
+    chip.ontouchend = async e=>{
+      if(touchGhost){ touchGhost.remove(); touchGhost=null; }
+      if(!touchChip) return;
+      touchChip.classList.remove('dragging');
+      const t = e.changedTouches[0];
+      const el = document.elementFromPoint(t.clientX, t.clientY);
+      const zone = el?.closest?.('.pz-drop-zone');
+      document.querySelectorAll('.pz-drop-zone').forEach(z=>z.classList.remove('drag-over'));
+      if(zone){
+        const idx = +touchChip.dataset.chipIdx;
+        const nd = niedojady[idx]; if(!nd?.zrodloId){ touchChip=null; return; }
+        const wozId = zone.dataset.dropWoz;
+        const woz = wozy.find(x=>x.id===wozId); if(!woz){ touchChip=null; return; }
+        woz.niedojady = woz.niedojady||[];
+        woz.niedojady.push({zrodloId:nd.zrodloId, kg:nd.zebranoKg||0});
+        await zapiszPaszowoz(lok, data, wozy, niedojady);
+      }
+      touchChip = null;
     };
   });
-  w.querySelectorAll('[data-wnd-kg]').forEach(i=>{
-    i.onchange = async ()=>{
-      const [wid,ni] = i.dataset.wndKg.split('|');
-      const woz = wozy.find(x=>x.id===wid); if(woz){ woz.niedojady[+ni].kg=Math.max(0,liczba(i.value)); await zapiszPaszowoz(lok,data,wozy,niedojady); }
+
+  // Click-to-assign fallback (kliknij chip → kliknij wóz)
+  let wybranyChip = null;
+  w.querySelectorAll('[data-chip-idx]').forEach(chip=>{
+    chip.onclick = ()=>{
+      if(wybranyChip===chip){ chip.classList.remove('wybrany'); wybranyChip=null; return; }
+      w.querySelectorAll('.pz-chip.wybrany').forEach(c=>c.classList.remove('wybrany'));
+      chip.classList.add('wybrany');
+      wybranyChip = chip;
+      toast('Kliknij teraz wóz, do którego chcesz dodać niedojady.');
     };
   });
-  w.querySelectorAll('[data-wnd-usun]').forEach(b=>{
-    b.onclick = async ()=>{
-      const [wid,ni] = b.dataset.wndUsun.split('|');
-      const woz = wozy.find(x=>x.id===wid); if(woz){ woz.niedojady.splice(+ni,1); await zapiszPaszowoz(lok,data,wozy,niedojady); }
+  w.querySelectorAll('.pz-drop-zone').forEach(zone=>{
+    zone.onclick = async e=>{
+      if(!wybranyChip || e.target.closest('button,select,input')) return;
+      const idx = +wybranyChip.dataset.chipIdx;
+      const nd = niedojady[idx]; if(!nd?.zrodloId) return;
+      const wozId = zone.dataset.dropWoz;
+      const woz = wozy.find(x=>x.id===wozId); if(!woz) return;
+      woz.niedojady = woz.niedojady||[];
+      woz.niedojady.push({zrodloId:nd.zrodloId, kg:nd.zebranoKg||0});
+      wybranyChip = null;
+      await zapiszPaszowoz(lok, data, wozy, niedojady);
     };
   });
 
