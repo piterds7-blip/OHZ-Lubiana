@@ -165,6 +165,7 @@ select.pole:focus{outline:none;border-color:var(--zielen-jasna);background:#fff}
 .ikonka.usun:hover{background:#fdecea;color:var(--czerwony)}
 .plakietka{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11.5px;font-weight:600;background:var(--zielen-bardzo-jasna);color:var(--zielen);white-space:nowrap}
 .plakietka.mieszanka{background:#fff1d9;color:#8a5300}
+.plakietka.recept{background:#e7f0fb;color:#1e5aac;font-size:9.5px;padding:1px 5px;margin-left:4px}
 .pusto{padding:36px 16px;text-align:center;color:var(--tekst-slaby);font-size:14px}
 .podpis{color:var(--tekst-slaby);font-size:12px}
 .skladPod{font-size:12.5px;color:var(--tekst-slaby);padding:2px 10px 8px 34px}
@@ -339,6 +340,17 @@ input.pole.potw{background:#f0faf3;border-color:#b9dfc6}
   .pz-siatka{grid-template-columns:1fr;padding:8px}
   .pz-input.num{font-size:15px}
 }
+/* Niedojady w Paszowozie */
+.pz-niedojady{padding:10px 14px}
+.pz-nd-row{display:flex;gap:10px;align-items:end;margin-bottom:10px;padding:10px 12px;
+  background:#fffbf0;border:1px solid #f0e4c0;border-radius:10px;flex-wrap:wrap}
+.pz-nd-blok{flex:1;min-width:200px}
+.pz-nd-blok label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.4px;
+  color:var(--tekst-slaby);margin-bottom:3px;font-weight:600}
+.pz-nd-blok select,.pz-nd-blok input{width:100%;padding:6px 8px;border:1px solid var(--linia);
+  border-radius:6px;font-size:13px;background:#fff;margin-bottom:4px}
+.pz-nd-blok input{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+.pz-nd-strzalka{font-size:20px;color:var(--tekst-slaby);padding-bottom:20px;font-weight:700}
 .gt-det{background:#fff;border:1px solid var(--zielen-jasna);border-radius:var(--r);margin:8px 0;padding:12px 14px}
 .gt-det h4{margin:0 0 8px;font-size:13.5px;color:var(--zielen);font-weight:700}
 .gt-det table{width:100%;font-size:12.5px;margin-bottom:10px}
@@ -1155,6 +1167,7 @@ function uzycieSurowca(id){
 }
 
 function renderSurowce(w){
+  przeliczCenyMieszanek();   // automatycznie aktualizuj ceny mieszanek wg bieżących cen składników
   const edycja = mozeEdytowac('surowce');
   const lista = listaSurowcow();
   const wszystkie = Object.values(store.surowce).length;
@@ -1241,6 +1254,8 @@ function renderSurowce(w){
         const v = liczba(el.value);
         if(v<0){ toast('Cena nie może być ujemna.', true); el.value=fmt(s.cenaTona,2); return; }
         DB.zapisz('surowce', id, {cenaTona:v, dataCeny:dzisiaj()});
+        // Zmiana ceny składnika może wpływać na koszt mieszanek — przelicz
+        setTimeout(przeliczCenyMieszanek, 500);
       }
     };
     el.onfocus = ()=>{ if(el.dataset.pole==='cena') el.value = el.dataset.raw||''; };
@@ -1274,7 +1289,7 @@ function wierszSurowca(s, i, lista, edycja){
     <td class="num">
       ${edycja && !s.zMieszalni
         ? `<input class="pole num" data-id="${s.id}" data-pole="cena" data-raw="${s.cenaTona??''}" value="${fmt(s.cenaTona,2)}" inputmode="decimal">`
-        : fmt(s.cenaTona,2)}
+        : `${fmt(s.cenaTona,2)}${s.zMieszalni?' <span class="plakietka recept" title="Cena wyliczona automatycznie z receptury i bieżących cen składników">z receptury</span>':''}`}
     </td>
     <td class="num">${fmt(zlKg,4)}</td>
     <td>${dataPL(s.dataCeny)}</td>
@@ -2264,7 +2279,7 @@ function renderLokalizacja(w, lok){
           <th>Dawki (udzia\u0142y %)</th>
           <th class="num">Dawka wyliczona<br>kg/szt</th>
           <th class="num">Plan<br>kg/grup\u0119</th>
-          <th class="num">+ Niedojady<br>kg</th>
+
           <th class="num">Zadane<br>kg na grup\u0119</th>
           <th class="num">\u015awie\u017cy TMR<br>kg</th>
           <th class="num">Per sztuk\u0119<br>kg</th>
@@ -2302,9 +2317,7 @@ function renderLokalizacja(w, lok){
               <td>${esc(opis)}${bladU?` <span class="blad-udzial">\u26a0 ${d.sumaUdzialow}%</span>`:''}</td>
               <td class="num">${fmt(d.wylicz,2)}</td>
               <td class="num">${fmt(d.planKg,0)}</td>
-              <td class="num">${mozeWpis
-                  ? `<button class="btn-nied ${d.niedojadyDod?'ma':''}" data-nied="${gr.id}" title="Rozpisz sk\u0105d pochodz\u0105 niedojady">${d.niedojadyDod?fmt(d.niedojadyDod,0):'+'}</button>`
-                  : (d.niedojadyDod?fmt(d.niedojadyDod,0):'\u2014')}</td>
+
               <td class="num">${mozeWpis?`<input class="pole num ${d.potw?'potw':''}" data-zad="${gr.id}" value="${d.potw?fmt(d.zadaneKg,0):''}" placeholder="${fmt(d.planKg,0)}" style="width:82px" inputmode="decimal">`:fmt(d.zadaneKg,0)}</td>
               <td class="num" style="color:var(--zielen);font-weight:600">${fmt(d.swiezyTmr,0)}</td>
               <td class="num"><b>${fmt(d.perSzt,2)}</b></td>
@@ -2324,33 +2337,11 @@ function renderLokalizacja(w, lok){
       </table>
     </div>
     <div class="podpis" style="padding:8px 14px">
-      <b>+ Niedojady</b> \u2014 kg niedojad\u00f3w z poprzedniego dnia domieszanych do dzisiejszej dawki (nie wymagaj\u0105 \u015bwie\u017cych surowc\u00f3w).
-      <b>\u015awie\u017cy TMR</b> = Zadane \u2212 Niedojady \u2014 tyle faktycznie miesza si\u0119 ze \u015bwie\u017cych sk\u0142adnik\u00f3w (widoczne w karcie za\u0142adunku).
       Puste pole <b>Zadane</b> = przyj\u0119to plan. Kliknij wiersz, \u017ceby rozwin\u0105\u0107 kart\u0119 za\u0142adunku.
     </div>
   </div>
 
-  <div class="panel">
-    <div class="panel-tyt">Niedojady z ${dataPL(data)} \u2192 korekta pobrania za ${dataPL(wczoraj)}</div>
-    ${!dokWczoraj ? `<div class="pusto">Brak wpisu \u017cywienia za ${dataPL(wczoraj)} \u2014 nie ma czego korygowa\u0107.</div>` : `
-    <div class="przewijak"><table class="gt-tabela">
-      <thead><tr><th>Grupa</th><th class="num">Zadano ${dataPL(wczoraj)}<br>kg</th>
-      <th class="num">Niedojady<br>kg</th><th class="num">Niedojady<br>%</th>
-      <th class="num">Pobranie rzeczywiste<br>kg/szt</th></tr></thead>
-      <tbody>${grupy.map(gr=>{
-        const zy=dokWczoraj.grupy?.[gr.id]; if(!zy) return '';
-        const zad = zy.zadaneKg!=null ? zy.zadaneKg : (zy.dawkaWyliczonaKgSzt||0)*(zy.sztuk||0);
-        if(!zad) return '';
-        const nd=zy.niedojadyKg;
-        const proc=(nd!=null&&zad>0)?(nd/zad)*100:null;
-        const pobr=(zy.sztuk>0)?(zad-(nd||0))/zy.sztuk:null;
-        return `<tr><td><b>${esc(gr.nazwa)}</b></td><td class="num">${fmt(zad,0)}</td>
-          <td class="num">${mozeWpis?`<input class="pole num" data-nd="${gr.id}" value="${nd!=null?fmt(nd,0):''}" placeholder="0" style="width:76px" inputmode="decimal">`:(nd!=null?fmt(nd,0):'\u2014')}</td>
-          <td class="num">${proc!=null?fmt(proc,1)+'%':'\u2014'}</td>
-          <td class="num"><b>${pobr!=null?fmt(pobr,1):'\u2014'}</b></td></tr>`;
-      }).join('')}</tbody>
-    </table></div>`}
-  </div>
+
 
   <div class="panel">
     <div class="panel-tyt">Realny sk\u0142ad dawek \u2014 ${esc(nazwaLok)}, ${dataPL(data)}
@@ -2393,16 +2384,7 @@ function renderLokalizacja(w, lok){
         zapiszDzien(lok, data, i.dataset.zad, {zadaneKg: v===''?null:Math.max(0,liczba(v))});
       };
     });
-    w.querySelectorAll('[data-nied]').forEach(b=>{
-      b.onclick=e=>{ e.stopPropagation(); oknoNiedojady(lok, data, b.dataset.nied); };
-    });
-    w.querySelectorAll('[data-nd]').forEach(i=>{
-      i.onclick=e=>e.stopPropagation();
-      i.onchange=()=>{
-        const v=i.value.trim();
-        zapiszDzien(lok, wczoraj, i.dataset.nd, {niedojadyKg: v===''?null:Math.max(0,liczba(v))});
-      };
-    });
+
   }
   if(edycja){
     w.querySelectorAll('[data-edgt]').forEach(b=>{
@@ -2562,142 +2544,7 @@ function oknoEdGrupa(lok, edId){
 
 /* Rozdzielnik niedojadów: skąd fizycznie pochodzą kilogramy domieszane do tej grupy.
    Pilnuje, żeby nie rozdysponować więcej, niż faktycznie zebrano z grupy źródłowej. */
-function oknoNiedojady(lok, data, grupaId){
-  const gr = store.grupyTech[grupaId];
-  const wczoraj = dataMinus(data,1);
-  const dokWczoraj = dokDnia(lok,wczoraj);
-  const dok = dokDnia(lok,data);
-  const z = dok?.grupy?.[grupaId] || {};
-  let zrodla = [...(z.niedojadyZrodla || [])];
-  const grupy = grupyLok(lok);
 
-  // Ile niedojadów zebrano wczoraj z każdej grupy
-  const zebrane = {};
-  grupy.forEach(g=>{
-    const zy = dokWczoraj?.grupy?.[g.id];
-    if(zy?.niedojadyKg > 0) zebrane[g.id] = zy.niedojadyKg;
-  });
-  // Ile już rozdysponowano dziś do INNYCH grup
-  const rozdane = {};
-  Object.entries(dok?.grupy||{}).forEach(([gid,gz])=>{
-    if(gid===grupaId) return;
-    (gz.niedojadyZrodla||[]).forEach(zr=>{ rozdane[zr.grupaId]=(rozdane[zr.grupaId]||0)+(zr.kg||0); });
-  });
-
-  const dostepne = Object.keys(zebrane);
-
-  function rysujWiersze(){
-    if(!zrodla.length) return '<div class="podpis" style="padding:8px 0">Brak przypisanych źródeł. Dodaj poniżej.</div>';
-    return zrodla.map((zr,i)=>{
-      const maxZ = (zebrane[zr.grupaId]||0) - (rozdane[zr.grupaId]||0);
-      const zaDuzo = zr.kg > maxZ + 0.01;
-      return `
-      <div class="wiersz2" style="margin-bottom:6px;align-items:end">
-        <div class="pole-grupa" style="margin:0;flex:2">
-          ${i===0?'<label>Grupa źródłowa (niedojady z '+dataPL(wczoraj)+')</label>':''}
-          <select data-zi="${i}" data-pole="grupaId">
-            ${grupy.map(g=>`<option value="${g.id}" ${g.id===zr.grupaId?'selected':''}>${esc(g.nazwa)}${zebrane[g.id]?' — zebrano '+fmt(zebrane[g.id],0)+' kg':' — brak'}</option>`).join('')}
-          </select>
-        </div>
-        <div class="pole-grupa" style="margin:0;flex:1">
-          ${i===0?'<label>kg</label>':''}
-          <input data-zi="${i}" data-pole="kg" type="number" value="${zr.kg||0}" min="0" step="1"
-                 style="width:90px${zaDuzo?';border-color:var(--czerwony)':''}" inputmode="decimal">
-          ${zaDuzo?`<div class="hint" style="color:var(--czerwony)">max ${fmt(maxZ,0)} kg</div>`:''}
-        </div>
-        <button class="ikonka usun" data-usunzr="${i}" title="Usuń">✕</button>
-      </div>`;
-    }).join('');
-  }
-
-  function suma(){ return zrodla.reduce((s,x)=>s+(Number(x.kg)||0),0); }
-
-  modal({
-    tytul:`Niedojady domieszane — ${gr?.nazwa||''}`,
-    szer:'620px',
-    tresc:`
-      <div class="podpis" style="margin-bottom:12px">
-        Niedojady to pasza TMR pozostawiona przez zwierzęta poprzedniego dnia. Wskaż, z których grup
-        pochodzą kilogramy domieszane dziś do tej grupy — dzięki temu zużycie świeżych surowców
-        i koszt liczą się poprawnie, a pobranie grupy źródłowej zostaje pomniejszone.
-      </div>
-      ${dostepne.length ? `<div class="nd-bilans ok">Wczoraj (${dataPL(wczoraj)}) zebrano niedojady z ${dostepne.length} grup:
-        ${dostepne.map(g=>esc(store.grupyTech[g]?.nazwa||'?')+' '+fmt(zebrane[g],0)+' kg').join(' · ')}</div>`
-      : `<div class="nd-bilans zle">Za ${dataPL(wczoraj)} nie zarejestrowano jeszcze niedojadów u żadnej grupy.
-         Wpisane tutaj kilogramy zostaną automatycznie zapisane jako niedojady grup źródłowych za ${dataPL(wczoraj)} —
-         dzięki temu ich pobranie rzeczywiste zostanie poprawnie pomniejszone.</div>`}
-      <div id="ndLista">${rysujWiersze()}</div>
-      <button class="btn maly szary" id="ndDodaj" style="margin-top:4px">+ Źródło</button>
-      <hr style="border:none;border-top:1px solid var(--linia);margin:14px 0">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <b>Razem domieszane</b><b id="ndSuma" style="font-size:17px">${fmt(suma(),0)} kg</b>
-      </div>`,
-    przyciski:[
-      {tekst:'Anuluj'},
-      {tekst:'Zapisz', klasa:'', akcja:async(n)=>{
-        const sels=n.querySelectorAll('[data-pole="grupaId"]');
-        const inps=n.querySelectorAll('[data-pole="kg"]');
-        const lista=[];
-        sels.forEach((s,i)=>{
-          const kg=liczba(inps[i]?.value);
-          if(s.value && kg>0) lista.push({grupaId:s.value, kg});
-        });
-        // Kilogramy nie biorą się znikąd: sumujemy per grupa źródłowa i sprawdzamy,
-        // czy da się je pokryć tym, co ta grupa faktycznie zostawiła.
-        const perZrodlo={};
-        lista.forEach(x=>{ perZrodlo[x.grupaId]=(perZrodlo[x.grupaId]||0)+x.kg; });
-        const bledy=[];
-        for(const [gid,kg] of Object.entries(perZrodlo)){
-          const limit = (zebrane[gid]||0) - (rozdane[gid]||0);
-          const zebranoWcale = zebrane[gid]!=null;
-          if(zebranoWcale && kg > limit + 0.01){
-            bledy.push(`${store.grupyTech[gid]?.nazwa||'?'}: chcesz ${fmt(kg,0)} kg, dostępne ${fmt(Math.max(0,limit),0)} kg`);
-          }
-        }
-        if(bledy.length){
-          toast('Nie da się rozdysponować więcej, niż zebrano. '+bledy.join(' · '), true);
-          return false;
-        }
-        const razem=lista.reduce((s,x)=>s+x.kg,0);
-        await zapiszDzien(lok, data, grupaId, {
-          niedojadyZrodla: lista,
-          niedojadyDodaneKg: razem>0 ? razem : null
-        });
-        // DRUGA STRONA OPERACJI: jeśli grupa źródłowa nie ma zarejestrowanych niedojadów
-        // za dzień poprzedni, rejestrujemy je teraz — inaczej jej pobranie byłoby zawyżone.
-        let dopisane=0;
-        for(const [gid,kg] of Object.entries(perZrodlo)){
-          if(zebrane[gid]==null){
-            await zapiszDzien(lok, wczoraj, gid, {niedojadyKg: kg});
-            dopisane++;
-          }
-        }
-        toast(razem>0
-          ? `Domieszano ${fmt(razem,0)} kg.` + (dopisane?` Zarejestrowano niedojady u ${dopisane} grup za ${dataPL(wczoraj)}.`:'')
-          : 'Usunięto niedojady.');
-      }}
-    ]
-  });
-
-  function odsw(){
-    const k=document.getElementById('ndLista'); if(k) k.innerHTML=rysujWiersze();
-    const s=document.getElementById('ndSuma'); if(s) s.textContent=fmt(suma(),0)+' kg';
-    podepnij();
-  }
-  function podepnij(){
-    const n=document.getElementById('nakladka');
-    n.querySelectorAll('[data-pole="grupaId"]').forEach(s=>{s.onchange=()=>{zrodla[+s.dataset.zi].grupaId=s.value;odsw();};});
-    n.querySelectorAll('[data-pole="kg"]').forEach(i=>{i.onchange=()=>{zrodla[+i.dataset.zi].kg=liczba(i.value);odsw();};});
-    n.querySelectorAll('[data-usunzr]').forEach(b=>{b.onclick=()=>{zrodla.splice(+b.dataset.usunzr,1);odsw();};});
-  }
-  podepnij();
-  document.getElementById('ndDodaj').onclick=()=>{
-    const pierwsza = dostepne[0] || grupy[0]?.id;
-    const max = pierwsza ? (zebrane[pierwsza]||0)-(rozdane[pierwsza]||0) : 0;
-    zrodla.push({grupaId:pierwsza, kg: Math.max(0, Math.round(max))});
-    odsw();
-  };
-}
 
 /* ===================== ZAKŁADKA: PASZOWÓZ =================================
    Model: jeden dokument na dzień × lokalizację. Każdy wóz to receptura +
@@ -2726,14 +2573,16 @@ function nowyWoz(nr){
           nazwa:'Wóz '+nr, dawkaId:'', wagaFaktyczna:0, rozdzielenie:[]};
 }
 
-async function zapiszPaszowoz(lok, data, wozy){
-  await DB.zapisz('paszowozy', idPz(lok,data), {lokalizacja:lok, data, wozy,
+async function zapiszPaszowoz(lok, data, wozy, niedojady){
+  niedojady = niedojady || [];
+  await DB.zapisz('paszowozy', idPz(lok,data), {lokalizacja:lok, data, wozy, niedojady,
     autor:ROLE[rolaAkt]?.nazwa||'?', ts:Date.now()});
-  await synchronizujZywienieZPaszowozu(lok, data, wozy);
+  await synchronizujZywienieZPaszowozu(lok, data, wozy, niedojady);
 }
 
 /* Po zmianie wozów przelicza zywienie sektorów — bo raporty czytają stamtąd */
-async function synchronizujZywienieZPaszowozu(lok, data, wozy){
+async function synchronizujZywienieZPaszowozu(lok, data, wozy, niedojady){
+  niedojady = niedojady || [];
   const grupy = grupyLok(lok);
   const perGrupa = {};   // gid -> {kg, wklad:[{dawkaId,kg,skladniki,udzialy,koszt}]}
   wozy.forEach(w=>{
@@ -2791,6 +2640,37 @@ async function synchronizujZywienieZPaszowozu(lok, data, wozy){
       grupyNowe[gid] = reszta;
     }
   }
+  // Niedojady zebrane rano → korekta pobrania za dzień poprzedni
+  if(niedojady.length){
+    const wczoraj = dataMinus(data,1);
+    const idWcz = idDnia(lok, wczoraj);
+    const staryWcz = store.zywienie[idWcz] || {lokalizacja:lok, data:wczoraj, grupy:{}};
+    const grupyWcz = {...(staryWcz.grupy||{})};
+    // Najpierw wyczyść stare niedojady tego dnia (by nie dublować)
+    for(const gid of Object.keys(grupyWcz)){
+      if(grupyWcz[gid]?.niedojadyKg!=null) grupyWcz[gid] = {...grupyWcz[gid], niedojadyKg:null};
+    }
+    for(const nd of niedojady){
+      if(!nd.zrodloId || !(nd.zebranoKg>0)) continue;
+      const g = grupyWcz[nd.zrodloId] || {};
+      grupyWcz[nd.zrodloId] = {...g, niedojadyKg: (g.niedojadyKg||0)+nd.zebranoKg};
+    }
+    await DB.zapisz('zywienie', idWcz, {lokalizacja:lok, data:wczoraj, grupy:grupyWcz});
+  }
+  // Niedojady domieszane → dodaj do zadanego sektora docelowego
+  const perCel = {};
+  niedojady.forEach(nd=>{
+    if(!nd.celId || !(nd.domieszanoKg>0)) return;
+    perCel[nd.celId] = (perCel[nd.celId]||0) + nd.domieszanoKg;
+  });
+  for(const [gid, kg] of Object.entries(perCel)){
+    if(grupyNowe[gid]){
+      grupyNowe[gid] = {...grupyNowe[gid],
+        niedojadyDodaneKg: kg,
+        niedojadyZrodla: niedojady.filter(nd=>nd.celId===gid).map(nd=>({grupaId:nd.zrodloId, kg:nd.domieszanoKg}))
+      };
+    }
+  }
   await DB.zapisz('zywienie', id, {lokalizacja:lok, data, grupy:grupyNowe});
 }
 
@@ -2822,6 +2702,20 @@ function renderPaszowoz(w, lok){
   const data = pzData[lok];
   const dok = pzDok(lok,data);
   let wozy = dok?.wozy ? [...dok.wozy] : [];
+  let niedojady = dok?.niedojady ? [...dok.niedojady] : [];
+
+  // Autoduplikacja: brak wozów na dziś → szukaj ostatniego dnia z wozami
+  if(!wozy.length && !dok && edycja){
+    for(let i=1; i<=7; i++){
+      const prev = pzDok(lok, dataMinus(data, i));
+      if(prev?.wozy?.length){
+        wozy = prev.wozy.map((w,j)=>({...w, id:'w'+Date.now()+'_'+j, wagaFaktyczna:w.wagaFaktyczna||0}));
+        zapiszPaszowoz(lok, data, wozy, []);
+        break;
+      }
+    }
+  }
+
   const dawki = dawkiDlaLok(lok);
   const grupy = grupyLok(lok);
 
@@ -2909,6 +2803,83 @@ function renderPaszowoz(w, lok){
     </div>
 
     <div class="panel-tyt" style="margin-top:24px;border-top:1px solid var(--linia)">
+      Niedojady zebrane rano <span class="licznik">korekta pobrania za ${dataPL(dataMinus(data,1))}</span>
+      <span style="flex:1"></span>
+      ${edycja?'<button class="btn maly szary" id="pzDodNied">+ Niedojad</button>':''}
+    </div>
+    ${niedojady.length ? `
+    <div class="pz-niedojady">
+      ${niedojady.map((nd,i)=>{
+        return `<div class="pz-nd-row">
+          <div class="pz-nd-blok">
+            <label>Źródło (skąd zebrano)</label>
+            <select data-nd-zrodlo="${i}" ${edycja?'':'disabled'}>
+              <option value="">— sektor —</option>
+              ${grupy.map(g=>`<option value="${g.id}" ${g.id===nd.zrodloId?'selected':''}>${esc(g.nazwa)} (${g.sztuk||0})</option>`).join('')}
+            </select>
+            <input type="number" step="1" min="0" data-nd-zebrano="${i}" value="${nd.zebranoKg||''}" placeholder="kg zebranych" ${edycja?'':'readonly'}>
+          </div>
+          <div class="pz-nd-strzalka">→</div>
+          <div class="pz-nd-blok">
+            <label>Domieszano do sektora</label>
+            <select data-nd-cel="${i}" ${edycja?'':'disabled'}>
+              <option value="">— sektor docelowy —</option>
+              ${grupy.map(g=>`<option value="${g.id}" ${g.id===nd.celId?'selected':''}>${esc(g.nazwa)} (${g.sztuk||0})</option>`).join('')}
+            </select>
+            <input type="number" step="1" min="0" data-nd-domieszano="${i}" value="${nd.domieszanoKg||''}" placeholder="kg domieszanych" ${edycja?'':'readonly'}>
+          </div>
+          ${edycja?`<button class="ikonka usun" data-nd-usun="${i}" title="Usuń">✕</button>`:''}
+        </div>`;
+      }).join('')}
+    </div>
+    ` : '<div class="pusto" style="padding:12px">Brak niedojadów. Kliknij + żeby dodać wpis z porannego zbierania.</div>'}
+
+    ${(()=>{
+      /* Tabela pobrania realnego za WCZORAJ — bo dopiero dziś rano zebraliśmy niedojady */
+      const wczoraj = dataMinus(data,1);
+      const dokWcz = dokDnia(lok, wczoraj);
+      if(!dokWcz?.grupy) return '';
+      const poz = Object.entries(dokWcz.grupy).map(([gid,z])=>{
+        const gr = store.grupyTech[gid];
+        const sztuk = z.sztuk||0;
+        const zadane = z.zadaneKg||0;
+        const nied = z.niedojadyKg||0;
+        const pobrane = Math.max(0, zadane - nied);
+        const planSzt = z.dawkaWyliczonaKgSzt||0;
+        const pobraneSzt = sztuk>0 ? pobrane/sztuk : 0;
+        const proc = planSzt>0 ? (pobraneSzt/planSzt)*100 : 0;
+        return {gid, nazwa:gr?.nazwa||z.nazwaGrupy||'?', sztuk, zadane, nied, pobrane, pobraneSzt, planSzt, proc, kolejnosc:gr?.kolejnosc??99};
+      }).filter(p=>p.zadane>0).sort((a,b)=>a.kolejnosc-b.kolejnosc);
+      if(!poz.length) return '';
+      const kolProc = p => Math.abs(p-100)<=3 ? 'var(--zielony-ok)' : (Math.abs(p-100)<=10 ? 'var(--zolty)' : 'var(--czerwony)');
+      return `
+      <div class="panel-tyt" style="margin-top:24px;border-top:1px solid var(--linia)">
+        Realne pobranie za ${dataPL(wczoraj)} <span class="licznik">zadane − niedojady zebrane rano</span>
+        <span style="flex:1"></span>
+        ${przyciskEksportu('#pzPobranie','pobranie_'+lok+'_'+wczoraj,'Pobranie realne — '+nazwaLok+' '+dataPL(wczoraj))}
+      </div>
+      <div class="przewijak"><table class="gt-tabela" id="pzPobranie">
+        <thead><tr>
+          <th>Sektor</th><th class="num">Sztuk</th>
+          <th class="num">Zadano<br>kg</th><th class="num">Niedojady<br>kg</th>
+          <th class="num">Pobrano<br>kg</th><th class="num">Pobrano<br>kg/szt</th>
+          <th class="num">Plan<br>kg/szt</th><th class="num">% realiz.</th>
+        </tr></thead>
+        <tbody>
+          ${poz.map(p=>`<tr>
+            <td><b>${esc(p.nazwa)}</b></td>
+            <td class="num">${p.sztuk}</td>
+            <td class="num">${fmt(p.zadane,0)}</td>
+            <td class="num">${p.nied?'<span style="color:#b45309;font-weight:600">'+fmt(p.nied,0)+'</span>':'—'}</td>
+            <td class="num"><b>${fmt(p.pobrane,0)}</b></td>
+            <td class="num"><b>${fmt(p.pobraneSzt,2)}</b></td>
+            <td class="num">${fmt(p.planSzt,2)}</td>
+            <td class="num" style="color:${kolProc(p.proc)};font-weight:700">${fmt(p.proc,0)}%</td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>`;
+    })()}
+    <div class="panel-tyt" style="margin-top:24px;border-top:1px solid var(--linia)">
       Zbiorczo per sektor <span class="licznik">${Object.keys(sektorKg).length} obsłużonych · razem ${fmt(sumaZadana,0)} kg</span>
     </div>
     <div class="przewijak"><table class="gt-tabela" id="pzZbiorczo">
@@ -2993,7 +2964,7 @@ function renderPaszowoz(w, lok){
 
   w.querySelector('#pzDodaj').onclick = async ()=>{
     wozy.push(nowyWoz(wozy.length+1));
-    await zapiszPaszowoz(lok, data, wozy);
+    await zapiszPaszowoz(lok, data, wozy, niedojady);
   };
   w.querySelector('#pzDuplikuj').onclick = async ()=>{
     if(wozy.length){ if(!confirm('Zastąpić bieżące wozy tymi z poprzedniego dnia?')) return; }
@@ -3001,7 +2972,7 @@ function renderPaszowoz(w, lok){
     const src = pzDok(lok, wczoraj);
     if(!src?.wozy?.length){ toast('Brak wozów za '+dataPL(wczoraj), true); return; }
     const kopia = src.wozy.map((w,i)=>({...w, id:'w'+Date.now()+'_'+i}));
-    await zapiszPaszowoz(lok, data, kopia);
+    await zapiszPaszowoz(lok, data, kopia, []);
     toast(`Skopiowano ${kopia.length} wozów z ${dataPL(wczoraj)}.`);
   };
 
@@ -3053,8 +3024,30 @@ function renderPaszowoz(w, lok){
   w.querySelectorAll('[data-rz-usun]').forEach(b=>{
     b.onclick = async ()=>{
       const [wid,idx] = b.dataset.rzUsun.split('|');
-      const woz = wozy.find(x=>x.id===wid); if(woz){ woz.rozdzielenie.splice(+idx,1); await zapiszPaszowoz(lok,data,wozy); }
+      const woz = wozy.find(x=>x.id===wid); if(woz){ woz.rozdzielenie.splice(+idx,1); await zapiszPaszowoz(lok,data,wozy, niedojady); }
     };
+  });
+
+  // === NIEDOJADY ===
+  const btnNied = w.querySelector('#pzDodNied');
+  if(btnNied) btnNied.onclick = async ()=>{
+    niedojady.push({zrodloId:'', zebranoKg:0, celId:'', domieszanoKg:0});
+    await zapiszPaszowoz(lok, data, wozy, niedojady);
+  };
+  w.querySelectorAll('[data-nd-zrodlo]').forEach(s=>{
+    s.onchange = async ()=>{ niedojady[+s.dataset.ndZrodlo].zrodloId=s.value; await zapiszPaszowoz(lok,data,wozy,niedojady); };
+  });
+  w.querySelectorAll('[data-nd-zebrano]').forEach(i=>{
+    i.onchange = async ()=>{ niedojady[+i.dataset.ndZebrano].zebranoKg=Math.max(0,liczba(i.value)); await zapiszPaszowoz(lok,data,wozy,niedojady); };
+  });
+  w.querySelectorAll('[data-nd-cel]').forEach(s=>{
+    s.onchange = async ()=>{ niedojady[+s.dataset.ndCel].celId=s.value; await zapiszPaszowoz(lok,data,wozy,niedojady); };
+  });
+  w.querySelectorAll('[data-nd-domieszano]').forEach(i=>{
+    i.onchange = async ()=>{ niedojady[+i.dataset.ndDomieszano].domieszanoKg=Math.max(0,liczba(i.value)); await zapiszPaszowoz(lok,data,wozy,niedojady); };
+  });
+  w.querySelectorAll('[data-nd-usun]').forEach(b=>{
+    b.onclick = async ()=>{ niedojady.splice(+b.dataset.ndUsun,1); await zapiszPaszowoz(lok,data,wozy,niedojady); };
   });
 }
 
@@ -3102,6 +3095,26 @@ function kosztMieszanki(m){
     const sur=store.surowce[sk.surowiecId];
     return s + (sk.procent/100)*((sur?.cenaTona||0)/1000);
   },0);
+}
+
+/* Automatyczne przeliczanie cen mieszanek własnych.
+   Cena mieszanki to FUNKCJA cen składników, nie niezależna wartość —
+   utrzymywanie dwóch źródeł prawdy ręcznie to pewny błąd.
+   Wywoływane przy każdym otwarciu Surowców i przy zmianie ceny dowolnego surowca. */
+function przeliczCenyMieszanek(){
+  let zmian=0;
+  for(const [sid,sur] of Object.entries(store.surowce)){
+    if(!sur.zMieszalni) continue;
+    const m = store.mieszanki[sur.mieszankaId] || Object.values(store.mieszanki).find(x=>x.nazwa===sur.nazwa);
+    if(!m) continue;
+    const kosztKg = kosztMieszanki(m);
+    const kosztTona = Math.round(kosztKg*1000*100)/100;
+    if(Math.abs((sur.cenaTona||0) - kosztTona) > 0.01){
+      DB.zapisz('surowce', sid, {cenaTona:kosztTona, dataCeny:dzisiaj(), cenaZReceptury:true});
+      zmian++;
+    }
+  }
+  if(zmian) console.info(`Przeliczono ceny ${zmian} mieszanek wg bieżących cen składników.`);
 }
 
 function renderMieszalnia(w){
