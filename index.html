@@ -450,7 +450,7 @@ input.pole.potw{background:#f0faf3;border-color:#b9dfc6}
   <div class="karta-log">
     <img src="ikona-512.png" alt="">
     <h2>OHZ Lubiana</h2>
-    <p class="pod">Zarządzanie żywieniem — Nadarzyn i Boguszyn</p>
+    <p class="pod">Zarządzanie żywieniem — Nadarzyn i Boguszyny</p>
     <input type="password" id="haslo" placeholder="Hasło" autocomplete="current-password" inputmode="text">
     <button id="btnZaloguj">Zaloguj</button>
     <div id="blad-log"></div>
@@ -557,11 +557,11 @@ const ROLE_BAZOWE = {
                 zakl:{surowce:'pelny',dawki:'pelny',nadarzyn:'pelny',boguszyn:'pelny',mieszalnia:'pelny',raporty:'pelny',paszowozN:'pelny',paszowozB:'pelny'}},
   zootechnikN: {nazwa:'Zootechnik Nadarzyn',   lokalizacje:['nadarzyn'], hasla:false,
                 zakl:{surowce:'podglad',dawki:'podglad',nadarzyn:'pelny',raporty:'pelny',paszowozN:'pelny'}},
-  zootechnikB: {nazwa:'Zootechnik Boguszyn',   lokalizacje:['boguszyn'], hasla:false,
+  zootechnikB: {nazwa:'Zootechnik Boguszyny',   lokalizacje:['boguszyn'], hasla:false,
                 zakl:{surowce:'podglad',dawki:'podglad',boguszyn:'pelny',raporty:'pelny',paszowozB:'pelny'}},
   operatorN:   {nazwa:'Operator Nadarzyn',     lokalizacje:['nadarzyn'], hasla:false,
                 zakl:{nadarzyn:'wpis',raporty:'podglad'}},
-  operatorB:   {nazwa:'Operator Boguszyn',     lokalizacje:['boguszyn'], hasla:false,
+  operatorB:   {nazwa:'Operator Boguszyny',     lokalizacje:['boguszyn'], hasla:false,
                 zakl:{boguszyn:'wpis',raporty:'podglad'}},
   mieszalnia:  {nazwa:'Mieszalnia',            lokalizacje:['nadarzyn','boguszyn'], hasla:false,
                 zakl:{surowce:'podglad',mieszalnia:'pelny',raporty:'podglad'}}
@@ -599,7 +599,7 @@ const ZAKLADKI = [
   {id:'surowce',    etykieta:'Surowce'},
   {id:'dawki',      etykieta:'Dawki'},
   {id:'nadarzyn',   etykieta:'Nadarzyn'},
-  {id:'boguszyn',   etykieta:'Boguszyn'},
+  {id:'boguszyn',   etykieta:'Boguszyny'},
   {id:'paszowozN',  etykieta:'🚛 Paszowóz N'},
   {id:'paszowozB',  etykieta:'🚛 Paszowóz B'},
   {id:'mieszalnia', etykieta:'Mieszalnia'},
@@ -1672,7 +1672,7 @@ function renderDawki(w){
     <th>
       <span class="nazwa-kol" title="${esc(d.nazwa)}">${esc(d.nazwa)}</span>
       ${d.suchyTMR?'<span style="font-size:9px;opacity:.7;display:block">(suchy TMR)</span>':''}
-      ${(()=>{const lok=d.lokalizacja||'W';return `<div class="flagi-lok" onclick="event.stopPropagation()"><span class="flaga-lok ${lok==='N'?'akt':''}" data-flaga="${d.id}" data-lok="N" title="Tylko Nadarzyn">N</span><span class="flaga-lok ${lok==='B'?'akt':''}" data-flaga="${d.id}" data-lok="B" title="Tylko Boguszyn">B</span><span class="flaga-lok wsp ${lok==='W'?'akt':''}" data-flaga="${d.id}" data-lok="W" title="Wsp\u00f3lna \u2014 obie lokalizacje">W</span><span class="flaga-lok brak ${lok==='X'?'akt':''}" data-flaga="${d.id}" data-lok="X" title="Bez przypisania \u2014 dawka nie pojawi si\u0119 w Paszowozie">\u2014</span></div>`;})()}
+      ${(()=>{const lok=d.lokalizacja||'W';return `<div class="flagi-lok" onclick="event.stopPropagation()"><span class="flaga-lok ${lok==='N'?'akt':''}" data-flaga="${d.id}" data-lok="N" title="Tylko Nadarzyn">N</span><span class="flaga-lok ${lok==='B'?'akt':''}" data-flaga="${d.id}" data-lok="B" title="Tylko Boguszyny">B</span><span class="flaga-lok wsp ${lok==='W'?'akt':''}" data-flaga="${d.id}" data-lok="W" title="Wsp\u00f3lna \u2014 obie lokalizacje">W</span><span class="flaga-lok brak ${lok==='X'?'akt':''}" data-flaga="${d.id}" data-lok="X" title="Bez przypisania \u2014 dawka nie pojawi si\u0119 w Paszowozie">\u2014</span></div>`;})()}
       ${edycja?`<div class="kol-akcje">
         <button title="Edytuj grupę żywieniową" data-edkol="${d.id}">✎</button>
       </div>`:''}
@@ -1768,7 +1768,7 @@ function renderDawki(w){
   </div>
   <div class="podpis" style="padding:4px 4px 10px">
     Wartości w <b>kg świeżej masy / sztukę / dobę</b>. Koszty wyliczane z cen w zakładce Surowce (zł/t → zł/kg).<br>
-    ${edycja?'Pod nazwą kolumny cztery flagi: <b>N</b> tylko Nadarzyn, <b>B</b> tylko Boguszyn, <b>W</b> wspólna (obie), <b>—</b> bez przypisania (dawka nie pojawi się w Paszowozie). Kliknij ✎, żeby zmienić nazwę lub usunąć grupę.':''}
+    ${edycja?'Pod nazwą kolumny cztery flagi: <b>N</b> tylko Nadarzyn, <b>B</b> tylko Boguszyny, <b>W</b> wspólna (obie), <b>—</b> bez przypisania (dawka nie pojawi się w Paszowozie). Kliknij ✎, żeby zmienić nazwę lub usunąć grupę.':''}
   </div>`;
 
   // --- PODPIĘCIA ---
@@ -1819,7 +1819,7 @@ function renderDawki(w){
             await DB.zapisz('dawki',dId,{lokalizacja:nowa});
             await zapiszWersje(odData);
           }
-          toast('Przypisanie: '+({N:'Nadarzyn',B:'Boguszyn',W:'Wsp\u00f3lna',X:'brak (dawka pomini\u0119ta w Paszowozie)'}[nowa]));
+          toast('Przypisanie: '+({N:'Nadarzyn',B:'Boguszyny',W:'Wsp\u00f3lna',X:'brak (dawka pomini\u0119ta w Paszowozie)'}[nowa]));
         });
       };
     });
@@ -2032,15 +2032,16 @@ function eksportDruk(tab, tytul, opcje){
         html,body{width:${poziom?'297mm':'210mm'};max-width:${poziom?'297mm':'210mm'}}
         .noprint{display:none}
       }
-      body{font-family:system-ui,Arial,sans-serif;font-size:${duzy?'19px':'15px'};color:#000;margin:0;padding:${duzy?'14px 16px':'20px 24px'}}
-      h1{font-size:${duzy?'30px':'24px'};margin:0 0 6px;font-weight:800}
-      h2{font-size:${duzy?'22px':'18px'};margin:14px 0 8px;font-weight:800}
-      .meta{font-size:${duzy?'14px':'12px'};color:#444;margin-bottom:${duzy?'14px':'20px'};border-bottom:3px solid #14532d;padding-bottom:8px}
-      table{border-collapse:collapse;width:100%;margin-bottom:${duzy?'14px':'8px'}}
-      th{background:#14532d;color:#fff;font-size:${duzy?'18px':(poziom?'12px':'14px')};padding:${duzy?'11px 12px':(poziom?'6px 5px':'10px 12px')};text-align:left;border:1px solid #0d3d20;font-weight:700}
-      td{padding:${duzy?'11px 12px':(poziom?'5px 5px':'9px 12px')};border:1px solid #999;font-size:${duzy?'19px':(poziom?'12px':'14px')};font-weight:${duzy?'600':'400'}}
+      body{font-family:system-ui,Arial,sans-serif;font-size:${duzy?'19px':'15px'};color:#000;margin:0;padding:${duzy?'14px 16px':(poziom?'10px 12px':'20px 24px')}}
+      h1{font-size:${duzy?'30px':(poziom?'22px':'24px')};margin:0 0 6px;font-weight:800}
+      h2{font-size:${duzy?'22px':(poziom?'17px':'18px')};margin:${poziom?'10px 0 6px':'14px 0 8px'};font-weight:800}
+      .meta{font-size:${duzy?'14px':'12px'};color:#444;margin-bottom:${duzy?'14px':(poziom?'10px':'20px')};border-bottom:3px solid #14532d;padding-bottom:${poziom?'6px':'8px'}}
+      table{border-collapse:collapse;width:100%;margin-bottom:${duzy?'14px':'8px'};table-layout:fixed}
+      th{background:#14532d;color:#fff;font-size:${duzy?'18px':(poziom?'13px':'14px')};padding:${duzy?'11px 12px':(poziom?'7px 6px':'10px 12px')};text-align:left;border:1px solid #0d3d20;font-weight:700;word-wrap:break-word}
+      td{padding:${duzy?'11px 12px':(poziom?'7px 6px':'9px 12px')};border:1px solid #999;font-size:${duzy?'19px':(poziom?'14px':'14px')};font-weight:${duzy?'600':(poziom?'600':'400')};word-wrap:break-word}
       tr:nth-child(even) td{background:#f2f6f2}
-      tr:last-child td{font-weight:800;border-top:3px solid #14532d;font-size:${duzy?'20px':(poziom?'12px':'14px')}}
+      tr:last-child td{font-weight:800;border-top:3px solid #14532d;font-size:${duzy?'20px':(poziom?'14px':'14px')}}
+      td:first-child,th:first-child{width:${poziom?'19%':'auto'}}
       .num,td:not(:first-child){text-align:right}
       th:first-child,td:first-child{text-align:left}
       tfoot{display:table-row-group}
@@ -2257,7 +2258,7 @@ function renderLokalizacja(w, lok){
   const edycja = mozeEdytowac(lok);
   const mozeWpis = edycja || poziom(lok)==='wpis';
   const grupy = grupyLok(lok);
-  const nazwaLok = lok==='nadarzyn'?'Nadarzyn':'Boguszyn';
+  const nazwaLok = lok==='nadarzyn'?'Nadarzyn':'Boguszyny';
   if(!lokData[lok]) lokData[lok] = dzisiaj();
   const data = lokData[lok];
   const wczoraj = dataMinus(data,1);
@@ -2592,7 +2593,7 @@ let pzRozwiniete = new Set();
 function idPz(lok,data){ return lok+'_'+data; }
 function pzDok(lok,data){ return store.paszowozy[idPz(lok,data)] || null; }
 
-/* Dawki dostępne dla lokalizacji: W (wspólne) + N (Nadarzyn) lub W + B (Boguszyn) */
+/* Dawki dostępne dla lokalizacji: W (wspólne) + N (Nadarzyn) lub W + B (Boguszyny) */
 function dawkiDlaLok(lok){
   const flaga = lok==='nadarzyn' ? 'N' : 'B';
   return dawkiSorted().filter(d=>{
@@ -2932,7 +2933,7 @@ function renderPaszowoz(w, lok){
   }
   if(pozR==='wprzygotowaniu'){
     w.innerHTML = `<div class="panel">
-      <div class="panel-tyt">🚛 Paszowóz — ${lok==='nadarzyn'?'Nadarzyn':'Boguszyn'}</div>
+      <div class="panel-tyt">🚛 Paszowóz — ${lok==='nadarzyn'?'Nadarzyn':'Boguszyny'}</div>
       <div class="pusto" style="padding:60px 24px;text-align:center">
         <div style="font-size:48px;margin-bottom:18px">🚧</div>
         <div style="font-size:17px;font-weight:600;color:var(--tekst);margin-bottom:8px">Funkcja w przygotowaniu</div>
@@ -2946,7 +2947,7 @@ function renderPaszowoz(w, lok){
   }
 
   const edycja = pozR==='pelny';
-  const nazwaLok = lok==='nadarzyn'?'Nadarzyn':'Boguszyn';
+  const nazwaLok = lok==='nadarzyn'?'Nadarzyn':'Boguszyny';
   if(!pzData[lok]) pzData[lok] = dzisiaj();
   const data = pzData[lok];
   const dok = pzDok(lok,data);
@@ -3767,7 +3768,7 @@ function renderMixProdukcja(el,mieszanki){
       <div class="pole-grupa"><label>Data</label><input id="mpData" type="date" value="${dzisiaj()}"></div>
     </div>
     <div class="pole-grupa"><label>Lokalizacja przeznaczenia</label>
-      <select id="mpLok"><option value="obie">Obie lokalizacje</option><option value="nadarzyn">Nadarzyn</option><option value="boguszyn">Boguszyn</option></select>
+      <select id="mpLok"><option value="obie">Obie lokalizacje</option><option value="nadarzyn">Nadarzyn</option><option value="boguszyn">Boguszyny</option></select>
     </div>
     <button class="btn" id="mpOblicz">Oblicz kart\u0119 za\u0142adunku</button>
     <div id="mpKarta" style="margin-top:14px"></div>
@@ -3943,8 +3944,8 @@ function renderRaporty(w){
     <div class="panel-tyt">Raporty<span style="flex:1"></span>
       ${!zalezyOdLokalizacji(rapZakladka) ? '<span class="podpis">dane wsp\u00f3lne dla obu lokalizacji</span>'
         : (loki.length>1?`<select id="rapLokSel" style="padding:6px 10px;border:1.5px solid var(--linia);border-radius:8px">
-        ${loki.map(l=>`<option value="${l}" ${l===rapLok?'selected':''}>${l==='nadarzyn'?'Nadarzyn':'Boguszyn'}</option>`).join('')}
-      </select>`:`<span class="plakietka">${rapLok==='nadarzyn'?'Nadarzyn':'Boguszyn'}</span>`)}
+        ${loki.map(l=>`<option value="${l}" ${l===rapLok?'selected':''}>${l==='nadarzyn'?'Nadarzyn':'Boguszyny'}</option>`).join('')}
+      </select>`:`<span class="plakietka">${rapLok==='nadarzyn'?'Nadarzyn':'Boguszyny'}</span>`)}
     </div>
     <div class="pasek">
       ${podz.map(p=>`<button class="btn ${rapZakladka===p.id?'':'szary'} maly" data-rz="${p.id}">${p.txt}</button>`).join('')}
@@ -4037,7 +4038,7 @@ function rysujDzienSzczegoly(el, dataISO){
   const dok = dokDnia(rapLok, dataISO);
   const snap = store.snapshoty['snap_'+dataISO];
   if(!dok){
-    el.innerHTML = `<div class="pusto">Brak zapisu żywienia za ${dataPL(dataISO)} w lokalizacji ${rapLok==='nadarzyn'?'Nadarzyn':'Boguszyn'}.</div>`;
+    el.innerHTML = `<div class="pusto">Brak zapisu żywienia za ${dataPL(dataISO)} w lokalizacji ${rapLok==='nadarzyn'?'Nadarzyn':'Boguszyny'}.</div>`;
     return;
   }
   const poz = Object.entries(dok.grupy||{}).map(([gid,z])=>{
@@ -4065,10 +4066,10 @@ function rysujDzienSzczegoly(el, dataISO){
 
   el.innerHTML = `
   <div style="border-top:8px solid var(--tlo)">
-    <div class="panel-tyt">Raport dnia ${dataPL(dataISO)} — ${rapLok==='nadarzyn'?'Nadarzyn':'Boguszyn'}
+    <div class="panel-tyt">Raport dnia ${dataPL(dataISO)} — ${rapLok==='nadarzyn'?'Nadarzyn':'Boguszyny'}
       <span class="licznik">${poz.length} grup · ${sumSzt} szt · ${fmt(sumKoszt,0)} zł</span>
       <span style="flex:1"></span>
-      ${przyciskEksportu('#tabDzienKal','raport_dnia_'+rapLok+'_'+dataISO,'Raport dnia '+dataPL(dataISO)+' — '+(rapLok==='nadarzyn'?'Nadarzyn':'Boguszyn'))}
+      ${przyciskEksportu('#tabDzienKal','raport_dnia_'+rapLok+'_'+dataISO,'Raport dnia '+dataPL(dataISO)+' — '+(rapLok==='nadarzyn'?'Nadarzyn':'Boguszyny'))}
     </div>
     <div class="przewijak"><table class="gt-tabela" id="tabDzienKal">
       <thead><tr><th>Grupa</th><th class="num">Sztuk</th><th class="num">Dawka wylicz.<br>kg/szt</th>
@@ -4264,7 +4265,7 @@ function rapHistoria(el){
   if(!rapData) rapData = dzisiaj();
   const poz = pozycjeDnia(rapLok, rapData);
   const dokWcz = dokDnia(rapLok, dataMinus(rapData,1));
-  const nazwaLok = rapLok==='nadarzyn'?'Nadarzyn':'Boguszyn';
+  const nazwaLok = rapLok==='nadarzyn'?'Nadarzyn':'Boguszyny';
   const sumSzt = poz.reduce((s,p)=>s+p.sztuk,0);
   const sumKoszt = poz.reduce((s,p)=>s+p.koszt,0);
   const ilePotw = poz.filter(p=>p.potw).length;
@@ -4658,7 +4659,7 @@ function oknoInfo(){
       <p style="margin-top:0"><b>OHZ Lubiana — Żywienie</b><br>
       <span class="podpis">Wersja ${esc(WERSJA_APP)} · ${trybLokalny?'tryb lokalny (bez Firebase)':'Firestore'}</span></p>
       <p>Zalogowano jako: <b>${esc(r.nazwa)}</b><br>
-      Lokalizacje: ${r.lokalizacje.map(l=>l==='nadarzyn'?'Nadarzyn':'Boguszyn').join(', ')}</p>
+      Lokalizacje: ${r.lokalizacje.map(l=>l==='nadarzyn'?'Nadarzyn':'Boguszyny').join(', ')}</p>
       <table style="margin-top:10px">
         <thead><tr><th>Zakładka</th><th>Dostęp</th></tr></thead>
         <tbody>${zakl}</tbody>
@@ -4680,7 +4681,7 @@ function oknoInfo(){
     btnZG.disabled=true; btnZG.textContent='Trwa zasiewanie…';
     await zasiejGrupy();
     zamknijModal(); render();
-    toast('Wgrano grupy technologiczne: 17 Nadarzyn, 14 Boguszyn.');
+    toast('Wgrano grupy technologiczne: 17 Nadarzyn, 14 Boguszyny.');
   };
   const btnII = document.getElementById('btnInstalujInfo');
   if(btnII) btnII.onclick = ()=>{ zamknijModal(); document.getElementById('btnInstaluj').click(); };
