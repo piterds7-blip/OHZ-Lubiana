@@ -371,6 +371,11 @@ input.pole.potw{background:#f0faf3;border-color:#b9dfc6}
 .pz-masa-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--tekst-slaby);font-weight:600}
 .pz-masa-val{font-size:26px;font-weight:800;color:var(--zielen);font-variant-numeric:tabular-nums;line-height:1.15}
 .pz-masa-val span{font-size:14px;font-weight:600}
+.btn-karta{background:var(--zielen);color:#fff;border:none;border-radius:6px;padding:5px 10px;
+  font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;
+  transition:.15s;white-space:nowrap;letter-spacing:.2px}
+.btn-karta:hover{background:var(--zielen-ciemna);transform:translateY(-1px);box-shadow:0 3px 8px rgba(20,83,45,.3)}
+.btn-karta:active{transform:translateY(0)}
 .gt-det{background:#fff;border:1px solid var(--zielen-jasna);border-radius:var(--r);margin:8px 0;padding:12px 14px}
 .gt-det h4{margin:0 0 8px;font-size:13.5px;color:var(--zielen);font-weight:700}
 .gt-det table{width:100%;font-size:12.5px;margin-bottom:10px}
@@ -2012,26 +2017,30 @@ function eksportCSV(tab, nazwa){
   csvPobierz(nazwa, w);
 }
 
-function eksportDruk(tab, tytul){
+function eksportDruk(tab, tytul, opcje){
+  opcje = opcje||{};
+  const duzy = !!opcje.duzy;          // karta dla operatora — czytelna z odległości
+  const poziom = !!opcje.poziom;      // szeroka tabela zbiorcza
   const st = store.config.settings?.nazwaGospodarstwa || 'OHZ Lubiana';
   const okno = window.open('', '_blank', 'width=1200,height=800');
   if(!okno){ toast('Przeglądarka zablokowała okno wydruku.', true); return; }
   okno.document.write(`<!DOCTYPE html><html lang="pl"><head><meta charset="utf-8">
     <title>${esc(tytul)}</title>
     <style>
-      @page{size:A4 portrait;margin:10mm}
+      @page{size:A4 ${poziom?'landscape':'portrait'};margin:${duzy?'8mm':'10mm'}}
       @media print{
-        html,body{width:210mm;max-width:210mm}
+        html,body{width:${poziom?'297mm':'210mm'};max-width:${poziom?'297mm':'210mm'}}
         .noprint{display:none}
       }
-      body{font-family:system-ui,Arial,sans-serif;font-size:15px;color:#111;margin:0;padding:20px 24px}
-      h1{font-size:24px;margin:0 0 6px;font-weight:700}
-      .meta{font-size:12px;color:#555;margin-bottom:20px;border-bottom:2px solid #14532d;padding-bottom:10px}
-      table{border-collapse:collapse;width:100%}
-      th{background:#14532d;color:#fff;font-size:14px;padding:10px 12px;text-align:left;border:1px solid #0d3d20}
-      td{padding:9px 12px;border:1px solid #ccc;font-size:14px}
-      tr:nth-child(even) td{background:#f6f8f6}
-      tr:last-child td{font-weight:700;border-top:2px solid #14532d}
+      body{font-family:system-ui,Arial,sans-serif;font-size:${duzy?'19px':'15px'};color:#000;margin:0;padding:${duzy?'14px 16px':'20px 24px'}}
+      h1{font-size:${duzy?'30px':'24px'};margin:0 0 6px;font-weight:800}
+      h2{font-size:${duzy?'22px':'18px'};margin:14px 0 8px;font-weight:800}
+      .meta{font-size:${duzy?'14px':'12px'};color:#444;margin-bottom:${duzy?'14px':'20px'};border-bottom:3px solid #14532d;padding-bottom:8px}
+      table{border-collapse:collapse;width:100%;margin-bottom:${duzy?'14px':'8px'}}
+      th{background:#14532d;color:#fff;font-size:${duzy?'18px':(poziom?'12px':'14px')};padding:${duzy?'11px 12px':(poziom?'6px 5px':'10px 12px')};text-align:left;border:1px solid #0d3d20;font-weight:700}
+      td{padding:${duzy?'11px 12px':(poziom?'5px 5px':'9px 12px')};border:1px solid #999;font-size:${duzy?'19px':(poziom?'12px':'14px')};font-weight:${duzy?'600':'400'}}
+      tr:nth-child(even) td{background:#f2f6f2}
+      tr:last-child td{font-weight:800;border-top:3px solid #14532d;font-size:${duzy?'20px':(poziom?'12px':'14px')}}
       .num,td:not(:first-child){text-align:right}
       th:first-child,td:first-child{text-align:left}
       tfoot{display:table-row-group}
@@ -2631,6 +2640,83 @@ function udzialyReceptur(woz){
   return wynik;
 }
 
+/* Zbiorcza karta załadunku — wszystkie wozy w jednej tabeli na jednej stronie */
+function zbiorczaKartaZaladunku(wozyLista){
+  const sklady = wozyLista.map(woz=>{
+    const u = udzialyReceptur(woz);
+    const swiezy = masaSwiezaWozu(woz);
+    const o = {};
+    Object.entries(u).forEach(([sid,ud])=>{ o[sid]=swiezy*ud; });
+    return o;
+  });
+  const uzyte = new Set();
+  sklady.forEach(s=>Object.entries(s).forEach(([sid,kg])=>{ if(kg>0.01) uzyte.add(sid); }));
+  const uklad = wierszeDawek();
+  const wiersze = [...uklad.filter(id=>uzyte.has(id)), ...[...uzyte].filter(id=>!uklad.includes(id))];
+
+  const naglowki = wozyLista.map(woz=>{
+    const rec = recepturyWozu(woz).filter(r=>r.dawkaId);
+    const opis = rec.map(r=>{
+      const d=store.dawki[r.dawkaId];
+      return (d?.nazwa||'?')+(rec.length>1?' '+(r.udzial||0)+'%':'');
+    }).join(' + ');
+    return `<th>${esc(woz.nazwa)}<br><span style="font-weight:400;font-size:10px">${esc(opis)}</span></th>`;
+  }).join('');
+
+  const ndKol = wozyLista.map(w=>masaNiedojadow(w));
+  const maNd = ndKol.some(x=>x>0);
+
+  // Rozdzielenie: wiersze = sektory, kolumny = wozy
+  const sektory = [];
+  wozyLista.forEach(w=>(w.rozdzielenie||[]).forEach(r=>{
+    if(r.grupaId && r.kg>0 && !sektory.includes(r.grupaId)) sektory.push(r.grupaId);
+  }));
+
+  return `
+  <table>
+    <thead><tr><th>ZAŁADUNEK — surowiec</th>${naglowki}<th>Razem</th></tr></thead>
+    <tbody>
+      ${maNd?`<tr style="background:#fff8e8">
+        <td><b>♻ Niedojady</b></td>
+        ${ndKol.map(kg=>`<td>${kg>0?fmt(kg,0):'—'}</td>`).join('')}
+        <td><b>${fmt(ndKol.reduce((a,b)=>a+b,0),0)}</b></td>
+      </tr>`:''}
+      ${wiersze.map(sid=>{
+        const sur=store.surowce[sid];
+        const kolumny = sklady.map(s=>s[sid]||0);
+        const razem = kolumny.reduce((a,b)=>a+b,0);
+        return `<tr><td>${esc(sur?.nazwa||'?')}</td>
+          ${kolumny.map(kg=>`<td>${kg>0.01?fmt(kg,0):'—'}</td>`).join('')}
+          <td><b>${fmt(razem,0)}</b></td></tr>`;
+      }).join('')}
+      <tr><td><b>RAZEM DO WOZU</b></td>
+        ${wozyLista.map(w=>`<td><b>${fmt(masaWozu(w),0)}</b></td>`).join('')}
+        <td><b>${fmt(wozyLista.reduce((s,w)=>s+masaWozu(w),0),0)}</b></td></tr>
+    </tbody>
+  </table>
+  <h2>ROZWIEŹĆ NA SEKTORY</h2>
+  <table>
+    <thead><tr><th>Sektor</th><th>Sztuk</th>${wozyLista.map(w=>`<th>${esc(w.nazwa)}</th>`).join('')}<th>Razem kg</th><th>kg/szt</th></tr></thead>
+    <tbody>
+      ${sektory.map(gid=>{
+        const gr=store.grupyTech[gid];
+        const kolumny = wozyLista.map(w=>{
+          const r=(w.rozdzielenie||[]).filter(x=>x.grupaId===gid).reduce((s,x)=>s+(x.kg||0),0);
+          return r;
+        });
+        const razem = kolumny.reduce((a,b)=>a+b,0);
+        const perSzt = gr?.sztuk>0 ? razem/gr.sztuk : 0;
+        return `<tr><td><b>${esc(gr?.nazwa||'?')}</b></td><td>${gr?.sztuk||0}</td>
+          ${kolumny.map(kg=>`<td>${kg>0?fmt(kg,0):'—'}</td>`).join('')}
+          <td><b>${fmt(razem,0)}</b></td><td>${fmt(perSzt,2)}</td></tr>`;
+      }).join('')}
+      <tr><td><b>RAZEM</b></td><td></td>
+        ${wozyLista.map(w=>`<td><b>${fmt(masaWozu(w),0)}</b></td>`).join('')}
+        <td><b>${fmt(wozyLista.reduce((s,w)=>s+masaWozu(w),0),0)}</b></td><td></td></tr>
+    </tbody>
+  </table>`;
+}
+
 /* Karta załadunku wozu: ile kg każdego surowca wrzucić + dokąd rozwieźć */
 function kartaZaladunku(woz, lok){
   const masa = masaWozu(woz);
@@ -2904,8 +2990,8 @@ function renderPaszowoz(w, lok){
         <input type="date" id="pzData" value="${data}" max="${dzisiaj()}" style="padding:7px 10px">
       </div>
       <button class="btn maly szary" id="pzKartyWszystkie" title="Karty załadunku wszystkich wozów">🖨 Karty załadunku</button>
-      ${przyciskEksportu('#pzZawartosc','paszowoz_'+lok+'_'+data,'Paszowóz '+nazwaLok+' — '+dataPL(data))}
-      ${edycja?'<button class="btn maly szary" id="pzDuplikuj" title="Skopiuj wozy z poprzedniego dnia">⎘ Duplikuj z wczoraj</button>':''}
+      ${przyciskEksportu('#pzTabele','paszowoz_'+lok+'_'+data,'Paszowóz '+nazwaLok+' — '+dataPL(data))}
+      ${edycja?'<button class="btn maly szary" id="pzDuplikuj" title="Skopiuj wozy z wybranego dnia">⎘ Duplikuj z dnia</button>':''}
       ${edycja?'<button class="btn maly" id="pzDodaj">+ Wóz</button>':''}
     </div>
     <div class="pasek">
@@ -2937,7 +3023,7 @@ function renderPaszowoz(w, lok){
           <div class="pz-woz-nag">
             <input class="pz-nazwa" data-woz-nazwa="${woz.id}" value="${esc(woz.nazwa)}" ${edycja?'':'readonly'}>
             <span class="pz-stan ${stan}" title="${stan==='ok'?'Wóz gotowy':stan==='zle'?'Sprawdź udziały lub wagę':'Uzupełnij dane'}">${stan==='ok'?'●':stan==='zle'?'●':'○'}</span>
-            <button class="ikonka" data-woz-karta="${woz.id}" title="Karta załadunku — druk dla operatora">🖨</button>
+            <button class="btn-karta" data-woz-karta="${woz.id}" title="Karta załadunku — wydruk dla operatora">🖨 Karta</button>
             ${edycja?`<button class="ikonka usun" data-woz-usun="${woz.id}" title="Usuń wóz">✕</button>`:''}
           </div>
           <div class="pz-woz-pola">
@@ -3010,6 +3096,7 @@ function renderPaszowoz(w, lok){
       }).join('')}
     </div>
 
+    <div id="pzTabele">
     <div class="panel-tyt" style="margin-top:24px;border-top:1px solid var(--linia)">
       ♻ Zebrane niedojady <span class="licznik">korekta pobrania za ${dataPL(dataMinus(data,1))}</span>
       <span style="flex:1"></span>
@@ -3228,10 +3315,11 @@ function renderPaszowoz(w, lok){
       if(!pozycje.length) return '<div class="pusto">Brak wozów przypisanych do sektorów.</div>';
       return macierzZWozow(pozycje, {id:'pzRealny'});
     })()}
+    </div>
     ` : `<div class="pusto" style="padding:40px 20px;text-align:center">
       <div style="font-size:44px;margin-bottom:14px">🚛</div>
       <div style="font-size:15px;font-weight:600;color:var(--tekst);margin-bottom:6px">Brak wozów na ten dzień</div>
-      <div class="podpis" style="max-width:440px;margin:0 auto">Kliknij <b>+ Wóz</b> żeby dodać pierwszy, albo <b>⎘ Duplikuj z wczoraj</b> jeśli układ jest podobny.</div>
+      <div class="podpis" style="max-width:440px;margin:0 auto">Kliknij <b>+ Wóz</b> żeby dodać pierwszy, albo <b>⎘ Duplikuj z dnia</b> jeśli układ jest podobny.</div>
     </div>`}
     </div>
   </div>`;
@@ -3247,14 +3335,46 @@ function renderPaszowoz(w, lok){
     wozy.push(nowyWoz(wozy.length+1));
     await zapiszPaszowoz(lok, data, wozy, niedojady);
   };
-  w.querySelector('#pzDuplikuj').onclick = async ()=>{
-    if(wozy.length){ if(!confirm('Zastąpić bieżące wozy tymi z poprzedniego dnia?')) return; }
-    const wczoraj = dataMinus(data,1);
-    const src = pzDok(lok, wczoraj);
-    if(!src?.wozy?.length){ toast('Brak wozów za '+dataPL(wczoraj), true); return; }
-    const kopia = src.wozy.map((w,i)=>({...w, id:'w'+Date.now()+'_'+i}));
-    await zapiszPaszowoz(lok, data, kopia, []);
-    toast(`Skopiowano ${kopia.length} wozów z ${dataPL(wczoraj)}.`);
+  w.querySelector('#pzDuplikuj').onclick = ()=>{
+    // Dni, które mają wozy — podpowiadamy je jako skróty
+    const dostepne = [];
+    for(let i=1;i<=30;i++){
+      const dd = dataMinus(data,i);
+      const dk = pzDok(lok,dd);
+      if(dk?.wozy?.length) dostepne.push({data:dd, ile:dk.wozy.length});
+      if(dostepne.length>=6) break;
+    }
+    modal({
+      tytul:'Z którego dnia skopiować wozy?',
+      tresc:`
+        <div class="podpis" style="margin-bottom:12px">
+          Wozy zostaną skopiowane wraz z recepturami i rozdzieleniem na sektory.
+          ${wozy.length?'<b style="color:var(--zolty)">Bieżące wozy zostaną zastąpione.</b>':''}
+        </div>
+        ${dostepne.length?`<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
+          ${dostepne.map(x=>`<label class="wybor-data"><input type="radio" name="dupd" value="${x.data}" ${x===dostepne[0]?'checked':''}>
+            <span><b>${dataPL(x.data)}</b> — ${x.ile} ${x.ile===1?'wóz':x.ile<5?'wozy':'wozów'}</span></label>`).join('')}
+          <label class="wybor-data"><input type="radio" name="dupd" value="__data">
+            <span><b>Inny dzień</b><br><input type="date" id="dupData" max="${dzisiaj()}" value="${dataMinus(data,1)}" style="margin-top:5px"></span></label>
+        </div>`:`
+          <div class="pole-grupa"><label>Wybierz dzień</label>
+            <input type="date" id="dupData" max="${dzisiaj()}" value="${dataMinus(data,1)}"></div>
+          <div class="podpis">W ostatnich 30 dniach nie znaleziono dnia z wozami — wskaż datę ręcznie.</div>`}`,
+      przyciski:[
+        {tekst:'Anuluj', akcja:()=>{}},
+        {tekst:'Kopiuj', klasa:'', akcja:async(n)=>{
+          const wyb = n.querySelector('input[name=dupd]:checked')?.value;
+          const zrod = (!wyb || wyb==='__data') ? n.querySelector('#dupData')?.value : wyb;
+          if(!zrod){ toast('Wybierz dzień.', true); return false; }
+          if(zrod===data){ toast('To ten sam dzień.', true); return false; }
+          const src = pzDok(lok, zrod);
+          if(!src?.wozy?.length){ toast('Brak wozów za '+dataPL(zrod), true); return false; }
+          const kopia = src.wozy.map((w,i)=>({...w, id:'w'+Date.now()+'_'+i, wagaKontrolna:null, niedojady:[]}));
+          await zapiszPaszowoz(lok, data, kopia, niedojady);
+          toast(`Skopiowano ${kopia.length} ${kopia.length===1?'wóz':'wozów'} z ${dataPL(zrod)}.`);
+        }}
+      ]
+    });
   };
 
   w.querySelectorAll('[data-woz-nazwa]').forEach(i=>{
@@ -3319,15 +3439,9 @@ function renderPaszowoz(w, lok){
     const zWozami = wozy.filter(x=>recepturyWozu(x).some(r=>r.dawkaId) && masaWozu(x)>0);
     if(!zWozami.length){ toast('Brak wozów z recepturą i rozdzieleniem.', true); return; }
     const tmp = document.createElement('div');
-    tmp.innerHTML = zWozami.map((woz,i)=>`
-      <div style="${i>0?'page-break-before:always;padding-top:10px':''}">
-        <h2 style="font-size:18px;margin:0 0 10px;border-bottom:2px solid #14532d;padding-bottom:6px">
-          ${esc(woz.nazwa)}
-        </h2>
-        ${kartaZaladunku(woz, lok)}
-      </div>`).join('');
+    tmp.innerHTML = zbiorczaKartaZaladunku(zWozami);
     document.body.appendChild(tmp);
-    eksportDruk(tmp, 'Karty załadunku — '+nazwaLok+' '+dataPL(data));
+    eksportDruk(tmp, 'Karty załadunku — '+nazwaLok+' '+dataPL(data), {poziom:true});
     tmp.remove();
   };
 
@@ -3339,7 +3453,7 @@ function renderPaszowoz(w, lok){
       const tmp = document.createElement('div');
       tmp.innerHTML = kartaZaladunku(woz, lok);
       document.body.appendChild(tmp);
-      eksportDruk(tmp, 'Karta załadunku: '+woz.nazwa+' — '+nazwaLok+' '+dataPL(data));
+      eksportDruk(tmp, 'Karta załadunku: '+woz.nazwa+' — '+nazwaLok+' '+dataPL(data), {duzy:true});
       tmp.remove();
     };
   });
