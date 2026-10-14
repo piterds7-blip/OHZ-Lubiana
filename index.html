@@ -335,6 +335,29 @@ input.pole.potw{background:#f0faf3;border-color:#b9dfc6}
 .pz-alert{margin-top:8px;padding:6px 10px;border-radius:6px;font-size:12.5px;font-weight:600}
 .pz-alert.brak{background:#fef3c7;color:#92400e}
 .pz-alert.nadmiar{background:#fecaca;color:#991b1b}
+/* --- Paszowóz: kroki, pula niedojadów, odzysk --- */
+.panel-tyt.krok{font-size:15.5px}
+.krok-nr{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;
+  background:var(--akcent,var(--zielen));color:#fff;font-weight:800;font-size:14px;flex:none}
+.pz-zebr-row{flex-wrap:wrap}
+.pz-zebr-row input{font-size:15px;font-weight:700}
+.pz-pula{position:sticky;top:var(--wys-nag,0px);z-index:20;background:#fffbea;border-top:2px solid #f0d878;
+  border-bottom:2px solid #f0d878;padding:8px 14px;box-shadow:0 4px 12px rgba(0,0,0,.08)}
+.pz-pula-tyt{font-size:12.5px;font-weight:700;color:#7a5c00}
+.pz-pula .pz-chip-pool{padding:6px 0 2px;min-height:0}
+.pz-chip{touch-action:none;user-select:none;-webkit-user-select:none;font-size:14px}
+.pz-drop-zone.czeka{outline:2px dashed var(--zielen);outline-offset:-4px;cursor:pointer}
+.pz-woz-pola .pz-rozdziel-nag,.pz-nd-woz .pz-rozdziel-nag{text-transform:none}
+.pz-lbl{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--tekst-slaby);margin:10px 0 4px;font-weight:600}
+.pz-lbl span{font-weight:400;text-transform:none}
+.btn-karta.duzy{padding:8px 14px;font-size:13.5px}
+.btn.akt{background:var(--zielen);color:#fff}
+.odzysk{color:#7a5c00;font-weight:700}
+.z-pz{display:inline-block;padding:3px 8px;border-radius:6px;background:#eef4fb;color:#1e4f8a;font-weight:700;white-space:nowrap}
+.mac-pod{display:block;font-size:9.5px;font-weight:400;opacity:.9;white-space:nowrap}
+.wiersz-odzysk td{background:#fff6dc !important}
+.gt-tabela tr.det-wiersz>td{padding:0;background:#fafcfa;cursor:default}
+.gt-tabela tr.det-wiersz:hover>td{background:#fafcfa}
 .ikonka.dodaj{color:var(--zielen);font-weight:700;font-size:16px;padding:0 6px}
 @media(max-width:700px){
   .pz-siatka{grid-template-columns:1fr;padding:8px}
@@ -503,7 +526,7 @@ const firebaseConfig = {
 };
 /* ###############  KONIEC KONFIGURACJI  ##################### */
 
-const WERSJA_APP = '1.0.0 (moduł 1–2)';
+const WERSJA_APP = '1.3.0 (niedojady i realne pobranie)';
 const SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
 
 /* ===================== SHA-256 (czysty JS, bez zależności) ================= */
@@ -614,6 +637,7 @@ const KOLEKCJE = ['config','surowce','dawki','mieszanki','produkcja','snapshoty'
 const store = {config:{},surowce:{},dawki:{},mieszanki:{},produkcja:{},snapshoty:{},grupyTech:{},zywienie:{},zmianyDawek:{},wersjeDawek:{},paszowozy:{}};
 const sluchacze = {};
 const pierwszySnapshot = {}; // kol -> true po pierwszym snapshocie z Firestore
+const serwerPotwierdzil = {}; // kol -> true, gdy dane przyszły z serwera (nie z pamięci podręcznej)
 let FS = null;               // {db, funkcje...}
 let trybLokalny = false;
 
@@ -637,6 +661,20 @@ const DB = {
     stanSync('zapis');
     try{
       await FS.setDoc(FS.doc(FS.db, kolekcja, id), dane, {merge:true});
+      stanSync('ok');
+    }catch(e){ console.error(e); stanSync('blad'); toast('Błąd zapisu: '+e.message, true); }
+    return id;
+  },
+  /* Zapis CAŁEGO dokumentu (bez scalania). Firestore przy merge:true scala zagnieżdżone
+     mapy, więc usunięta grupa/wóz zostawałby na serwerze — tu dokument jest zastępowany. */
+  async zapiszCaly(kolekcja, id, dane){
+    store[kolekcja][id] = {...dane, id};
+    powiadom(kolekcja);
+    zapiszCache(kolekcja);
+    if(trybLokalny){ zapiszLokal(kolekcja); return id; }
+    stanSync('zapis');
+    try{
+      await FS.setDoc(FS.doc(FS.db, kolekcja, id), dane);
       stanSync('ok');
     }catch(e){ console.error(e); stanSync('blad'); toast('Błąd zapisu: '+e.message, true); }
     return id;
@@ -789,8 +827,15 @@ async function polaczFirebase(){
 
   // Nasłuch na wszystkie kolekcje
   KOLEKCJE.forEach(kol=>{
-    FS.onSnapshot(FS.collection(FS.db, kol),
+    FS.onSnapshot(FS.collection(FS.db, kol), {includeMetadataChanges:true},
       snap=>{
+        const bylPotw = !!serwerPotwierdzil[kol];
+        if(!snap.metadata.fromCache) serwerPotwierdzil[kol] = true;
+        // zmiana samych metadanych (np. potwierdzenie zapisu) — bez przerysowania widoku,
+        // chyba że właśnie dostaliśmy pierwsze potwierdzenie z serwera
+        if(pierwszySnapshot[kol] && !snap.docChanges().length && bylPotw===!!serwerPotwierdzil[kol]){
+          stanSync(snap.metadata.fromCache ? 'cache' : 'ok'); return;
+        }
         const nowe={};
         snap.forEach(d=> nowe[d.id]={...d.data(), id:d.id});
         store[kol]=nowe;                 // Firestore nadpisuje cache — jest źródłem prawdy
@@ -1118,7 +1163,9 @@ function wyloguj(){
 function poziom(zakl){ return ROLE[rolaAkt]?.zakl[zakl] || null; }
 function mozeEdytowac(zakl){ return poziom(zakl)==='pelny'; }
 
+let podpisZakladek = '';
 function zbudujTaby(){
+  podpisZakladek = ZAKLADKI.map(z=>z.id+':'+(poziom(z.id)||'')).join('|');
   const nav = document.getElementById('taby');
   const dostepne = ZAKLADKI.filter(z => poziom(z.id));
   nav.innerHTML = dostepne.map(z=>`<button data-z="${z.id}">${esc(z.etykieta)}</button>`).join('');
@@ -1141,8 +1188,32 @@ function przejdz(id){
   render();
 }
 
+/* Przerysowanie widoku nie może zabierać fokusu ani gubić tego, co ktoś właśnie wpisuje
+   (dane z innego urządzenia przychodzą w dowolnej chwili). */
 function render(){
   const w = document.getElementById('widok');
+  const a = document.activeElement;
+  let klucz=null, wartosc=null, edytowane=false, zaznacz=null;
+  if(a && w.contains(a) && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)){
+    for(const at of a.attributes){
+      if(at.name.startsWith('data-') && at.value){ klucz=`[${at.name}="${at.value.replace(/["\\]/g,'\\$&')}"]`; break; }
+    }
+    if(!klucz && a.id) klucz = '#'+a.id;
+    wartosc = a.value;
+    edytowane = a.tagName!=='SELECT' && a.value!==a.defaultValue;
+    try{ zaznacz=[a.selectionStart, a.selectionEnd]; }catch(e){}
+  }
+  renderWidok(w);
+  if(klucz){
+    let n=null; try{ n = w.querySelector(klucz); }catch(e){}
+    if(n && n!==document.activeElement){
+      if(edytowane && n.tagName!=='SELECT') n.value = wartosc;
+      n.focus({preventScroll:true});
+      try{ if(zaznacz && zaznacz[0]!=null) n.setSelectionRange(zaznacz[0], zaznacz[1]); }catch(e){}
+    }
+  }
+}
+function renderWidok(w){
   if(zakladkaAkt==='surowce'){ renderSurowce(w); return; }
   if(zakladkaAkt==='dawki'){ renderDawki(w); return; }
   if(zakladkaAkt==='nadarzyn'){ renderLokalizacja(w,'nadarzyn'); return; }
@@ -2017,48 +2088,92 @@ function eksportCSV(tab, nazwa){
   csvPobierz(nazwa, w);
 }
 
+/* Kopia elementu gotowa do druku: bez przycisków, pola formularzy zamienione na tekst,
+   bez ukrycia i bez stałych szerokości kolumn z ekranu. Zwraca HTML. */
+function htmlDoDruku(el){
+  const kl = el.cloneNode(true);
+  const oryg = el.querySelectorAll('input,select,textarea');
+  kl.querySelectorAll('input,select,textarea').forEach((k,i)=>{
+    const o = oryg[i]; let v = '';
+    if(o){
+      if(o.tagName==='SELECT') v = o.selectedOptions?.[0]?.textContent || '';
+      else if(o.type==='checkbox' || o.type==='radio') v = o.checked ? '✓' : '';
+      else v = o.value || o.placeholder || '';
+    }
+    if(/^—/.test(v.trim()) && v.trim().length>1) v = '';     // „— sektor —” itp.
+    const s = document.createElement('span'); s.textContent = v; k.replaceWith(s);
+  });
+  kl.querySelectorAll('button,.btn-eksport,.noprint,script,colgroup').forEach(x=>x.remove());
+  [kl, ...kl.querySelectorAll('[hidden],[style*="display:none"],[style*="display: none"]')].forEach(x=>{
+    x.removeAttribute('hidden');
+    if(x.style && x.style.display==='none') x.style.display='';
+  });
+  return kl.tagName==='TABLE' ? kl.outerHTML : kl.innerHTML;
+}
+
 function eksportDruk(tab, tytul, opcje){
+  drukujHTML(htmlDoDruku(tab), tytul, opcje);
+}
+
+/* Okno wydruku. Domyślnie A4 pionowo; szerokie tabele (>8 kolumn) same przechodzą na poziom.
+   opcje: duzy — karta dla operatora (duża, pogrubiona czcionka), poziom, zbiorcza. */
+function drukujHTML(html, tytul, opcje){
   opcje = opcje||{};
-  const duzy = !!opcje.duzy;          // karta dla operatora — czytelna z odległości
-  const poziom = !!opcje.poziom;      // szeroka tabela zbiorcza
+  const tmp = document.createElement('div'); tmp.innerHTML = html;
+  let maxKol = 0;
+  tmp.querySelectorAll('tr').forEach(tr=>{ let n=0; tr.querySelectorAll('th,td').forEach(c=>n+=parseInt(c.getAttribute('colspan')||'1')); maxKol=Math.max(maxKol,n); });
+  const poziom = opcje.poziom!=null ? !!opcje.poziom : maxKol>8;
+  const duzy = !!opcje.duzy;
+  const zb = !!opcje.zbiorcza;
+  const fTd = duzy ? (zb?'16px':'20px') : (poziom ? (maxKol>14?'11px':'13px') : '14px');
+  const fTh = duzy ? (zb?'14px':'18px') : (poziom ? (maxKol>14?'10px':'12px') : '13px');
+  const pad = duzy ? (zb?'7px 6px':'11px 12px') : (poziom ? '5px 5px' : '8px 10px');
   const st = store.config.settings?.nazwaGospodarstwa || 'OHZ Lubiana';
-  const okno = window.open('', '_blank', 'width=1200,height=800');
-  if(!okno){ toast('Przeglądarka zablokowała okno wydruku.', true); return; }
-  okno.document.write(`<!DOCTYPE html><html lang="pl"><head><meta charset="utf-8">
+  const dok = `<!DOCTYPE html><html lang="pl"><head><meta charset="utf-8">
     <title>${esc(tytul)}</title>
     <style>
-      @page{size:A4 ${poziom?'landscape':'portrait'};margin:${duzy?'8mm':'10mm'}}
-      @media print{
-        html,body{width:${poziom?'297mm':'210mm'};max-width:${poziom?'297mm':'210mm'}}
-        .noprint{display:none}
-      }
-      body{font-family:system-ui,Arial,sans-serif;font-size:${duzy?'19px':'15px'};color:#000;margin:0;padding:${duzy?'14px 16px':(poziom?'10px 12px':'20px 24px')}}
-      h1{font-size:${duzy?'30px':(poziom?'22px':'24px')};margin:0 0 6px;font-weight:800}
-      h2{font-size:${duzy?'22px':(poziom?'17px':'18px')};margin:${poziom?'10px 0 6px':'14px 0 8px'};font-weight:800}
-      .meta{font-size:${duzy?'14px':'12px'};color:#444;margin-bottom:${duzy?'14px':(poziom?'10px':'20px')};border-bottom:3px solid #14532d;padding-bottom:${poziom?'6px':'8px'}}
-      table{border-collapse:collapse;width:100%;margin-bottom:${duzy?'14px':'8px'};table-layout:fixed}
-      th{background:#14532d;color:#fff;font-size:${duzy?'18px':(poziom?'13px':'14px')};padding:${duzy?'11px 12px':(poziom?'7px 6px':'10px 12px')};text-align:left;border:1px solid #0d3d20;font-weight:700;word-wrap:break-word}
-      td{padding:${duzy?'11px 12px':(poziom?'7px 6px':'9px 12px')};border:1px solid #999;font-size:${duzy?'19px':(poziom?'14px':'14px')};font-weight:${duzy?'600':(poziom?'600':'400')};word-wrap:break-word}
+      @page{size:A4 ${poziom?'landscape':'portrait'};margin:${duzy?'8mm':'9mm'}}
+      *{-webkit-print-color-adjust:exact;print-color-adjust:exact;box-sizing:border-box}
+      body{font-family:system-ui,Arial,sans-serif;color:#000;margin:0;padding:${duzy?'12px 14px':'12px 14px'}}
+      h1{font-size:${duzy?'28px':'21px'};margin:0 0 4px;font-weight:800}
+      h2{font-size:${duzy?'21px':'16px'};margin:12px 0 6px;font-weight:800}
+      h4{font-size:${duzy?'20px':'15px'};margin:6px 0}
+      .meta{font-size:12px;color:#444;margin-bottom:10px;border-bottom:3px solid #14532d;padding-bottom:6px}
+      div,span{font-size:inherit}
+      body>div,body>p{font-size:${duzy?'18px':'13px'}}
+      table{border-collapse:collapse;width:100%;margin-bottom:10px;page-break-inside:auto}
+      tr{page-break-inside:avoid}
+      thead{display:table-header-group}
+      th{background:#14532d;color:#fff;font-size:${fTh};padding:${pad};text-align:center;border:1px solid #0d3d20;font-weight:700;vertical-align:bottom}
+      th span{display:block;font-weight:400;font-size:.85em}
+      td{padding:${pad};border:1px solid #888;font-size:${fTd};font-weight:${duzy||poziom?'600':'400'};text-align:right;font-variant-numeric:tabular-nums}
+      td:first-child,th:first-child{text-align:left}
+      td:first-child{font-weight:700}
       tr:nth-child(even) td{background:#f2f6f2}
-      tr:last-child td{font-weight:800;border-top:3px solid #14532d;font-size:${duzy?'20px':(poziom?'14px':'14px')}}
-      td:first-child,th:first-child{width:${poziom?'19%':'auto'}}
-      .num,td:not(:first-child){text-align:right}
-      th:first-child,td:first-child{text-align:left}
-      tfoot{display:table-row-group}
-      @media print{ .noprint{display:none} }
+      tr.suma td,tr.suma-wiersz td,tr:last-child td{font-weight:800;border-top:3px solid #14532d;background:#e3efe6}
+      .plakietka,.podpis{font-size:.8em;font-weight:400;color:#555}
+      .nazwa-kol{display:block}
+      a{color:#000;text-decoration:none}
     </style></head><body>
     <h1>${esc(tytul)}</h1>
     <div class="meta">${esc(st)} · wydruk ${dataPL(dzisiaj())} ${new Date().toTimeString().slice(0,5)} · ${esc(ROLE[rolaAkt]?.nazwa||'')}</div>
-    ${(()=>{
-      // Jedna tabela → opakuj w <table>. Wiele tabel albo mieszana treść → weź całość.
-      const tabele = tab.querySelectorAll('table');
-      if(tabele.length===1) return '<table>'+tabele[0].innerHTML+'</table>';
-      if(tabele.length>1) return tab.innerHTML;
-      return tab.innerHTML;
-    })()}
-    <script>window.onload=()=>{setTimeout(()=>window.print(),250)}<\/script>
-    </body></html>`);
-  okno.document.close();
+    ${html}
+    </body></html>`;
+  const okno = window.open('', '_blank', 'width=1200,height=800');
+  if(okno && okno.document){
+    okno.document.open(); okno.document.write(dok.replace('</body>','<script>window.onload=()=>setTimeout(()=>window.print(),300)<\/script></body>'));
+    okno.document.close();
+    return;
+  }
+  // Zablokowane okno (np. aplikacja zainstalowana na tablecie) — drukujemy przez ukrytą ramkę
+  const ifr = document.createElement('iframe');
+  ifr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
+  document.body.appendChild(ifr);
+  const d = ifr.contentDocument || ifr.contentWindow?.document;
+  if(!d){ toast('Nie udało się otworzyć wydruku.', true); ifr.remove(); return; }
+  d.open(); d.write(dok); d.close();
+  setTimeout(()=>{ try{ ifr.contentWindow.focus(); ifr.contentWindow.print(); }catch(e){ toast('Nie udało się otworzyć wydruku.', true); }
+    setTimeout(()=>ifr.remove(), 60000); }, 400);
 }
 
 /* Przycisk eksportu — po kliknięciu rozwija wybór formatu */
@@ -2102,129 +2217,260 @@ function obsluzEksport(b, e){
   }
 }
 
-/* ===================== REALNY SKŁAD DAWKI =================================
-   Kilogram niedojadu ma skład dawki, z której pochodzi. Jeśli dokładamy paszę
-   z grupy o innej recepturze, proporcje na stole się przesuwają — i to musi
-   być widać. Liczymy udziałem masowym, nie kg/szt, bo dokładana masa nie ma
-   nic wspólnego z liczbą sztuk grupy docelowej.
+/* ===================== ANALIZA DNIA — JEDNO ŹRÓDŁO PRAWDY ==================
+   Wszystkie zakładki (Nadarzyn/Boguszyny, Paszowóz, Raporty) liczą stan grupy
+   tą samą funkcją, więc liczby nigdzie się nie rozjadą. Pojęcia:
+   • Dawka wyliczona (plan) — kg/szt wg receptury grupy z zakładki Dawki,
+   • Zadane — ile kg TMR trafiło na stół (świeży TMR + odzysk niedojadów),
+   • Odzysk — część zadanego pochodząca z niedojadów innych grup
+     (nie zużywa świeżych surowców i nie kosztuje drugi raz),
+   • Niedojady — resztki zebrane NASTĘPNEGO dnia rano; obniżają pobranie TEGO dnia,
+   • Pobranie realne = Zadane − Niedojady (to faktycznie zjadły zwierzęta).
    ========================================================================= */
-function skladRealnyGrupy(p, dokWczoraj){
+function klon(o){ return o==null ? o : JSON.parse(JSON.stringify(o)); }
+function zaokr(x, d=3){ const p=Math.pow(10,d); return Math.round((Number(x)||0)*p)/p; }
+function nazwaLokalizacji(lok){ return lok==='nadarzyn' ? 'Nadarzyn' : 'Boguszyny'; }
+function kolorProc(p){
+  if(p==null || isNaN(p)) return 'var(--tekst-slaby)';
+  const a = Math.abs(p-100);
+  return a<=3 ? 'var(--zielony-ok)' : (a<=10 ? 'var(--zolty)' : 'var(--czerwony)');
+}
+function procTxt(p){ return (p==null || isNaN(p)) ? '—' : fmt(p,0)+'%'; }
+function procKomorka(p){ return `<td class="num" style="color:${kolorProc(p)};font-weight:700">${procTxt(p)}</td>`; }
+
+/* Operacje na mapach składu {surowiecId: kg} */
+function sklDoMapy(lista, docelowoKg){
   const wynik = {};
-  // 1) część świeża — receptura własnej grupy przeskalowana do faktycznej masy
-  const wsp = p.planKg>0 ? p.swiezy/p.planKg : 0;
-  (p.skladniki||[]).forEach(sk=>{
-    wynik[sk.surowiecId] = (wynik[sk.surowiecId]||0) + sk.kg*(p.sztuk||0)*wsp;
-  });
-  // 2) odzysk — każde źródło wnosi SWÓJ skład, wg udziału masowego
-  (p.niedojadyZrodla||[]).forEach(zr=>{
-    const zy = dokWczoraj?.grupy?.[zr.grupaId];
-    let sklZr = zy?.skladniki;
-    if(!sklZr || !sklZr.length){
-      const grZr = store.grupyTech[zr.grupaId];
-      sklZr = grZr ? obliczGrupe(grZr).skladniki : [];
-    }
-    const sumaZr = (sklZr||[]).reduce((s,x)=>s+x.kg,0);
-    if(sumaZr<=0) return;
-    sklZr.forEach(x=>{
-      wynik[x.surowiecId] = (wynik[x.surowiecId]||0) + zr.kg*(x.kg/sumaZr);
-    });
-  });
+  const baza = (lista||[]).reduce((s,x)=>s+(x.kg||0),0);
+  if(baza<=0 || !(docelowoKg>0)) return wynik;
+  (lista||[]).forEach(x=>{ if(x.kg>0) wynik[x.surowiecId]=(wynik[x.surowiecId]||0)+x.kg/baza*docelowoKg; });
   return wynik;
 }
-
-/* Pozycje dnia odczytane z zamrożonego dokumentu — na potrzeby raportów */
-function pozycjeDnia(lok, data){
-  const dok = dokDnia(lok,data);
-  if(!dok) return [];
-  return Object.entries(dok.grupy||{}).map(([gid,z])=>{
-    const gr = store.grupyTech[gid];
-    const sztuk = z.sztuk||0;
-    const wylicz = z.dawkaWyliczonaKgSzt||0;
-    const planKg = wylicz*sztuk;
-    const potw = z.zadaneKg!=null;
-    const zadaneKg = potw ? z.zadaneKg : planKg;
-    const odzysk = z.niedojadyDodaneKg||0;
-    const swiezy = Math.max(0, zadaneKg-odzysk);
-    const perSzt = sztuk>0 ? zadaneKg/sztuk : 0;
-    const proc = wylicz>0 ? (perSzt/wylicz)*100 : 0;
-    const pobr = sztuk>0 ? (zadaneKg-(z.niedojadyKg||0))/sztuk : 0;
-    return {gid, nazwa: gr?.nazwa||z.nazwaGrupy||'?', z, sztuk, wylicz, planKg,
-            zadaneKg, odzysk, swiezy, perSzt, proc, pobr, potw,
-            skladniki: z.skladniki||[], niedojadyZrodla: z.niedojadyZrodla||[],
-            koszt: swiezy*(z.kosztKgTMR||0), kolejnosc: gr?.kolejnosc??99};
-  }).filter(p=>p.sztuk>0 || p.zadaneKg>0).sort((a,b)=>a.kolejnosc-b.kolejnosc);
+function mapaSkaluj(m, wsp){ const w={}; for(const k in m) w[k]=m[k]*wsp; return w; }
+function mapaDodaj(a, b, wsp=1){ for(const k in b) a[k]=(a[k]||0)+b[k]*wsp; return a; }
+function mapaSuma(m){ let s=0; for(const k in m) s+=m[k]; return s; }
+function mapaNaListe(m, dzielnik){
+  return Object.entries(m).filter(([,kg])=>kg>0.00001)
+    .map(([surowiecId,kg])=>({surowiecId, kg:zaokr(kg/(dzielnik||1),4)}));
+}
+function kosztMapy(m){
+  let s=0;
+  for(const k in m){ const sur=store.surowce[k]; s+=m[k]*((sur?.cenaTona||0)/1000); }
+  return s;
 }
 
-/* Macierz: wiersze = surowce, kolumny = grupy technologiczne, wartość = kg/szt/dobę */
-function macierzSurowcowa(pozycje, dokWczoraj, opcje){
-  opcje = opcje||{};
-  const kolumny = pozycje.filter(p=>p.sztuk>0);
-  if(!kolumny.length) return '<div class="pusto">Brak grup z obsadą.</div>';
+/* Skład 1 kg niedojadu zebranego rano dnia `data` z grupy `srcId`.
+   To resztka tego, co grupa dostała DZIEŃ WCZEŚNIEJ — więc bierzemy faktycznie
+   zadany wtedy skład (np. mieszankę z dwóch wozów), a gdy go brak — recepturę grupy. */
+function frakcjeNiedojadu(lok, data, srcId){
+  const z = dokDnia(lok, dataMinus(data,1))?.grupy?.[srcId];
+  let lista = z?.skladniki;
+  if(!lista || !lista.length){
+    const gr = store.grupyTech[srcId];
+    lista = gr ? obliczGrupe(gr).skladniki : [];
+  }
+  return sklDoMapy(lista, 1);
+}
 
-  const sklady = {};                       // gid -> {surowiecId: kg total}
-  const uzyte = new Set();
-  kolumny.forEach(p=>{
-    sklady[p.gid] = skladRealnyGrupy(p, dokWczoraj);
-    Object.keys(sklady[p.gid]).forEach(s=>{ if(sklady[p.gid][s]>0.0001) uzyte.add(s); });
+/* Czy znamy już niedojady za dany dzień? Zbiera się je następnego dnia rano w Paszowozie.
+   "Brak niedojadów" też jest informacją — dlatego liczy się potwierdzenie w dokumencie. */
+function czyNiedojadyZnane(lok, data, z){
+  if(z && z.niedojadyKg!=null) return true;
+  const nast = pzDok(lok, dataPlus(data,1));
+  return !!(nast && (nast.niedojadyPotw || (nast.niedojady||[]).length));
+}
+
+/* Stan jednej grupy technologicznej w danym dniu */
+function stanGrupy(lok, data, gr, z){
+  z = z || {};
+  const o = gr ? obliczGrupe(gr) : {skladniki:[], kgSzt:0, kosztSzt:0, sumaUdzialow:0};
+  const sztuk = z.sztuk!=null ? z.sztuk : (gr?.sztuk||0);
+  const wylicz = z.dawkaWyliczonaKgSzt!=null ? z.dawkaWyliczonaKgSzt : o.kgSzt;
+  const planKg = wylicz*sztuk;
+  const potw = z.zadaneKg!=null;
+  const zPaszowozu = !!z.zPaszowozu;
+  const zadaneKg = potw ? z.zadaneKg : planKg;
+  const odzysk = Math.min(zadaneKg, z.niedojadyDodaneKg||0);
+  const swiezy = Math.max(0, zadaneKg-odzysk);
+
+  // Skład — całość na stole i część świeża (tylko ta zużywa surowce i kosztuje)
+  const baza = (z.skladniki && z.skladniki.length) ? z.skladniki : o.skladniki;
+  let sklTotal, sklSwieze;
+  if(zPaszowozu && z.skladnikiSwieze){
+    sklTotal  = sklDoMapy(baza, zadaneKg);
+    sklSwieze = sklDoMapy(z.skladnikiSwieze, swiezy);
+  }else if(odzysk>0 && (z.niedojadyZrodla||[]).length){
+    // starsze wpisy (rozdzielnik w zakładce lokalizacji): świeże wg receptury + odzysk wg składu źródeł
+    sklSwieze = sklDoMapy(baza, swiezy);
+    sklTotal  = {...sklSwieze};
+    const sumZr = z.niedojadyZrodla.reduce((s,x)=>s+(x.kg||0),0) || 1;
+    z.niedojadyZrodla.forEach(zr=> mapaDodaj(sklTotal, frakcjeNiedojadu(lok,data,zr.grupaId), odzysk*(zr.kg||0)/sumZr));
+  }else{
+    sklTotal  = sklDoMapy(baza, zadaneKg);
+    sklSwieze = mapaSkaluj(sklTotal, zadaneKg>0 ? swiezy/zadaneKg : 0);
+  }
+  const koszt = z.kosztKgTMR!=null ? swiezy*z.kosztKgTMR : kosztMapy(sklSwieze);
+
+  const perSzt = sztuk>0 ? zadaneKg/sztuk : 0;
+  const procZad = wylicz>0 && sztuk>0 ? perSzt/wylicz*100 : null;
+
+  // Niedojady i realne pobranie
+  const znane = czyNiedojadyZnane(lok, data, z);
+  const niedojadyKg = znane ? (z.niedojadyKg||0) : null;
+  const pobraneKg = znane ? Math.max(0, zadaneKg-niedojadyKg) : null;
+  const pobranieSzt = (pobraneKg!=null && sztuk>0) ? pobraneKg/sztuk : null;
+  const procPobr = (pobranieSzt!=null && wylicz>0) ? pobranieSzt/wylicz*100 : null;
+  const procNied = (niedojadyKg!=null && zadaneKg>0) ? niedojadyKg/zadaneKg*100 : null;
+  // Skład niedojadu przyjmujemy taki jak skład zadany (bez współczynnika sortowania)
+  const sklPobrane = pobraneKg!=null ? mapaSkaluj(sklTotal, zadaneKg>0 ? pobraneKg/zadaneKg : 0) : null;
+
+  // Opis dawek: przy Paszowozie faktyczne proporcje, inaczej przypisanie z Dawek
+  let opis;
+  if(zPaszowozu && (z.udzialyFakt||[]).length){
+    const suma = z.udzialyFakt.reduce((s,x)=>s+(x.kg||0),0) + odzysk;
+    opis = z.udzialyFakt.map(x=>`${store.dawki[x.dawkaId]?.nazwa||x.nazwa||'?'} ${fmt(suma>0?x.kg/suma*100:0,0)}%`).join(' + ')
+         + (odzysk>0 ? ` + ♻ niedojady ${fmt(suma>0?odzysk/suma*100:0,0)}%` : '');
+  }else if(zPaszowozu && (z.wklady||[]).length){
+    const suma = z.wklady.reduce((s,w)=>s+(w.kg||0),0);
+    opis = z.wklady.map(w=>`${w.dawkaNazwa} ${fmt(suma>0?w.kg/suma*100:0,0)}%`).join(' + ');
+  }else{
+    opis = ((gr?.dawki)||z.udzialy||[]).map(x=>`${store.dawki[x.dawkaId]?.nazwa||'?'} ${x.udzial}%`).join(' + ');
+  }
+
+  return {gid: gr?.id || z.id, gr, z, nazwa: gr?.nazwa || z.nazwaGrupy || '?',
+    kolejnosc: gr?.kolejnosc ?? 99, parentId: gr?.parentId || null,
+    sztuk, wylicz, planKg, potw, zPaszowozu, zadaneKg, odzysk, swiezy, perSzt, procZad,
+    sklTotal, sklSwieze, sklPobrane, planSkl:o.skladniki, sumaUdzialow:o.sumaUdzialow,
+    koszt, kosztSzt: sztuk>0 ? koszt/sztuk : 0,
+    niedojadyZnane:znane, niedojadyKg, procNied, pobraneKg, pobranieSzt, procPobr,
+    opis, wklady:z.wklady||[], niedojadyZrodla:z.niedojadyZrodla||[]};
+}
+
+/* Wszystkie grupy dnia. wszystkie=true → każda grupa lokalizacji (brak wpisu = plan);
+   false → tylko grupy zapisane w dokumencie dnia (raporty historyczne). */
+function analizaDnia(lok, data, wszystkie){
+  const grupyDnia = dokDnia(lok,data)?.grupy || {};
+  let lista;
+  if(wszystkie){
+    lista = grupyLok(lok).map(gr=>stanGrupy(lok, data, gr, grupyDnia[gr.id]));
+    Object.entries(grupyDnia).forEach(([gid,z])=>{
+      if(!store.grupyTech[gid] && z.zadaneKg!=null) lista.push(stanGrupy(lok, data, null, {...z, id:gid}));
+    });
+  }else{
+    lista = Object.entries(grupyDnia).map(([gid,z])=>stanGrupy(lok, data, store.grupyTech[gid]||null, {...z, id:gid}))
+      .filter(p=>p.sztuk>0 || p.zadaneKg>0);
+  }
+  return lista.sort((a,b)=>a.kolejnosc-b.kolejnosc);
+}
+
+function sumyDnia(poz){
+  const s = {szt:0, plan:0, zad:0, odzysk:0, swiezy:0, nied:0, pobr:0, koszt:0, ileZnane:0, ilePotw:0};
+  poz.forEach(p=>{
+    s.szt+=p.sztuk; s.plan+=p.planKg; s.zad+=p.zadaneKg; s.odzysk+=p.odzysk; s.swiezy+=p.swiezy; s.koszt+=p.koszt;
+    if(p.potw) s.ilePotw++;
+    if(p.niedojadyKg!=null){ s.nied+=p.niedojadyKg; s.pobr+=p.pobraneKg; s.ileZnane++; }
   });
+  return s;
+}
 
-  // Kolejność wierszy jak w macierzy Dawek, reszta na końcu
+/* Tabela podsumowania dnia — ta sama w Raportach (Historia, Kalendarz) */
+function tabelaDniaHTML(poz, id, data){
+  const s = sumyDnia(poz);
+  return `<div class="przewijak"><table class="gt-tabela" id="${id}">
+    <thead><tr><th>Grupa</th><th class="num">Sztuk</th><th class="num">Plan<br>kg/szt</th>
+      <th class="num">Zadane<br>kg</th><th class="num">♻ w tym<br>odzysk kg</th><th class="num">Świeży<br>TMR kg</th>
+      <th class="num">Zadane<br>kg/szt</th><th class="num">%<br>zadania</th>
+      <th class="num">Niedojady<br>kg</th><th class="num">Niedojady<br>%</th>
+      <th class="num">Pobrane<br>kg/szt</th><th class="num">%<br>pobrania</th><th class="num">Koszt<br>zł</th></tr></thead>
+    <tbody>
+      ${poz.map(p=>`<tr>
+        <td><b>${esc(p.nazwa)}</b>${p.zPaszowozu?' 🚛':''}${p.potw?'':' <span class="plakietka auto">plan</span>'}</td>
+        <td class="num">${p.sztuk}</td>
+        <td class="num">${fmt(p.wylicz,2)}</td>
+        <td class="num">${fmt(p.zadaneKg,0)}</td>
+        <td class="num">${p.odzysk>0.5?'<span class="odzysk">'+fmt(p.odzysk,0)+'</span>':'—'}</td>
+        <td class="num">${fmt(p.swiezy,0)}</td>
+        <td class="num"><b>${fmt(p.perSzt,2)}</b></td>
+        ${procKomorka(p.procZad)}
+        <td class="num">${p.niedojadyKg!=null?fmt(p.niedojadyKg,0):'<span class="podpis">czeka</span>'}</td>
+        <td class="num">${p.procNied!=null?fmt(p.procNied,1)+'%':'—'}</td>
+        <td class="num"><b>${p.pobranieSzt!=null?fmt(p.pobranieSzt,2):'—'}</b></td>
+        ${procKomorka(p.procPobr)}
+        <td class="num">${fmt(p.koszt,0)}</td>
+      </tr>`).join('')}
+      <tr class="suma"><td>SUMA</td><td class="num">${s.szt}</td><td class="num"></td>
+        <td class="num">${fmt(s.zad,0)}</td><td class="num">${fmt(s.odzysk,0)}</td><td class="num">${fmt(s.swiezy,0)}</td>
+        <td class="num"></td><td class="num"></td>
+        <td class="num">${s.ileZnane?fmt(s.nied,0):'—'}</td><td class="num">${s.ileZnane&&s.zad?fmt(s.nied/s.zad*100,1)+'%':'—'}</td>
+        <td class="num"></td><td class="num"></td><td class="num">${fmt(s.koszt,0)} zł</td></tr>
+    </tbody>
+  </table></div>
+  <div class="podpis" style="padding:8px 14px">
+    <b>Pobrane</b> = zadane − niedojady zebrane rano ${data?dataPL(dataPlus(data,1)):'następnego dnia'}.
+    „czeka” — niedojadów jeszcze nie wpisano w Paszowozie. Koszt liczony tylko od świeżego TMR (odzysk opłacono dzień wcześniej).
+  </div>`;
+}
+
+/* Macierz: wiersze = surowce, kolumny = grupy, wartość = kg/szt/dobę.
+   tryb 'zadany' — co trafiło na stół; 'pobrany' — co realnie zjadły zwierzęta. */
+function macierzSkladu(pozycje, opcje){
+  opcje = opcje || {};
+  const pobr = opcje.tryb==='pobrany';
+  const kolumny = pozycje.filter(p=>p.sztuk>0 && (pobr ? p.sklPobrane : p.zadaneKg>0));
+  if(!kolumny.length) return `<div class="pusto">${pobr
+    ? 'Brak danych o pobraniu — niedojady za ten dzień nie zostały jeszcze wpisane w Paszowozie.'
+    : 'Brak grup z obsadą.'}</div>`;
+  const skl = p => pobr ? p.sklPobrane : p.sklTotal;
+  const uzyte = new Set();
+  kolumny.forEach(p=>Object.entries(skl(p)).forEach(([s,kg])=>{ if(kg>0.0001) uzyte.add(s); }));
   const uklad = wierszeDawek();
   const wiersze = [...uklad.filter(id=>uzyte.has(id)), ...[...uzyte].filter(id=>!uklad.includes(id))];
 
   const naglowki = kolumny.map(p=>{
-    const odch = p.wylicz>0 ? ((p.perSzt/p.wylicz)*100) : 100;
-    const kol = Math.abs(odch-100)<=3 ? '' : (Math.abs(odch-100)<=10 ? 'color:#ffe08a' : 'color:#ffb3ad');
+    const proc = pobr ? p.procPobr : p.procZad;
+    const kg = pobr ? p.pobraneKg : p.zadaneKg;
     return `<th><span class="nazwa-kol" title="${esc(p.nazwa)}">${esc(p.nazwa)}</span>
-      <span style="font-size:9.5px;opacity:.85;display:block;font-weight:400">${p.sztuk} szt${p.odzysk?' · +'+fmt(p.odzysk,0)+' kg':''}</span>
-      <span style="font-size:9.5px;display:block;${kol}">${fmt(odch,0)}%</span></th>`;
+      <span class="mac-pod">${p.sztuk} szt · ${fmt(kg/(p.sztuk||1),1)} kg/szt</span>
+      <span class="mac-pod" style="color:${proc==null?'inherit':(Math.abs(proc-100)<=3?'#c9f2d4':(Math.abs(proc-100)<=10?'#ffe08a':'#ffb3ad'))}">${procTxt(proc)} planu</span></th>`;
   }).join('');
 
   const body = wiersze.map(sid=>{
     const sur = store.surowce[sid];
-    return `<tr>
-      <td class="lipka"><span class="nazwaS" title="${esc(sur?.nazwa||'?')}">${esc(sur?.nazwa||'?')}</span></td>
+    return `<tr><td class="lipka"><span class="nazwaS" title="${esc(sur?.nazwa||'?')}">${esc(sur?.nazwa||'?')}</span></td>
       ${kolumny.map(p=>{
-        const kgTot = sklady[p.gid][sid]||0;
+        const kgTot = skl(p)[sid]||0;
         if(kgTot<=0.0001) return '<td class="num">—</td>';
         const kgSzt = kgTot/(p.sztuk||1);
-        // odchylenie od receptury — pokazujemy na czerwono realne przesunięcie składu
-        const wzor = (p.skladniki||[]).find(x=>x.surowiecId===sid);
+        const wzor = (p.planSkl||[]).find(x=>x.surowiecId===sid);
         const plan = wzor ? wzor.kg : 0;
-        const rozne = plan>0 ? Math.abs(kgSzt-plan)/plan > 0.02 : kgSzt>0;
+        const rozne = !pobr && (plan>0 ? Math.abs(kgSzt-plan)/plan > 0.02 : true);   // w pobranym różnica od planu to po prostu niedojady
         return `<td class="num" ${rozne?'style="color:var(--czerwony);font-weight:600"':''}
-                    title="${fmt(kgTot,1)} kg na grupę${plan?' · wg receptury '+fmt(plan,2)+' kg/szt':''}">${fmt(kgSzt,2)}</td>`;
-      }).join('')}
-    </tr>`;
+          title="${fmt(kgTot,1)} kg na grupę${plan?' · plan '+fmt(plan,2)+' kg/szt':' · poza recepturą grupy'}">${fmt(kgSzt,2)}</td>`;
+      }).join('')}</tr>`;
   }).join('');
 
-  const sumy = kolumny.map(p=>{
-    const s = Object.values(sklady[p.gid]).reduce((a,b)=>a+b,0);
-    return `<td class="num">${fmt(s/(p.sztuk||1),2)}</td>`;
-  }).join('');
-  const sumyGrupa = kolumny.map(p=>{
-    const s = Object.values(sklady[p.gid]).reduce((a,b)=>a+b,0);
-    return `<td class="num">${fmt(s,0)}</td>`;
-  }).join('');
-
+  const sumaKol = p => mapaSuma(skl(p));
   return `<div class="macierz" style="max-height:none" ${opcje.id?`id="${opcje.id}"`:''}>
     <table>
+      <colgroup><col style="width:220px">${kolumny.map(()=>'<col style="width:120px">').join('')}</colgroup>
       <thead><tr><th class="lipka">Surowiec</th>${naglowki}</tr></thead>
       <tbody>
         ${body}
-        <tr class="suma-wiersz"><td class="lipka">Razem kg/szt/dobę</td>${sumy}</tr>
-        <tr class="koszt-wiersz"><td class="lipka">Razem kg na grupę</td>${sumyGrupa}</tr>
+        <tr class="suma-wiersz"><td class="lipka">Razem kg/szt/dobę</td>${kolumny.map(p=>`<td class="num">${fmt(sumaKol(p)/(p.sztuk||1),2)}</td>`).join('')}</tr>
+        <tr class="koszt-wiersz"><td class="lipka">Plan kg/szt</td>${kolumny.map(p=>`<td class="num">${fmt(p.wylicz,2)}</td>`).join('')}</tr>
+        <tr class="koszt-wiersz"><td class="lipka">Razem kg na grupę</td>${kolumny.map(p=>`<td class="num">${fmt(sumaKol(p),0)}</td>`).join('')}</tr>
       </tbody>
     </table>
   </div>
   <div class="podpis" style="padding:8px 14px">
-    Wartości to <b>faktycznie podane kg/szt/dobę</b> po uwzględnieniu zmienionych ilości i domieszanych niedojadów.
-    Na <b style="color:var(--czerwony)">czerwono</b> pozycje odbiegające od receptury o więcej niż 2%.
-    Najedź na komórkę, żeby zobaczyć kg na całą grupę.
+    ${pobr
+      ? 'Skład <b>realnie pobrany</b> = skład zadany pomniejszony o niedojady (przyjmujemy, że resztka ma skład dawki). Wiersz „Plan kg/szt” — do porównania.'
+      : 'Skład <b>faktycznie zadany</b> — po zmianach ilości, mieszaniu receptur w wozach i domieszaniu niedojadów. Na <b style="color:var(--czerwony)">czerwono</b> pozycje odbiegające od planu grupy o więcej niż 2% lub spoza jej receptury.'}
   </div>`;
 }
 
-/* ===================== ZAKŁADKI: NADARZYN / BOGUSZYN ====================== */
+
+/* ===================== ZAKŁADKI: NADARZYN / BOGUSZYNY ===================== */
 let gtRozwiniete = new Set();
 
 function grupyLok(lok){
@@ -2257,151 +2503,146 @@ let lokData = {};   // wybrana data per lokalizacja
 function renderLokalizacja(w, lok){
   const edycja = mozeEdytowac(lok);
   const mozeWpis = edycja || poziom(lok)==='wpis';
-  const grupy = grupyLok(lok);
-  const nazwaLok = lok==='nadarzyn'?'Nadarzyn':'Boguszyny';
+  const nazwaLok = nazwaLokalizacji(lok);
   if(!lokData[lok]) lokData[lok] = dzisiaj();
   const data = lokData[lok];
-  const wczoraj = dataMinus(data,1);
-  const dok = dokDnia(lok,data);
-  const dokWczoraj = dokDnia(lok,wczoraj);
-
-  let sumaSzt=0, sumaPlan=0, sumaZadane=0, sumaKoszt=0, ileAuto=0, ilePotw=0;
-  const zapotrzebowanie = {};
-
-  const dane = grupy.map(gr=>{
-    const o = obliczGrupe(gr);
-    const z = dok?.grupy?.[gr.id] || {};
-    const sztuk = z.sztuk!=null ? z.sztuk : (gr.sztuk||0);
-    const wylicz = z.dawkaWyliczonaKgSzt!=null ? z.dawkaWyliczonaKgSzt : o.kgSzt;
-    const planKg = wylicz*sztuk;
-    const potw = z.zadaneKg!=null;                 // wpisane ręcznie = potwierdzone
-    const zadaneKg = potw ? z.zadaneKg : planKg;   // brak wpisu = zakładamy plan
-    const niedojadyDod = z.niedojadyDodaneKg || 0;  // kg niedojadów z wczoraj domieszanych do dzisiejszej dawki
-    const niedojadyZrodla = z.niedojadyZrodla || [];
-    const swiezyTmr = Math.max(0, zadaneKg - niedojadyDod);  // to faktycznie trzeba wymieszać ze świeżych surowców
-    const perSzt = sztuk>0 ? zadaneKg/sztuk : 0;    // zwierzę zjada całość — świeże + domieszane niedojady
-    const proc = wylicz>0 ? (perSzt/wylicz)*100 : 0;
-    const wsp = planKg>0 ? swiezyTmr/planKg : 1;    // surowce i koszt liczymy tylko od świeżej porcji
-    sumaSzt+=sztuk; sumaPlan+=planKg; sumaZadane+=zadaneKg;
-    sumaKoszt+=o.kosztSzt*sztuk*wsp;
-    potw?ilePotw++:ileAuto++;
-    o.skladniki.forEach(sk=>{ zapotrzebowanie[sk.surowiecId]=(zapotrzebowanie[sk.surowiecId]||0)+sk.kg*sztuk*wsp; });
-    return {gr,...o,sztuk,wylicz,planKg,zadaneKg,niedojadyDod,niedojadyZrodla,swiezyTmr,perSzt,proc,wsp,potw,realKg:zadaneKg,kgSzt:wylicz,dataDnia:data,zPaszowozu:z.zPaszowozu,wklady:z.wklady};
-  });
-
-  const kolProc = p => Math.abs(p-100)<=3 ? 'var(--zielony-ok)' : (Math.abs(p-100)<=10 ? 'var(--zolty)' : 'var(--czerwony)');
+  const dane = analizaDnia(lok, data, true);
+  const s = sumyDnia(dane);
+  const dzis = data===dzisiaj();
+  const zakPz = lok==='nadarzyn' ? 'paszowozN' : 'paszowozB';
+  const maPz = (pzDok(lok,data)?.wozy||[]).length>0;
+  const kol = 13 + (edycja?1:0);
 
   w.innerHTML = `
   <div class="panel">
     <div class="panel-tyt">
-      ${esc(nazwaLok)} \u2014 dzie\u0144 \u017cywienia
-      <span class="licznik">${grupy.length} grup \u00b7 ${sumaSzt} szt</span>
+      ${esc(nazwaLok)} — dzień żywienia
+      <span class="licznik">${dane.length} grup · ${s.szt} szt</span>
       <span style="flex:1"></span>
       <div class="pole-grupa" style="margin:0"><input type="date" id="lkData" value="${data}" max="${dzisiaj()}" style="padding:7px 10px"></div>
-      ${przyciskEksportu('#tabelaGT','dzien_'+lok+'_'+data, esc(nazwaLok)+' — dzień żywienia '+dataPL(data))}
+      ${przyciskEksportu('#tabelaGT','dzien_'+lok+'_'+data, nazwaLok+' — dzień żywienia '+dataPL(data))}
       ${edycja?'<button class="btn maly" id="btnNowaGrupa">+ Grupa</button>':''}
     </div>
     <div class="pasek">
-      <button class="btn szary maly" id="lkPrev">\u2039 Poprzedni dzie\u0144</button>
-      <button class="btn szary maly" id="lkDzis">Dzi\u015b</button>
+      <button class="btn szary maly" id="lkPrev">‹ Poprzedni dzień</button>
+      <button class="btn szary maly" id="lkNext" ${dzis?'disabled':''}>Następny ›</button>
+      <button class="btn szary maly" id="lkDzis">Dziś</button>
       <span style="flex:1"></span>
-      <span class="podpis">${ilePotw} potwierdzonych \u00b7 ${ileAuto} wg planu</span>
+      <span class="podpis">${s.ilePotw} potwierdzonych · ${dane.length-s.ilePotw} wg planu</span>
     </div>
+    ${maPz ? `<div class="pasek-wersja przyszla">🚛 Ten dzień jest prowadzony w Paszowozie — ilości grup obsłużonych wozami
+      pochodzą z wozów i zmienia się je w zakładce ${poziom(zakPz)?`<a href="#" id="lkDoPz"><b>Paszowóz</b></a>`:'<b>Paszowóz</b>'}.</div>` : ''}
     <div class="przewijak">
       <table class="gt-tabela" id="tabelaGT">
         <thead><tr>
           <th>Grupa</th>
           <th class="num">Sztuk</th>
-          <th>Dawki (udzia\u0142y %)</th>
-          <th class="num">Dawka wyliczona<br>kg/szt</th>
-          <th class="num">Plan<br>kg/grup\u0119</th>
-
-          <th class="num">Zadane<br>kg na grup\u0119</th>
-          <th class="num">\u015awie\u017cy TMR<br>kg</th>
-          <th class="num">Per sztuk\u0119<br>kg</th>
-          <th class="num">% realiz.</th>
-          <th class="num">z\u0142/szt</th>
+          <th>Dawki (udziały %)</th>
+          <th class="num">Plan<br>kg/szt</th>
+          <th class="num">Plan<br>kg/grupę</th>
+          <th class="num">Zadane<br>kg/grupę</th>
+          <th class="num">♻ w tym<br>odzysk kg</th>
+          <th class="num">Zadane<br>kg/szt</th>
+          <th class="num">%<br>zadania</th>
+          <th class="num">Niedojady<br>kg</th>
+          <th class="num">Pobrane<br>kg/szt</th>
+          <th class="num">%<br>pobrania</th>
+          <th class="num">zł/szt</th>
           ${edycja?'<th class="akcje"></th>':''}
         </tr></thead>
         <tbody>
-          ${dane.map(d=>{
-            const gr=d.gr;
+          ${dane.map(p=>{
+            const gr = p.gr; if(!gr) return '';
             const pod = !!gr.parentId;
             const parent = pod ? store.grupyTech[gr.parentId] : null;
-            // Jeśli grupa pochodzi z Paszowozu — pokazujemy FAKTYCZNE proporcje wozów,
-            // a nie planowe przypisanie z Dawek. To odzwierciedla to, co rzeczywiście
-            // trafiło do zwierząt (np. 2 wozy różnych receptur w proporcji 88:12).
-            let opis;
-            if(d.zPaszowozu && d.wklady?.length){
-              const suma = d.wklady.reduce((s,w)=>s+(w.kg||0),0);
-              opis = d.wklady.map(w=>{
-                const proc = suma>0 ? Math.round(w.kg/suma*100) : 0;
-                return `${w.dawkaNazwa} ${proc}%`;
-              }).join(' + ') + ' 🚛';
-            }else{
-              opis = (gr.dawki||[]).map(x=>{
-                const daw=store.dawki[x.dawkaId]; return `${daw?.nazwa||'?'} ${x.udzial}%`;
-              }).join(' + ');
-            }
-            const bladU = !d.zPaszowozu && d.sumaUdzialow!==100 && (gr.dawki||[]).length>0;
+            const bladU = !p.zPaszowozu && p.sumaUdzialow!==100 && (gr.dawki||[]).length>0;
             const rozw = gtRozwiniete.has(gr.id);
+            const komZad = p.zPaszowozu
+              ? `<span class="z-pz" title="Z Paszowozu — zmień w zakładce Paszowóz">🚛 ${fmt(p.zadaneKg,0)}</span>`
+              : (mozeWpis ? `<input class="pole num ${p.potw?'potw':''}" data-zad="${gr.id}" value="${p.potw?fmt(p.zadaneKg,0):''}" placeholder="${fmt(p.planKg,0)}" style="width:82px" inputmode="decimal">`
+                          : fmt(p.zadaneKg,0));
+            const komNied = p.niedojadyKg!=null
+              ? `${fmt(p.niedojadyKg,0)}${p.procNied!=null?' <span class="podpis">('+fmt(p.procNied,1)+'%)</span>':''}`
+              : `<span class="podpis" title="Niedojady za ${dataPL(data)} zbiera się rano ${dataPL(dataPlus(data,1))} w Paszowozie">${dzis?'jutro rano':'brak wpisu'}</span>`;
             return `
-            <tr class="${pod?'podgrupa':''} ${rozw?'rozwiniety':''} ${d.potw?'':'wgplanu'}" data-rozgt="${gr.id}">
+            <tr class="${pod?'podgrupa':''} ${rozw?'rozwiniety':''} ${p.potw?'':'wgplanu'}" data-rozgt="${gr.id}">
               <td><b>${esc(gr.nazwa)}</b>${pod?' <span class="podpis">('+esc(parent?.nazwa||'')+')</span>':''}
-                  ${d.potw?'':'<span class="plakietka auto">wg planu</span>'}</td>
-              <td class="num">${mozeWpis?`<input class="pole num" data-szt="${gr.id}" value="${d.sztuk}" style="width:56px" inputmode="numeric">`:d.sztuk}</td>
-              <td>${esc(opis)}${bladU?` <span class="blad-udzial">\u26a0 ${d.sumaUdzialow}%</span>`:''}</td>
-              <td class="num">${fmt(d.wylicz,2)}</td>
-              <td class="num">${fmt(d.planKg,0)}</td>
-
-              <td class="num">${mozeWpis?`<input class="pole num ${d.potw?'potw':''}" data-zad="${gr.id}" value="${d.potw?fmt(d.zadaneKg,0):''}" placeholder="${fmt(d.planKg,0)}" style="width:82px" inputmode="decimal">`:fmt(d.zadaneKg,0)}</td>
-              <td class="num" style="color:var(--zielen);font-weight:600">${fmt(d.swiezyTmr,0)}</td>
-              <td class="num"><b>${fmt(d.perSzt,2)}</b></td>
-              <td class="num" style="color:${kolProc(d.proc)};font-weight:700">${fmt(d.proc,0)}%</td>
-              <td class="num">${fmt(d.kosztSzt*d.wsp,2)}</td>
-              ${edycja?`<td class="akcje"><button class="ikonka" data-edgt="${gr.id}" title="Edytuj grup\u0119">\u270e</button></td>`:''}
+                  ${p.potw?'':'<span class="plakietka auto">wg planu</span>'}</td>
+              <td class="num">${mozeWpis?`<input class="pole num" data-szt="${gr.id}" value="${p.sztuk}" style="width:56px" inputmode="numeric">`:p.sztuk}</td>
+              <td>${esc(p.opis)}${p.zPaszowozu?' 🚛':''}${bladU?` <span class="blad-udzial">⚠ ${p.sumaUdzialow}%</span>`:''}</td>
+              <td class="num">${fmt(p.wylicz,2)}</td>
+              <td class="num">${fmt(p.planKg,0)}</td>
+              <td class="num">${komZad}</td>
+              <td class="num">${p.odzysk>0.5?'<span class="odzysk">'+fmt(p.odzysk,0)+'</span>':'—'}</td>
+              <td class="num"><b>${fmt(p.perSzt,2)}</b></td>
+              ${procKomorka(p.procZad)}
+              <td class="num">${komNied}</td>
+              <td class="num"><b>${p.pobranieSzt!=null?fmt(p.pobranieSzt,2):'—'}</b></td>
+              ${procKomorka(p.procPobr)}
+              <td class="num">${fmt(p.kosztSzt,2)}</td>
+              ${edycja?`<td class="akcje"><button class="ikonka" data-edgt="${gr.id}" title="Edytuj grupę">✎</button></td>`:''}
             </tr>
-            ${rozw?'<tr><td colspan="'+(edycja?11:10)+'">'+renderGTDet(gr, d)+'</td></tr>':''}`;
+            ${rozw?'<tr class="det-wiersz"><td colspan="'+kol+'">'+renderGTDet(p, data)+'</td></tr>':''}`;
           }).join('')}
           <tr class="suma">
-            <td>SUMA ${esc(nazwaLok)}</td><td class="num">${sumaSzt}</td><td></td><td class="num"></td>
-            <td class="num">${fmt(sumaPlan,0)}</td><td class="num"></td><td class="num">${fmt(sumaZadane,0)}</td>
-            <td class="num"></td><td class="num"></td><td class="num"></td><td class="num">${fmt(sumaKoszt,0)} z\u0142</td>
+            <td>SUMA ${esc(nazwaLok)}</td><td class="num">${s.szt}</td><td></td><td class="num"></td>
+            <td class="num">${fmt(s.plan,0)}</td><td class="num">${fmt(s.zad,0)}</td><td class="num">${s.odzysk>0.5?fmt(s.odzysk,0):''}</td>
+            <td class="num"></td><td class="num"></td>
+            <td class="num">${s.ileZnane?fmt(s.nied,0):''}</td><td class="num"></td><td class="num"></td>
+            <td class="num">${fmt(s.koszt,0)} zł</td>
             ${edycja?'<td></td>':''}
           </tr>
         </tbody>
       </table>
     </div>
-    <div class="podpis" style="padding:8px 14px">
-      Puste pole <b>Zadane</b> = przyj\u0119to plan. Kliknij wiersz, \u017ceby rozwin\u0105\u0107 kart\u0119 za\u0142adunku.
+    <div class="podpis" style="padding:8px 14px;line-height:1.55">
+      <b>Plan</b> — dawka wyliczona z receptur grupy. <b>Zadane</b> — ile kg TMR trafiło na stół (puste pole = przyjęto plan; 🚛 = z Paszowozu).
+      <b>♻ Odzysk</b> — część zadanego pochodząca z niedojadów innych grup.
+      <b>Niedojady</b> — resztki tej grupy zebrane następnego dnia rano (wpis w Paszowozie).
+      <b>Pobrane</b> = zadane − niedojady, czyli to, co zwierzęta realnie zjadły. Koszt liczony od świeżego TMR.
+      Kliknij wiersz, żeby rozwinąć skład porcji grupy.
     </div>
   </div>
 
-
-
   <div class="panel">
-    <div class="panel-tyt">Realny sk\u0142ad dawek \u2014 ${esc(nazwaLok)}, ${dataPL(data)}
-      <span class="licznik">kg surowca / sztuk\u0119 / dob\u0119</span>
+    <div class="panel-tyt">Realny skład dawek zadanych — ${esc(nazwaLok)}, ${dataPL(data)}
+      <span class="licznik">kg surowca / sztukę / dobę</span>
       <span style="flex:1"></span>
-      ${przyciskEksportu('#macierzLok','sklad_'+lok+'_'+data, 'Realny sk\u0142ad dawek — '+esc(nazwaLok)+' '+dataPL(data))}
+      ${przyciskEksportu('#macierzLok','sklad_zadany_'+lok+'_'+data, 'Skład dawek zadanych — '+nazwaLok+' '+dataPL(data))}
     </div>
-    ${macierzSurowcowa(dane.map(d=>({
-        gid:d.gr.id, nazwa:d.gr.nazwa, sztuk:d.sztuk, wylicz:d.wylicz, planKg:d.planKg,
-        zadaneKg:d.zadaneKg, odzysk:d.niedojadyDod, swiezy:d.swiezyTmr, perSzt:d.perSzt,
-        skladniki:d.skladniki, niedojadyZrodla:d.niedojadyZrodla
-      })), dokWczoraj, {id:'macierzLok'})}
-  </div>`;
+    ${macierzSkladu(dane, {id:'macierzLok', tryb:'zadany'})}
+  </div>
+
+  ${s.ileZnane ? `<div class="panel">
+    <div class="panel-tyt">Realne pobranie — ${esc(nazwaLok)}, ${dataPL(data)}
+      <span class="licznik">kg surowca / sztukę / dobę po odjęciu niedojadów</span>
+      <span style="flex:1"></span>
+      ${przyciskEksportu('#macierzLokPobr','sklad_pobrany_'+lok+'_'+data, 'Realne pobranie — '+nazwaLok+' '+dataPL(data))}
+    </div>
+    ${macierzSkladu(dane, {id:'macierzLokPobr', tryb:'pobrany'})}
+  </div>` : ''}`;
 
   // --- PODPIĘCIA ---
-  w.querySelector('#lkData').onchange=e=>{lokData[lok]=e.target.value; renderLokalizacja(w,lok);};
+  w.querySelector('#lkData').onchange=e=>{ if(e.target.value){ lokData[lok]=e.target.value; renderLokalizacja(w,lok);} };
   w.querySelector('#lkPrev').onclick=()=>{lokData[lok]=dataMinus(data,1); renderLokalizacja(w,lok);};
+  w.querySelector('#lkNext').onclick=()=>{ const n=dataPlus(data,1); if(n<=dzisiaj()){ lokData[lok]=n; renderLokalizacja(w,lok);} };
   w.querySelector('#lkDzis').onclick=()=>{lokData[lok]=dzisiaj(); renderLokalizacja(w,lok);};
+  const doPz = w.querySelector('#lkDoPz');
+  if(doPz) doPz.onclick=e=>{ e.preventDefault(); pzData[lok]=data; przejdz(zakPz); };
   w.querySelectorAll('[data-rozgt]').forEach(tr=>{
     tr.onclick=e=>{
-      if(e.target.closest('input,button,.ikonka')) return;
+      if(e.target.closest('input,button,.ikonka,a')) return;
       const id=tr.dataset.rozgt;
       gtRozwiniete.has(id)?gtRozwiniete.delete(id):gtRozwiniete.add(id);
       renderLokalizacja(w,lok);
+    };
+  });
+  w.querySelectorAll('[data-druk-gt]').forEach(b=>{
+    b.onclick=e=>{
+      e.stopPropagation();
+      const p = dane.find(x=>x.gid===b.dataset.drukGt); if(!p) return;
+      const el = document.getElementById('gtDet_'+p.gid); if(!el) return;
+      eksportDruk(el, 'Porcja grupy '+p.nazwa+' — '+nazwaLok+' '+dataPL(data), {duzy:true});
     };
   });
   if(mozeWpis){
@@ -2409,8 +2650,10 @@ function renderLokalizacja(w, lok){
       i.onclick=e=>e.stopPropagation();
       i.onchange=async()=>{
         const v=Math.max(0,parseInt(i.value)||0);
-        await DB.zapisz('grupyTech', i.dataset.szt, {sztuk:v});
+        if(dzis) await DB.zapisz('grupyTech', i.dataset.szt, {sztuk:v});   // stan bieżący zmieniamy tylko z dnia dzisiejszego
         await zapiszDzien(lok, data, i.dataset.szt, {sztuk:v});
+        // grupa z Paszowozu: skład na sztukę zależy od liczby sztuk — przelicz
+        if(pzDok(lok,data)) await synchronizujZywienieZPaszowozu(lok, data, normalizujPz(pzDok(lok,data)));
       };
     });
     w.querySelectorAll('[data-zad]').forEach(i=>{
@@ -2420,7 +2663,6 @@ function renderLokalizacja(w, lok){
         zapiszDzien(lok, data, i.dataset.zad, {zadaneKg: v===''?null:Math.max(0,liczba(v))});
       };
     });
-
   }
   if(edycja){
     w.querySelectorAll('[data-edgt]').forEach(b=>{
@@ -2431,40 +2673,49 @@ function renderLokalizacja(w, lok){
   }
 }
 
-function renderGTDet(gr, d){
-  if(!d) return '';
-  const wsp = d.wsp!=null ? d.wsp : 1;
+/* Rozwinięcie wiersza: skład porcji grupy — co i ile trafiło na stół */
+function renderGTDet(p, data){
+  const uklad = wierszeDawek();
+  const ids = Object.keys(p.sklSwieze).filter(k=>p.sklSwieze[k]>0.0001);
+  ids.sort((a,b)=>{ const ia=uklad.indexOf(a), ib=uklad.indexOf(b); return (ia<0?999:ia)-(ib<0?999:ib); });
   let wWozie = 0;
-  const zrodlaOpis = (d.niedojadyZrodla||[]).map(zr=>{
-    const g = store.grupyTech[zr.grupaId];
-    return esc(g?.nazwa||'?')+' '+fmt(zr.kg,0)+' kg';
-  }).join(' + ');
-  const wierszNiedojadow = d.niedojadyDod>0 ? (()=>{
-    wWozie += d.niedojadyDod;
-    return `<tr style="background:#fff8e1"><td><b>\u267b Niedojady z ${dataPL(dataMinus(d.dataDnia||dzisiaj(),1))}</b>${zrodlaOpis?'<br><span class="podpis">z: '+zrodlaOpis+'</span>':''}</td><td class="num">\u2014</td><td class="num">${fmt(d.niedojadyDod/(d.sztuk||1),2)}</td><td class="num">${fmt(d.niedojadyDod,1)}</td><td class="num wwozie">${fmt(wWozie,1)}</td></tr>`;
+  const wierszOdzysku = p.odzysk>0.5 ? (()=>{
+    wWozie += p.odzysk;
+    const zr = (p.niedojadyZrodla||[]).map(x=>esc(store.grupyTech[x.grupaId]?.nazwa||'?')+' '+fmt(x.kg,0)+' kg').join(' + ');
+    return `<tr class="wiersz-odzysk"><td><b>♻ Niedojady</b>${zr?'<br><span class="podpis">z: '+zr+'</span>':''}</td>
+      <td class="num">—</td><td class="num">${fmt(p.odzysk/(p.sztuk||1),2)}</td><td class="num">${fmt(p.odzysk,1)}</td><td class="num wwozie">${fmt(wWozie,1)}</td></tr>`;
   })() : '';
-  const wiersze = d.skladniki.map(sk=>{
-    const sur = store.surowce[sk.surowiecId];
-    const kgSztReal = sk.kg*wsp;
-    const kgGr = kgSztReal*(d.sztuk||0);
+  const wiersze = ids.map(sid=>{
+    const sur = store.surowce[sid];
+    const plan = (p.planSkl||[]).find(x=>x.surowiecId===sid)?.kg || 0;
+    const kgGr = p.sklSwieze[sid];
     wWozie += kgGr;
-    return `<tr><td>${esc(sur?.nazwa||'?')}</td><td class="num">${fmt(sk.kg,2)}</td><td class="num">${fmt(kgSztReal,2)}</td><td class="num">${fmt(kgGr,1)}</td><td class="num wwozie">${fmt(wWozie,1)}</td></tr>`;
+    return `<tr><td>${esc(sur?.nazwa||'?')}</td><td class="num">${plan?fmt(plan,2):'—'}</td>
+      <td class="num">${fmt(kgGr/(p.sztuk||1),2)}</td><td class="num">${fmt(kgGr,1)}</td><td class="num wwozie">${fmt(wWozie,1)}</td></tr>`;
   }).join('');
-  return `<div class="gt-det">
-    <h4>Karta za\u0142adunku \u2014 ${esc(gr.nazwa)} (${d.sztuk||0} szt \u00b7 ${fmt(d.zadaneKg,0)} kg razem${d.niedojadyDod>0?', w tym '+fmt(d.swiezyTmr,0)+' kg \u015bwie\u017cych':''})${d.potw?'':' \u2014 wg planu'}</h4>
-    <div class="gt-dawki-lista">${(gr.dawki||[]).map(x=>{
+  return `<div class="gt-det" id="gtDet_${p.gid}">
+    <h4 style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span>Porcja grupy ${esc(p.nazwa)} — ${p.sztuk} szt · ${fmt(p.zadaneKg,0)} kg
+      ${p.odzysk>0.5?`(świeży TMR ${fmt(p.swiezy,0)} kg + odzysk ${fmt(p.odzysk,0)} kg)`:''}${p.potw?'':' — wg planu'}</span>
+      <span style="flex:1"></span>
+      <button class="btn-karta" data-druk-gt="${p.gid}">🖨 Drukuj</button>
+    </h4>
+    <div class="gt-dawki-lista">${(p.gr?.dawki||[]).map(x=>{
       const daw=store.dawki[x.dawkaId];
       return `<span class="chip"><b>${x.udzial}%</b> ${esc(daw?.nazwa||'?')}</span>`;
-    }).join('')}</div>
+    }).join('')}${p.zPaszowozu?'<span class="chip">🚛 faktycznie: '+esc(p.opis)+'</span>':''}</div>
     <table>
-      <thead><tr><th>Surowiec</th><th class="num">Plan kg/szt</th><th class="num">Realnie kg/szt</th><th class="num">kg na grup\u0119</th><th class="num">W wozie</th></tr></thead>
-      <tbody>${wierszNiedojadow}${wiersze}
-        <tr style="font-weight:700;border-top:2px solid var(--zielen)"><td>RAZEM</td><td class="num">${fmt(d.wylicz,2)}</td><td class="num">${fmt(d.perSzt,2)}</td><td class="num">${fmt(d.zadaneKg,1)}</td><td></td></tr>
+      <thead><tr><th>Surowiec</th><th class="num">Plan kg/szt</th><th class="num">Świeże kg/szt</th><th class="num">kg na grupę</th><th class="num">Narastająco</th></tr></thead>
+      <tbody>${wierszOdzysku}${wiersze}
+        <tr style="font-weight:700;border-top:2px solid var(--zielen)"><td>RAZEM</td><td class="num">${fmt(p.wylicz,2)}</td><td class="num">${fmt(p.perSzt,2)}</td><td class="num">${fmt(p.zadaneKg,1)}</td><td></td></tr>
       </tbody>
     </table>
-    <div class="podpis">Koszt: ${fmt(d.kosztSzt*wsp,2)} z\u0142/szt/dob\u0119 (liczony tylko od \u015bwie\u017cej porcji) \u00b7 ${fmt(d.kosztSzt*wsp*(d.sztuk||0),0)} z\u0142/grup\u0119/dob\u0119 \u00b7 realizacja ${fmt(d.proc,0)}%</div>
+    <div class="podpis">Koszt: ${fmt(p.kosztSzt,2)} zł/szt/dobę · ${fmt(p.koszt,0)} zł/grupę/dobę (od świeżego TMR) ·
+      zadanie ${procTxt(p.procZad)} planu${p.procPobr!=null?' · pobranie '+procTxt(p.procPobr)+' planu':''}
+      ${p.zPaszowozu?' · <b>Załadunek wozów — karty w zakładce Paszowóz.</b>':''}</div>
   </div>`;
 }
+
 
 function oknoEdGrupa(lok, edId){
   const isEdit = !!edId;
@@ -2578,29 +2829,26 @@ function oknoEdGrupa(lok, edId){
   };
 }
 
-/* Rozdzielnik niedojadów: skąd fizycznie pochodzą kilogramy domieszane do tej grupy.
-   Pilnuje, żeby nie rozdysponować więcej, niż faktycznie zebrano z grupy źródłowej. */
-
-
 /* ===================== ZAKŁADKA: PASZOWÓZ =================================
-   Model: jeden dokument na dzień × lokalizację. Każdy wóz to receptura +
-   waga faktyczna + rozdzielenie na sektory. Realny skład sektora liczy się
-   automatycznie z proporcji wozów, które do niego zjechały.
+   Jeden dokument na dzień × lokalizację:
+     niedojady[] — resztki TMR zebrane RANO z sektorów (to, czego zwierzęta nie zjadły
+                   WCZORAJ). Obniżają realne pobranie za wczoraj.
+     wozy[]      — każdy wóz: najpierw wsypane niedojady (z puli zebranych),
+                   potem świeży TMR wg receptur (można mieszać, np. 60/40),
+                   masa wozu = suma rozdzielenia na sektory.
+   Wszystko, co liczą raporty, synchronizuje się do kolekcji „zywienie”.
    ========================================================================= */
-let pzData = {};   // wybrana data per lokalizacja
-let pzRozwiniete = new Set();
+let pzData = {};                 // wybrana data per lokalizacja
+const pzAutoProby = new Set();   // autoduplikację próbujemy raz na lokalizację/dzień
 
 function idPz(lok,data){ return lok+'_'+data; }
 function pzDok(lok,data){ return store.paszowozy[idPz(lok,data)] || null; }
 
-/* Dawki dostępne dla lokalizacji: W (wspólne) + N (Nadarzyn) lub W + B (Boguszyny) */
+/* Dawki dostępne dla lokalizacji: W (wspólne) + N (Nadarzyn) lub W + B (Boguszyny).
+   'X' = brak przypisania — dawka istnieje w Dawkach, ale nie wchodzi do Paszowozu. */
 function dawkiDlaLok(lok){
   const flaga = lok==='nadarzyn' ? 'N' : 'B';
-  return dawkiSorted().filter(d=>{
-    const l = d.lokalizacja || 'W';
-    // 'X' = brak przypisania — dawka istnieje w Dawkach, ale nie wchodzi do Paszowozu
-    return l==='W' || l===flaga;
-  });
+  return dawkiSorted().filter(d=>{ const l = d.lokalizacja || 'W'; return l==='W' || l===flaga; });
 }
 
 /* Receptury wozu jako lista — obsługa starego formatu (pojedyncze dawkaId) */
@@ -2609,1044 +2857,868 @@ function recepturyWozu(woz){
   if(woz.dawkaId) return [{dawkaId:woz.dawkaId, udzial:100}];
   return [];
 }
+function masaWozu(woz){ return (woz.rozdzielenie||[]).reduce((s,r)=>s+(r.kg||0),0); }
+function masaNiedojadow(woz){ return (woz.niedojady||[]).reduce((s,x)=>s+(x.kg||0),0); }
+function masaSwiezaWozu(woz){ return Math.max(0, masaWozu(woz) - masaNiedojadow(woz)); }
 
-/* Masa wozu wynika z rozdzielenia na sektory — zootechnik planuje ile gdzie, waga to suma */
-function masaWozu(woz){
-  return (woz.rozdzielenie||[]).reduce((s,r)=>s+(r.kg||0),0);
-}
-function masaNiedojadow(woz){
-  return (woz.niedojady||[]).reduce((s,x)=>s+(x.kg||0),0);
-}
-function masaSwiezaWozu(woz){
-  return Math.max(0, masaWozu(woz) - masaNiedojadow(woz));
-}
-
-/* Skład mieszanki receptur wozu: udziały masowe surowców po zmieszaniu w proporcjach.
-   Zwraca {surowiecId: udzial_0_do_1}. */
+/* Skład świeżego TMR wozu: {surowiecId: udział 0..1}. Normalizujemy tylko po wierszach
+   z wybraną recepturą — pusty wiersz nie „zjada” procentów. */
 function udzialyReceptur(woz){
-  const rec = recepturyWozu(woz);
+  const rec = recepturyWozu(woz).filter(r=>r.dawkaId && store.dawki[r.dawkaId] && (r.udzial||0)>0);
   const sumaUdz = rec.reduce((s,r)=>s+(r.udzial||0),0);
   if(sumaUdz<=0) return {};
   const wynik = {};
   rec.forEach(r=>{
-    const daw = store.dawki[r.dawkaId]; if(!daw) return;
-    const skl = daw.skladniki||[];
-    const sumaR = skl.reduce((s,x)=>s+x.kg,0);
+    const skl = store.dawki[r.dawkaId].skladniki||[];
+    const sumaR = skl.reduce((s,x)=>s+(x.kg||0),0);
     if(sumaR<=0) return;
-    const waga = (r.udzial||0)/sumaUdz;      // udział tej receptury w mieszance
-    skl.forEach(x=>{
-      wynik[x.surowiecId] = (wynik[x.surowiecId]||0) + waga*(x.kg/sumaR);
-    });
+    const waga = (r.udzial||0)/sumaUdz;
+    skl.forEach(x=>{ wynik[x.surowiecId] = (wynik[x.surowiecId]||0) + waga*((x.kg||0)/sumaR); });
   });
   return wynik;
 }
 
-/* Zbiorcza karta załadunku — wszystkie wozy w jednej tabeli na jednej stronie */
-function zbiorczaKartaZaladunku(wozyLista){
-  const sklady = wozyLista.map(woz=>{
-    const u = udzialyReceptur(woz);
-    const swiezy = masaSwiezaWozu(woz);
-    const o = {};
-    Object.entries(u).forEach(([sid,ud])=>{ o[sid]=swiezy*ud; });
-    return o;
+/* Ujednolicony stan dokumentu dnia. Każdy zebrany niedojad ma stałe id,
+   a wóz odwołuje się do niego (zebraneId) — kg w wozie = kg zebrane, zawsze.
+   Usunięcie wpisu z listy zebranych automatycznie wyjmuje go z wozu. */
+function normalizujPz(dok){
+  dok = dok || {};
+  const uzyteId = new Set();
+  const niedojady = (dok.niedojady||[]).map((n,i)=>{
+    let id = n.id || ('nd_'+i+'_'+(n.zrodloId||'x'));
+    while(uzyteId.has(id)) id += '_';
+    uzyteId.add(id);
+    return {id, zrodloId:n.zrodloId||'', zebranoKg:Math.max(0, Number(n.zebranoKg)||0)};
   });
-  const uzyte = new Set();
-  sklady.forEach(s=>Object.entries(s).forEach(([sid,kg])=>{ if(kg>0.01) uzyte.add(sid); }));
-  const uklad = wierszeDawek();
-  const wiersze = [...uklad.filter(id=>uzyte.has(id)), ...[...uzyte].filter(id=>!uklad.includes(id))];
-
-  const naglowki = wozyLista.map(woz=>{
-    const rec = recepturyWozu(woz).filter(r=>r.dawkaId);
-    const opis = rec.map(r=>{
-      const d=store.dawki[r.dawkaId];
-      return (d?.nazwa||'?')+(rec.length>1?' '+(r.udzial||0)+'%':'');
-    }).join(' + ');
-    return `<th>${esc(woz.nazwa)}<br><span style="font-weight:400;font-size:10px">${esc(opis)}</span></th>`;
-  }).join('');
-
-  const ndKol = wozyLista.map(w=>masaNiedojadow(w));
-  const maNd = ndKol.some(x=>x>0);
-
-  // Rozdzielenie: wiersze = sektory, kolumny = wozy
-  const sektory = [];
-  wozyLista.forEach(w=>(w.rozdzielenie||[]).forEach(r=>{
-    if(r.grupaId && r.kg>0 && !sektory.includes(r.grupaId)) sektory.push(r.grupaId);
-  }));
-
-  return `
-  <table>
-    <thead><tr><th>ZAŁADUNEK — surowiec</th>${naglowki}<th>Razem</th></tr></thead>
-    <tbody>
-      ${maNd?`<tr style="background:#fff8e8">
-        <td><b>♻ Niedojady</b></td>
-        ${ndKol.map(kg=>`<td>${kg>0?fmt(kg,0):'—'}</td>`).join('')}
-        <td><b>${fmt(ndKol.reduce((a,b)=>a+b,0),0)}</b></td>
-      </tr>`:''}
-      ${wiersze.map(sid=>{
-        const sur=store.surowce[sid];
-        const kolumny = sklady.map(s=>s[sid]||0);
-        const razem = kolumny.reduce((a,b)=>a+b,0);
-        return `<tr><td>${esc(sur?.nazwa||'?')}</td>
-          ${kolumny.map(kg=>`<td>${kg>0.01?fmt(kg,0):'—'}</td>`).join('')}
-          <td><b>${fmt(razem,0)}</b></td></tr>`;
-      }).join('')}
-      <tr><td><b>RAZEM DO WOZU</b></td>
-        ${wozyLista.map(w=>`<td><b>${fmt(masaWozu(w),0)}</b></td>`).join('')}
-        <td><b>${fmt(wozyLista.reduce((s,w)=>s+masaWozu(w),0),0)}</b></td></tr>
-    </tbody>
-  </table>
-  <h2>ROZWIEŹĆ NA SEKTORY</h2>
-  <table>
-    <thead><tr><th>Sektor</th><th>Sztuk</th>${wozyLista.map(w=>`<th>${esc(w.nazwa)}</th>`).join('')}<th>Razem kg</th><th>kg/szt</th></tr></thead>
-    <tbody>
-      ${sektory.map(gid=>{
-        const gr=store.grupyTech[gid];
-        const kolumny = wozyLista.map(w=>{
-          const r=(w.rozdzielenie||[]).filter(x=>x.grupaId===gid).reduce((s,x)=>s+(x.kg||0),0);
-          return r;
-        });
-        const razem = kolumny.reduce((a,b)=>a+b,0);
-        const perSzt = gr?.sztuk>0 ? razem/gr.sztuk : 0;
-        return `<tr><td><b>${esc(gr?.nazwa||'?')}</b></td><td>${gr?.sztuk||0}</td>
-          ${kolumny.map(kg=>`<td>${kg>0?fmt(kg,0):'—'}</td>`).join('')}
-          <td><b>${fmt(razem,0)}</b></td><td>${fmt(perSzt,2)}</td></tr>`;
-      }).join('')}
-      <tr><td><b>RAZEM</b></td><td></td>
-        ${wozyLista.map(w=>`<td><b>${fmt(masaWozu(w),0)}</b></td>`).join('')}
-        <td><b>${fmt(wozyLista.reduce((s,w)=>s+masaWozu(w),0),0)}</b></td><td></td></tr>
-    </tbody>
-  </table>`;
+  const wPuli = new Set();
+  const wozy = (dok.wozy||[]).map((w,wi)=>{
+    const woz = klon(w) || {};
+    woz.id = woz.id || ('w_'+wi);
+    woz.nazwa = woz.nazwa || ('Wóz '+(wi+1));
+    woz.receptury = recepturyWozu(w).map(r=>({dawkaId:r.dawkaId||'', udzial:Number(r.udzial)||0}));
+    if(!woz.receptury.length) woz.receptury = [{dawkaId:'', udzial:100}];
+    delete woz.dawkaId; delete woz.wagaFaktyczna; delete woz.dawka;
+    woz.rozdzielenie = (w.rozdzielenie||[]).map(r=>({grupaId:r.grupaId||'', kg:Math.max(0, Number(r.kg)||0)}));
+    woz.wagaKontrolna = Number(w.wagaKontrolna)||null;
+    woz.niedojady = (w.niedojady||[]).map(x=>{
+      let nd = x.zebraneId ? niedojady.find(n=>n.id===x.zebraneId && !wPuli.has(n.id)) : null;
+      // stary format: dopasowanie po źródle i kg
+      if(!nd && !x.zebraneId) nd = niedojady.find(n=>!wPuli.has(n.id) && n.zrodloId===x.zrodloId && Math.abs(n.zebranoKg-(x.kg||0))<0.5);
+      if(!nd) return null;
+      wPuli.add(nd.id);
+      return {zebraneId:nd.id, zrodloId:nd.zrodloId, kg:nd.zebranoKg};
+    }).filter(Boolean);
+    return woz;
+  });
+  return {wozy, niedojady, niedojadyPotw:!!dok.niedojadyPotw, autoKopia:dok.autoKopia||null};
 }
 
-/* Karta załadunku wozu: ile kg każdego surowca wrzucić + dokąd rozwieźć */
-function kartaZaladunku(woz, lok){
-  const masa = masaWozu(woz);
-  const nd = masaNiedojadow(woz);
-  const swiezy = masaSwiezaWozu(woz);
-  const udzialy = udzialyReceptur(woz);
-  const rec = recepturyWozu(woz);
-  // Surowce w kolejności jak w macierzy Dawek
-  const uklad = wierszeDawek();
-  const uzyte = Object.keys(udzialy).filter(sid=>udzialy[sid]>0.00001);
-  const wiersze = [...uklad.filter(id=>uzyte.includes(id)), ...uzyte.filter(id=>!uklad.includes(id))];
-  let narast = 0;
-  const wierszeHtml = wiersze.map(sid=>{
-    const sur = store.surowce[sid];
-    const kg = swiezy * udzialy[sid];
-    narast += kg;
-    return `<tr>
-      <td>${esc(sur?.nazwa||'?')}</td>
-      <td class="num">${fmt(udzialy[sid]*100,1)}%</td>
-      <td class="num"><b>${fmt(kg,1)}</b></td>
-      <td class="num">${fmt(narast,0)}</td>
-    </tr>`;
-  }).join('');
-  const ndHtml = (woz.niedojady||[]).filter(x=>x.kg>0).map(x=>{
-    const gr = store.grupyTech[x.zrodloId];
-    return `<tr style="background:#fff8e8">
-      <td>♻ Niedojady z: ${esc(gr?.nazwa||'?')}</td>
-      <td class="num">—</td>
-      <td class="num"><b>${fmt(x.kg,1)}</b></td>
-      <td class="num">—</td>
-    </tr>`;
-  }).join('');
-  const rozdzHtml = (woz.rozdzielenie||[]).filter(r=>r.grupaId&&r.kg>0).map(r=>{
-    const gr = store.grupyTech[r.grupaId];
-    const perSzt = gr?.sztuk>0 ? r.kg/gr.sztuk : 0;
-    return `<tr>
-      <td>${esc(gr?.nazwa||'?')}</td>
-      <td class="num">${gr?.sztuk||0}</td>
-      <td class="num"><b>${fmt(r.kg,0)}</b></td>
-      <td class="num">${fmt(perSzt,2)}</td>
-    </tr>`;
-  }).join('');
-  const opisRec = rec.map(r=>{
-    const d = store.dawki[r.dawkaId];
-    return `${esc(d?.nazwa||'?')} ${r.udzial}%`;
-  }).join(' + ') || '—';
+/* zebraneId → wóz, do którego trafił */
+function przypisaniaNd(st){
+  const m = {};
+  st.wozy.forEach(w=>(w.niedojady||[]).forEach(x=>{ m[x.zebraneId] = w; }));
+  return m;
+}
 
+/* Przeliczenie całego dnia: per wóz i per sektor. Jedno miejsce — korzystają z niego
+   ekran, karty załadunku i synchronizacja do raportów. */
+function obliczPaszowoz(lok, data, st){
+  const wozy = st.wozy.map(woz=>{
+    const recWsz = woz.receptury;
+    const rec = recWsz.filter(r=>r.dawkaId && store.dawki[r.dawkaId] && (r.udzial||0)>0);
+    const sumaUdzWsz = recWsz.reduce((s,r)=>s+(r.udzial||0),0);
+    const sumaUdz = rec.reduce((s,r)=>s+(r.udzial||0),0);
+    const masa = masaWozu(woz);
+    const ndWpisane = masaNiedojadow(woz);
+    const nd = Math.min(ndWpisane, masa);
+    const swiezy = Math.max(0, masa-nd);
+    const udz = udzialyReceptur(woz);
+    const sklSwiezy = mapaSkaluj(udz, swiezy);
+    const wspNd = ndWpisane>0 ? nd/ndWpisane : 0;
+    const sklNd = {}; const zrodla = {};
+    (woz.niedojady||[]).forEach(x=>{
+      if(!x.zrodloId || !(x.kg>0)) return;
+      mapaDodaj(sklNd, frakcjeNiedojadu(lok, data, x.zrodloId), x.kg*wspNd);
+      zrodla[x.zrodloId] = (zrodla[x.zrodloId]||0) + x.kg*wspNd;
+    });
+    const kosztSwiezy = kosztMapy(sklSwiezy);
+    const naDawke = {};
+    rec.forEach(r=>{ naDawke[r.dawkaId] = (naDawke[r.dawkaId]||0) + swiezy*(r.udzial/sumaUdz); });
+    const opisRec = rec.map(r=>(store.dawki[r.dawkaId]?.nazwa||'?')+(rec.length>1?' '+fmt(r.udzial/sumaUdz*100,0)+'%':'')).join(' + ');
+
+    const bledy = [], ostrz = [];
+    if(!rec.length && swiezy>0.5) bledy.push('Wybierz recepturę świeżego TMR.');
+    if(recWsz.some(r=>r.dawkaId && !store.dawki[r.dawkaId])) bledy.push('Receptura usunięta z Dawek — wybierz inną.');
+    if(rec.length && Math.abs(sumaUdzWsz-100)>0.5) bledy.push(`Udziały receptur sumują się do ${fmt(sumaUdzWsz,0)}% zamiast 100%.`);
+    if(masa<=0) bledy.push('Rozdziel wóz na sektory — masa wozu to suma rozdzielenia.');
+    if((woz.rozdzielenie||[]).some(r=>r.kg>0 && !r.grupaId)) bledy.push('Wybierz sektor w każdym wierszu rozdzielenia.');
+    if((woz.rozdzielenie||[]).some(r=>r.grupaId && !store.grupyTech[r.grupaId])) bledy.push('Sektor usunięty — wybierz inny.');
+    if(ndWpisane > masa+0.5) bledy.push(`Niedojady w wozie (${fmt(ndWpisane,0)} kg) większe niż masa wozu (${fmt(masa,0)} kg).`);
+    const kontrola = woz.wagaKontrolna||0;
+    const odchylka = kontrola>0 ? kontrola-masa : 0;
+    if(kontrola>0 && Math.abs(odchylka)>Math.max(20, masa*0.02))
+      ostrz.push(`Waga z wozu ${fmt(kontrola,0)} kg — o ${fmt(Math.abs(odchylka),0)} kg ${odchylka>0?'więcej':'mniej'} niż suma rozdzielenia.`);
+    const liczony = masa>0 && (rec.length>0 || swiezy<=0.5);
+    const stan = !liczony ? 'brak' : (bledy.length||ostrz.length) ? 'zle' : 'ok';
+    return {woz, rec, sumaUdzWsz, sumaUdz, masa, nd, ndWpisane, swiezy, udz, sklSwiezy, sklNd, zrodla,
+      kosztSwiezy, naDawke, opisRec, bledy, ostrz, kontrola, odchylka, liczony, stan};
+  });
+
+  const sektory = {};
+  wozy.forEach(W=>{
+    if(!W.liczony) return;
+    (W.woz.rozdzielenie||[]).forEach(rz=>{
+      if(!rz.grupaId || !(rz.kg>0)) return;
+      const f = rz.kg / W.masa;
+      const a = sektory[rz.grupaId] || (sektory[rz.grupaId] =
+        {kg:0, swiezy:0, odzysk:0, sklTotal:{}, sklSwieze:{}, koszt:0, wklady:[], zrodla:{}, naDawke:{}});
+      a.kg += rz.kg;
+      a.swiezy += W.swiezy*f;
+      a.odzysk += W.nd*f;
+      mapaDodaj(a.sklSwieze, W.sklSwiezy, f);
+      mapaDodaj(a.sklTotal, W.sklSwiezy, f);
+      mapaDodaj(a.sklTotal, W.sklNd, f);
+      a.koszt += W.kosztSwiezy*f;
+      mapaDodaj(a.zrodla, W.zrodla, f);
+      mapaDodaj(a.naDawke, W.naDawke, f);
+      a.wklady.push({wozId:W.woz.id, wozNazwa:W.woz.nazwa,
+        dawkaNazwa:(W.opisRec||'')+(W.nd>0?' + ♻':''), kg:zaokr(rz.kg,2)});
+    });
+  });
+  return {wozy, sektory};
+}
+
+/* Porównanie wpisów bez znacznika czasu i autora — żeby nie zapisywać bez zmian */
+function bezMeta(o){ if(!o) return o; const {ts, autor, ...r} = o; return JSON.stringify(r); }
+
+/* Paszowóz → zywienie (dzień bieżący) + niedojady → zywienie (dzień poprzedni) */
+async function synchronizujZywienieZPaszowozu(lok, data, st){
+  st = st || normalizujPz(pzDok(lok,data));
+  const {sektory} = obliczPaszowoz(lok, data, st);
+  const autor = ROLE[rolaAkt]?.nazwa||'?';
+  const dzis = data===dzisiaj();
+
+  // ---- dzień bieżący: co trafiło do sektorów ----
+  const id = idDnia(lok,data);
+  const stary = store.zywienie[id] || {};
+  const grupy = klon(stary.grupy||{});
+  for(const [gid,a] of Object.entries(sektory)){
+    const gr = store.grupyTech[gid];
+    const poprz = grupy[gid] || {};
+    const sztuk = poprz.sztuk!=null ? poprz.sztuk : (gr?.sztuk||0);
+    const dz = sztuk>0 ? sztuk : 1;
+    // Plan: dziś zawsze aktualny z Dawek; dzień miniony — zamrożony, jeśli był zapisany
+    const zamroz = !dzis && poprz.dawkaWyliczonaKgSzt!=null;
+    const o = gr ? obliczGrupe(gr) : null;
+    const nowy = {
+      ...poprz,
+      sztuk,
+      nazwaGrupy: gr?.nazwa || poprz.nazwaGrupy || '?',
+      dawkaWyliczonaKgSzt: zamroz ? poprz.dawkaWyliczonaKgSzt : zaokr(o?.kgSzt||0,3),
+      udzialy: (zamroz && poprz.udzialy) ? poprz.udzialy : (gr?.dawki||[]).map(d=>({dawkaId:d.dawkaId, udzial:d.udzial})),
+      zadaneKg: zaokr(a.kg,2),
+      niedojadyDodaneKg: zaokr(a.odzysk,2),
+      niedojadyZrodla: Object.entries(a.zrodla).filter(([,kg])=>kg>0.01).map(([grupaId,kg])=>({grupaId, kg:zaokr(kg,2)})),
+      skladniki: mapaNaListe(a.sklTotal, dz),
+      skladnikiSwieze: mapaNaListe(a.sklSwieze, dz),
+      kosztKgTMR: a.swiezy>0 ? zaokr(a.koszt/a.swiezy,4) : 0,
+      udzialyFakt: Object.entries(a.naDawke).filter(([,kg])=>kg>0.01)
+        .map(([dawkaId,kg])=>({dawkaId, nazwa:store.dawki[dawkaId]?.nazwa||'?', kg:zaokr(kg,2)})),
+      zPaszowozu: true,
+      wklady: a.wklady
+    };
+    grupy[gid] = bezMeta(nowy)===bezMeta(poprz) ? poprz : {...nowy, autor, ts:Date.now()};
+  }
+  // Sieroty: wpisy z Paszowozu, których nie ma już w żadnym wozie
+  for(const gid of Object.keys(grupy)){
+    if(sektory[gid]) continue;
+    const g = grupy[gid];
+    if(!g || !(g.zPaszowozu || g.wklady)) continue;
+    const {zadaneKg, niedojadyDodaneKg, niedojadyZrodla, skladniki, skladnikiSwieze, kosztKgTMR,
+           udzialyFakt, zPaszowozu, wklady, ...reszta} = g;
+    if(reszta.niedojadyKg==null && !store.grupyTech[gid]) delete grupy[gid];
+    else if(reszta.niedojadyKg==null && store.grupyTech[gid]) delete grupy[gid];   // wraca do planu
+    else grupy[gid] = reszta;
+  }
+  if(JSON.stringify(grupy)!==JSON.stringify(stary.grupy||{}) || !store.zywienie[id]){
+    if(Object.keys(grupy).length || store.zywienie[id])
+      await DB.zapiszCaly('zywienie', id, {lokalizacja:lok, data, grupy});
+  }
+
+  // ---- dzień poprzedni: niedojady zebrane dziś rano ----
+  const wczoraj = dataMinus(data,1);
+  const idW = idDnia(lok, wczoraj);
+  const staryW = store.zywienie[idW] || {};
+  const grupyW = klon(staryW.grupy||{});
+  const perZr = {};
+  st.niedojady.forEach(n=>{ if(n.zrodloId && n.zebranoKg>0) perZr[n.zrodloId]=(perZr[n.zrodloId]||0)+n.zebranoKg; });
+  for(const [gid,kg] of Object.entries(perZr)){
+    const g = grupyW[gid] || {nazwaGrupy:store.grupyTech[gid]?.nazwa||'?'};
+    grupyW[gid] = {...g, niedojadyKg:zaokr(kg,2), niedojadyZPaszowozu:true};
+  }
+  for(const gid of Object.keys(grupyW)){
+    if(perZr[gid]) continue;
+    const g = grupyW[gid];
+    if(g && (g.niedojadyZPaszowozu || g.niedojadyKg!=null)){
+      const {niedojadyKg, niedojadyZPaszowozu, ...reszta} = g;
+      // wpis utworzony tylko dla niedojadów — znika w całości
+      if(reszta.zadaneKg==null && reszta.sztuk==null && reszta.dawkaWyliczonaKgSzt==null) delete grupyW[gid];
+      else grupyW[gid] = reszta;
+    }
+  }
+  if(JSON.stringify(grupyW)!==JSON.stringify(staryW.grupy||{})){
+    await DB.zapiszCaly('zywienie', idW, {lokalizacja:lok, data:wczoraj, grupy:grupyW});
+  }
+}
+
+async function zapiszPaszowoz(lok, data, st){
+  const dok = {
+    lokalizacja:lok, data,
+    wozy: st.wozy, niedojady: st.niedojady,
+    niedojadyPotw: !!st.niedojadyPotw,
+    autoKopia: st.autoKopia || null,
+    autor: ROLE[rolaAkt]?.nazwa||'?', ts: Date.now()
+  };
+  await DB.zapiszCaly('paszowozy', idPz(lok,data), dok);
+  await synchronizujZywienieZPaszowozu(lok, data, normalizujPz(dok));
+}
+
+/* Każda edycja: świeży stan z magazynu → zmiana → zapis całości.
+   Dzięki temu żadna akcja nie gubi niedojadów ani wozów zmienionych w międzyczasie. */
+async function pzEdytuj(lok, data, fn){
+  const st = normalizujPz(pzDok(lok,data));
+  if(fn(st)===false) return;
+  await zapiszPaszowoz(lok, data, st);
+}
+
+function nowyWoz(nr){
+  return {id:'w'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+          nazwa:'Wóz '+nr, receptury:[{dawkaId:'', udzial:100}], rozdzielenie:[{grupaId:'', kg:0}],
+          niedojady:[], wagaKontrolna:null};
+}
+function kopiujWozy(wozy){
+  return normalizujPz({wozy}).wozy.map((w,i)=>({...w,
+    id:'w'+Date.now().toString(36)+'_'+i+Math.random().toString(36).slice(2,5),
+    niedojady:[], wagaKontrolna:null}));
+}
+
+/* Autoduplikacja: TYLKO na dziś, TYLKO gdy serwer potwierdził, że dzisiejszego dokumentu
+   nie ma (nie na podstawie starej pamięci podręcznej), i tylko raz. */
+function pzAutoDuplikacja(lok){
+  const data = dzisiaj();
+  const klucz = idPz(lok,data);
+  if(pzAutoProby.has(klucz)) return;
+  if(!trybLokalny && !serwerPotwierdzil.paszowozy) return;
+  pzAutoProby.add(klucz);
+  if(pzDok(lok,data)) return;
+  for(let i=1;i<=7;i++){
+    const zr = dataMinus(data,i);
+    const prev = pzDok(lok, zr);
+    if(prev?.wozy?.length){
+      const st = {wozy:kopiujWozy(prev.wozy), niedojady:[], niedojadyPotw:false, autoKopia:zr};
+      setTimeout(async()=>{
+        if(pzDok(lok,data)) return;          // ktoś zdążył zapisać
+        await zapiszPaszowoz(lok, data, st);
+        toast(`Skopiowano wozy z ${dataPL(zr)} — sprawdź receptury i ilości.`);
+      }, 0);
+      return;
+    }
+  }
+}
+
+/* ---------- Karty załadunku ---------- */
+function wierszeSurowcow(ids){
+  const uklad = wierszeDawek();
+  const zb = [...ids];
+  return [...uklad.filter(id=>zb.includes(id)), ...zb.filter(id=>!uklad.includes(id))];
+}
+
+/* Karta pojedynczego wozu: najpierw niedojady, potem świeży TMR; narastająco = odczyt wagi */
+function kartaZaladunku(W){
+  const woz = W.woz;
+  let narast = 0;
+  const ndHtml = (woz.niedojady||[]).filter(x=>x.kg>0).map(x=>{
+    narast += x.kg;
+    return `<tr style="background:#fff3d6">
+      <td>♻ NIEDOJADY z: ${esc(store.grupyTech[x.zrodloId]?.nazwa||'?')}</td>
+      <td class="num">—</td><td class="num">${fmt(x.kg,0)}</td><td class="num">${fmt(narast,0)}</td></tr>`;
+  }).join('');
+  const ids = wierszeSurowcow(Object.keys(W.sklSwiezy).filter(k=>W.sklSwiezy[k]>0.05));
+  const swHtml = ids.map(sid=>{
+    const kg = W.sklSwiezy[sid];
+    narast += kg;
+    return `<tr><td>${esc(store.surowce[sid]?.nazwa||'?')}</td>
+      <td class="num">${fmt((W.udz[sid]||0)*100,1)}%</td><td class="num">${fmt(kg,0)}</td><td class="num">${fmt(narast,0)}</td></tr>`;
+  }).join('');
+  const rozdz = (woz.rozdzielenie||[]).filter(r=>r.grupaId && r.kg>0).map(r=>{
+    const gr = store.grupyTech[r.grupaId];
+    return `<tr><td>${esc(gr?.nazwa||'?')}</td><td class="num">${gr?.sztuk||0}</td>
+      <td class="num">${fmt(r.kg,0)}</td><td class="num">${gr?.sztuk>0?fmt(r.kg/gr.sztuk,2):'—'}</td></tr>`;
+  }).join('');
   return `
-    <div style="margin-bottom:14px">
-      <div><b>Receptura:</b> ${opisRec}</div>
-      <div><b>Masa wozu:</b> ${fmt(masa,0)} kg${nd>0?` (świeży TMR ${fmt(swiezy,0)} kg + niedojady ${fmt(nd,0)} kg)`:''}</div>
+    <div style="margin-bottom:12px;line-height:1.5">
+      <div><b>Receptura:</b> ${esc(W.opisRec||'—')}</div>
+      <div><b>Waga końcowa wozu: ${fmt(W.masa,0)} kg</b>${W.nd>0?` — najpierw niedojady ${fmt(W.nd,0)} kg, potem świeży TMR ${fmt(W.swiezy,0)} kg`:''}</div>
     </div>
     <table>
-      <thead><tr><th>Surowiec — ZAŁADUNEK</th><th>Udział</th><th>kg</th><th>Narastająco</th></tr></thead>
-      <tbody>
-        ${ndHtml}
-        ${wierszeHtml}
-        <tr style="font-weight:700"><td>RAZEM DO WOZU</td><td class="num"></td><td class="num">${fmt(masa,0)}</td><td class="num">${fmt(masa,0)}</td></tr>
+      <thead><tr><th>ZAŁADUNEK — kolejno</th><th>Udział</th><th>kg</th><th>Waga narastająco</th></tr></thead>
+      <tbody>${ndHtml}${swHtml}
+        <tr><td>RAZEM DO WOZU</td><td class="num"></td><td class="num">${fmt(W.masa,0)}</td><td class="num">${fmt(W.masa,0)}</td></tr>
       </tbody>
     </table>
-    <div style="height:16px"></div>
+    <h2>ROZWIEŹĆ NA SEKTORY</h2>
     <table>
-      <thead><tr><th>ROZWIEŹĆ NA SEKTORY</th><th>Sztuk</th><th>kg</th><th>kg/szt</th></tr></thead>
-      <tbody>
-        ${rozdzHtml || '<tr><td colspan="4">Brak rozdzielenia</td></tr>'}
-        <tr style="font-weight:700"><td>RAZEM</td><td class="num"></td><td class="num">${fmt(masa,0)}</td><td class="num"></td></tr>
+      <thead><tr><th>Sektor</th><th>Sztuk</th><th>kg</th><th>kg/szt</th></tr></thead>
+      <tbody>${rozdz || '<tr><td colspan="4">Brak rozdzielenia</td></tr>'}
+        <tr><td>RAZEM</td><td class="num"></td><td class="num">${fmt(W.masa,0)}</td><td class="num"></td></tr>
       </tbody>
     </table>`;
 }
 
-/* Nowy wóz — inicjuje puste rozdzielenie */
-function nowyWoz(nr){
-  return {id:'w'+Date.now()+'_'+Math.random().toString(36).slice(2,5),
-          nazwa:'Wóz '+nr, receptury:[{dawkaId:'', udzial:100}], rozdzielenie:[], niedojady:[]};
+/* Zbiorcza karta — wszystkie wozy w jednej tabeli (A4 poziomo, do ~10 wozów) */
+function zbiorczaKartaZaladunku(lista){
+  const uzyte = new Set();
+  lista.forEach(W=>Object.entries(W.sklSwiezy).forEach(([sid,kg])=>{ if(kg>0.05) uzyte.add(sid); }));
+  const wiersze = wierszeSurowcow([...uzyte]);
+  const nag = lista.map(W=>`<th>${esc(W.woz.nazwa)}<br><span style="font-weight:400;font-size:.8em">${esc(W.opisRec||'')}</span></th>`).join('');
+  const suma = f => lista.reduce((s,W)=>s+f(W),0);
+  const maNd = lista.some(W=>W.nd>0);
+  const sektory = [];
+  lista.forEach(W=>(W.woz.rozdzielenie||[]).forEach(r=>{ if(r.grupaId && r.kg>0 && !sektory.includes(r.grupaId)) sektory.push(r.grupaId); }));
+  return `
+  <table>
+    <thead><tr><th>ZAŁADUNEK</th>${nag}<th>Razem</th></tr></thead>
+    <tbody>
+      ${maNd?`<tr style="background:#fff3d6"><td>♻ 1. NIEDOJADY</td>${lista.map(W=>`<td>${W.nd>0?fmt(W.nd,0):'—'}</td>`).join('')}<td>${fmt(suma(W=>W.nd),0)}</td></tr>`:''}
+      ${wiersze.map(sid=>`<tr><td>${esc(store.surowce[sid]?.nazwa||'?')}</td>
+        ${lista.map(W=>{ const kg=W.sklSwiezy[sid]||0; return `<td>${kg>0.05?fmt(kg,0):'—'}</td>`; }).join('')}
+        <td>${fmt(suma(W=>W.sklSwiezy[sid]||0),0)}</td></tr>`).join('')}
+      ${maNd?`<tr><td>Świeży TMR</td>${lista.map(W=>`<td>${fmt(W.swiezy,0)}</td>`).join('')}<td>${fmt(suma(W=>W.swiezy),0)}</td></tr>`:''}
+      <tr><td>RAZEM DO WOZU</td>${lista.map(W=>`<td>${fmt(W.masa,0)}</td>`).join('')}<td>${fmt(suma(W=>W.masa),0)}</td></tr>
+    </tbody>
+  </table>
+  <h2>ROZWIEŹĆ NA SEKTORY</h2>
+  <table>
+    <thead><tr><th>Sektor</th><th>Sztuk</th>${lista.map(W=>`<th>${esc(W.woz.nazwa)}</th>`).join('')}<th>Razem kg</th><th>kg/szt</th></tr></thead>
+    <tbody>
+      ${sektory.map(gid=>{
+        const gr = store.grupyTech[gid];
+        const kol = lista.map(W=>(W.woz.rozdzielenie||[]).filter(x=>x.grupaId===gid).reduce((s,x)=>s+(x.kg||0),0));
+        const raz = kol.reduce((a,b)=>a+b,0);
+        return `<tr><td>${esc(gr?.nazwa||'?')}</td><td>${gr?.sztuk||0}</td>
+          ${kol.map(kg=>`<td>${kg>0?fmt(kg,0):'—'}</td>`).join('')}
+          <td>${fmt(raz,0)}</td><td>${gr?.sztuk>0?fmt(raz/gr.sztuk,2):'—'}</td></tr>`;
+      }).join('')}
+      <tr><td>RAZEM</td><td></td>${lista.map(W=>`<td>${fmt(W.masa,0)}</td>`).join('')}<td>${fmt(suma(W=>W.masa),0)}</td><td></td></tr>
+    </tbody>
+  </table>`;
 }
 
-async function zapiszPaszowoz(lok, data, wozy, niedojady){
-  niedojady = niedojady || [];
-  await DB.zapisz('paszowozy', idPz(lok,data), {lokalizacja:lok, data, wozy, niedojady,
-    autor:ROLE[rolaAkt]?.nazwa||'?', ts:Date.now()});
-  await synchronizujZywienieZPaszowozu(lok, data, wozy, niedojady);
-}
-
-/* Po zmianie wozów przelicza zywienie sektorów — bo raporty czytają stamtąd */
-async function synchronizujZywienieZPaszowozu(lok, data, wozy, niedojady){
-  niedojady = niedojady || [];
-  const grupy = grupyLok(lok);
-  const perGrupa = {};   // gid -> {kg, wklad:[{dawkaId,kg,skladniki,udzialy,koszt}]}
-  wozy.forEach(w=>{
-    const rec = recepturyWozu(w).filter(r=>r.dawkaId && store.dawki[r.dawkaId]);
-    if(!rec.length) return;
-    // Udziały masowe mieszanki receptur (np. 60% Krowy + 40% Pierwiastki)
-    const udzialy = udzialyReceptur(w);
-    const sumaUdz = rec.reduce((s,r)=>s+(r.udzial||0),0);
-    // Koszt kg mieszanki = średnia ważona kosztów receptur
-    let kosztKgReceptury = 0;
-    if(sumaUdz>0) rec.forEach(r=>{
-      const d = store.dawki[r.dawkaId];
-      const skl = d.skladniki||[];
-      const sr = skl.reduce((s,x)=>s+x.kg,0);
-      if(sr<=0) return;
-      const kk = skl.reduce((s,x)=>{const sur=store.surowce[x.surowiecId]; return s+x.kg*((sur?.cenaTona||0)/1000);},0)/sr;
-      kosztKgReceptury += kk*((r.udzial||0)/sumaUdz);
-    });
-    const opisRec = rec.map(r=>store.dawki[r.dawkaId]?.nazwa+' '+(r.udzial||0)+'%').join(' + ');
-    // Masa wozu wynika z rozdzielenia; niedojady są jej częścią
-    const wagaWozu = masaWozu(w);
-    if(wagaWozu<=0) return;
-    const sumaNdWozu = masaNiedojadow(w);
-    const udzialSwiezy = Math.max(0, wagaWozu - sumaNdWozu) / wagaWozu;
-    (w.rozdzielenie||[]).forEach(rz=>{
-      if(!rz.grupaId || !(rz.kg>0)) return;
-      const a = perGrupa[rz.grupaId] || (perGrupa[rz.grupaId]={kg:0, wklad:[]});
-      a.kg += rz.kg;
-      // Świeża część — wg zmieszanych receptur
-      const sklSwiezy = Object.entries(udzialy).map(([sid,u])=>({surowiecId:sid, kg: rz.kg*udzialSwiezy*u}));
-      // Niedojady — każdy wnosi skład dawki sektora źródłowego
-      const sklNd = [];
-      (w.niedojady||[]).forEach(nd=>{
-        if(!nd.zrodloId || !(nd.kg>0)) return;
-        const udzialNd = nd.kg / wagaWozu;
-        const grZr = store.grupyTech[nd.zrodloId];
-        const dawkiZr = grZr ? obliczGrupe(grZr).skladniki : [];
-        const sumaZr = dawkiZr.reduce((s,x)=>s+x.kg,0);
-        if(sumaZr<=0) return;
-        dawkiZr.forEach(x=>{
-          sklNd.push({surowiecId:x.surowiecId, kg: rz.kg*udzialNd*(x.kg/sumaZr)});
-        });
-      });
-      a.wklad.push({dawkaId:rec[0].dawkaId, dawkaNazwa:opisRec, kg:rz.kg,
-        skladniki:[...sklSwiezy,...sklNd], kosztKgReceptury});
-    });
-  });
-  // zapisujemy do dokumentu dnia — pole "zPaszowozu" mówi że dane pochodzą stąd
-  const id = idDnia(lok,data);
-  const stary = store.zywienie[id] || {lokalizacja:lok, data, grupy:{}};
-  const grupyNowe = {...(stary.grupy||{})};
-  for(const gr of grupy){
-    const a = perGrupa[gr.id];
-    if(a){
-      // scal składniki po surowcach
-      const sum = {};
-      a.wklad.forEach(w=>w.skladniki.forEach(s=>{ sum[s.surowiecId]=(sum[s.surowiecId]||0)+s.kg; }));
-      const skladniki = Object.entries(sum).map(([surowiecId,kg])=>({surowiecId, kg: kg/(gr.sztuk||1)}));
-      // koszt średnioważony (kg × koszt receptury) / suma kg
-      const kosztKgTMR = a.kg>0 ? a.wklad.reduce((s,w)=>s+w.kg*w.kosztKgReceptury,0)/a.kg : 0;
-      // WAŻNE: dawkaWyliczonaKgSzt to PLAN wg receptury grupy, nie faktyczne zadanie —
-      // dzięki temu % realizacji porównuje realne z planem, a nie z samym sobą.
-      const wyliczonaZReceptury = obliczGrupe(gr).kgSzt;
-      grupyNowe[gr.id] = {
-        ...(grupyNowe[gr.id]||{}),
-        sztuk: gr.sztuk, zadaneKg: a.kg,
-        skladniki, kosztKgTMR,
-        dawkaWyliczonaKgSzt: wyliczonaZReceptury,
-        nazwaGrupy: gr.nazwa,
-        zPaszowozu: true,
-        wklady: a.wklad.map(w=>({dawkaNazwa:w.dawkaNazwa, kg:w.kg})),
-        autor: ROLE[rolaAkt]?.nazwa||'?', ts:Date.now()
-      };
-    }
-  }
-  // Defensywne czyszczenie sierot: iterujemy po wszystkich wpisach żywienia,
-  // nie tylko po aktualnych grupach. Kasujemy każdy, który nosi ślad paszowozu
-  // (flaga zPaszowozu albo pole wklady), ale nie ma odpowiednika w bieżących wozach.
-  for(const gid of Object.keys(grupyNowe)){
-    if(perGrupa[gid]) continue;
-    const g = grupyNowe[gid];
-    if(g?.zPaszowozu || g?.wklady){
-      const {zadaneKg, wklady, zPaszowozu, ...reszta} = g;
-      grupyNowe[gid] = reszta;
-    }
-  }
-  // Niedojady zebrane rano → korekta pobrania za dzień poprzedni
-  if(niedojady.length){
-    const wczoraj = dataMinus(data,1);
-    const idWcz = idDnia(lok, wczoraj);
-    const staryWcz = store.zywienie[idWcz] || {lokalizacja:lok, data:wczoraj, grupy:{}};
-    const grupyWcz = {...(staryWcz.grupy||{})};
-    // Najpierw wyczyść stare niedojady tego dnia (by nie dublować)
-    for(const gid of Object.keys(grupyWcz)){
-      if(grupyWcz[gid]?.niedojadyKg!=null) grupyWcz[gid] = {...grupyWcz[gid], niedojadyKg:null};
-    }
-    for(const nd of niedojady){
-      if(!nd.zrodloId || !(nd.zebranoKg>0)) continue;
-      const g = grupyWcz[nd.zrodloId] || {};
-      grupyWcz[nd.zrodloId] = {...g, niedojadyKg: (g.niedojadyKg||0)+nd.zebranoKg};
-    }
-    await DB.zapisz('zywienie', idWcz, {lokalizacja:lok, data:wczoraj, grupy:grupyWcz});
-  }
-  // Niedojady domieszane → dodaj do zadanego sektora docelowego
-  const perCel = {};
-  niedojady.forEach(nd=>{
-    if(!nd.celId || !(nd.domieszanoKg>0)) return;
-    perCel[nd.celId] = (perCel[nd.celId]||0) + nd.domieszanoKg;
-  });
-  for(const [gid, kg] of Object.entries(perCel)){
-    if(grupyNowe[gid]){
-      grupyNowe[gid] = {...grupyNowe[gid],
-        niedojadyDodaneKg: kg,
-        niedojadyZrodla: niedojady.filter(nd=>nd.celId===gid).map(nd=>({grupaId:nd.zrodloId, kg:nd.domieszanoKg}))
-      };
-    }
-  }
-  await DB.zapisz('zywienie', id, {lokalizacja:lok, data, grupy:grupyNowe});
-}
-
+/* ---------- Widok ---------- */
 function renderPaszowoz(w, lok){
-  const pozR = ROLE[rolaAkt]?.zakl?.[lok==='nadarzyn'?'paszowozN':'paszowozB'];
+  const zakl = lok==='nadarzyn' ? 'paszowozN' : 'paszowozB';
+  const pozR = poziom(zakl);
   if(!pozR){
     w.innerHTML = `<div class="panel"><div class="panel-tyt">Brak dostępu</div>
       <div class="pusto">Ta zakładka nie jest dostępna dla Twojej roli.</div></div>`;
     return;
   }
+  const nazwaLok = nazwaLokalizacji(lok);
   if(pozR==='wprzygotowaniu'){
     w.innerHTML = `<div class="panel">
-      <div class="panel-tyt">🚛 Paszowóz — ${lok==='nadarzyn'?'Nadarzyn':'Boguszyny'}</div>
+      <div class="panel-tyt">🚛 Paszowóz — ${esc(nazwaLok)}</div>
       <div class="pusto" style="padding:60px 24px;text-align:center">
         <div style="font-size:48px;margin-bottom:18px">🚧</div>
         <div style="font-size:17px;font-weight:600;color:var(--tekst);margin-bottom:8px">Funkcja w przygotowaniu</div>
         <div style="font-size:14px;color:var(--tekst-slaby);max-width:520px;margin:0 auto;line-height:1.55">
-          Panel zarządzania paszowozem jest testowany.
-          Po zakończeniu prac otrzymasz dostęp od głównego zootechnika.
-        </div>
-      </div>
-    </div>`;
+          Panel zarządzania paszowozem jest testowany. Po zakończeniu prac otrzymasz dostęp.</div>
+      </div></div>`;
     return;
   }
 
   const edycja = pozR==='pelny';
-  const nazwaLok = lok==='nadarzyn'?'Nadarzyn':'Boguszyny';
+  try{ document.documentElement.style.setProperty('--wys-nag', (document.getElementById('taby')?.offsetHeight||0)+'px'); }catch(e){}
   if(!pzData[lok]) pzData[lok] = dzisiaj();
   const data = pzData[lok];
+  const dzis = data===dzisiaj();
+  const wczoraj = dataMinus(data,1);
+  if(edycja && dzis) pzAutoDuplikacja(lok);
+
   const dok = pzDok(lok,data);
-  let wozy = dok?.wozy ? [...dok.wozy] : [];
-  let niedojady = dok?.niedojady ? [...dok.niedojady] : [];
-
-  // Autoduplikacja: brak wozów na dziś → szukaj ostatniego dnia z wozami
-  if(!wozy.length && !dok && edycja){
-    for(let i=1; i<=7; i++){
-      const prev = pzDok(lok, dataMinus(data, i));
-      if(prev?.wozy?.length){
-        wozy = prev.wozy.map((w,j)=>({...w, id:'w'+Date.now()+'_'+j, wagaFaktyczna:w.wagaFaktyczna||0}));
-        zapiszPaszowoz(lok, data, wozy, []);
-        break;
-      }
-    }
-  }
-
-  const dawki = dawkiDlaLok(lok);
+  const st = normalizujPz(dok);
+  const wynik = obliczPaszowoz(lok, data, st);
+  const W = wynik.wozy;
   const grupy = grupyLok(lok);
+  const dawki = dawkiDlaLok(lok);
+  const przyp = przypisaniaNd(st);
+  const czeka = !trybLokalny && !serwerPotwierdzil.paszowozy && !dok;
 
-  // sumy per sektor — do tabeli zbiorczej i sygnalizacji
-  const sektorKg = {};
-  const sektorWklady = {};
-  wozy.forEach(w=>(w.rozdzielenie||[]).forEach(rz=>{
-    if(!rz.grupaId || !(rz.kg>0)) return;
-    sektorKg[rz.grupaId] = (sektorKg[rz.grupaId]||0)+rz.kg;
-    (sektorWklady[rz.grupaId]=sektorWklady[rz.grupaId]||[]).push({wozId:w.id, dawka:w.dawkaId, kg:rz.kg});
-  }));
-  const iloscWozow = wozy.length;
-  const sumaWagi = wozy.reduce((s,w)=>s+(w.wagaFaktyczna||0),0);
-  const sumaZadana = Object.values(sektorKg).reduce((s,x)=>s+x,0);
+  const sumaMasa = W.reduce((s,x)=>s+x.masa,0);
+  const sumaNd = W.reduce((s,x)=>s+x.nd,0);
+  const ileW = W.length;
+  const slowoWoz = n => n===1?'wóz':(n%10>=2&&n%10<=4&&(n%100<10||n%100>=20))?'wozy':'wozów';
+
+  // niedojady: grupy karmione wczoraj (z ilością) — na górze listy źródeł
+  const wczDok = dokDnia(lok, wczoraj)?.grupy || {};
+  const zadWcz = gid => { const z=wczDok[gid]; if(z?.zadaneKg!=null) return z.zadaneKg; const gr=store.grupyTech[gid]; return gr ? obliczGrupe(gr).kgSzt*(z?.sztuk??gr.sztuk??0) : 0; };
+  const grupyZr = [...grupy].sort((a,b)=>(wczDok[b.id]?.zadaneKg!=null)-(wczDok[a.id]?.zadaneKg!=null));
+  const sumaZebr = st.niedojady.reduce((s,n)=>s+n.zebranoKg,0);
+  const sumaWWozach = st.niedojady.filter(n=>przyp[n.id]).reduce((s,n)=>s+n.zebranoKg,0);
+  const wolne = st.niedojady.filter(n=>!przyp[n.id] && n.zrodloId && n.zebranoKg>0);
+  const ndZnane = st.niedojady.length>0 || st.niedojadyPotw;
+
+  const poWcz = analizaDnia(lok, wczoraj, false);
+  const poDzis = analizaDnia(lok, data, true).filter(p=>p.zPaszowozu);
 
   w.innerHTML = `
   <div class="panel">
     <div class="panel-tyt">
       🚛 Paszowóz — ${esc(nazwaLok)}
-      <span class="licznik">${iloscWozow} ${iloscWozow===1?'wóz':iloscWozow<5?'wozy':'wozów'} · ${fmt(sumaWagi,0)} kg</span>
+      <span class="licznik">${ileW} ${slowoWoz(ileW)} · ${fmt(sumaMasa,0)} kg${sumaNd>0?` (w tym ♻ ${fmt(sumaNd,0)} kg niedojadów)`:''}</span>
       <span style="flex:1"></span>
-      <div class="pole-grupa" style="margin:0">
-        <input type="date" id="pzData" value="${data}" max="${dzisiaj()}" style="padding:7px 10px">
-      </div>
-      <button class="btn maly szary" id="pzKartyWszystkie" title="Karty załadunku wszystkich wozów">🖨 Karty załadunku</button>
-      ${przyciskEksportu('#pzTabele','paszowoz_'+lok+'_'+data,'Paszowóz '+nazwaLok+' — '+dataPL(data))}
+      <div class="pole-grupa" style="margin:0"><input type="date" id="pzData" value="${data}" max="${dzisiaj()}" style="padding:7px 10px"></div>
+      <button class="btn-karta duzy" id="pzKartyWszystkie" title="Zbiorcza karta załadunku wszystkich wozów (A4 poziomo)">🖨 Karty załadunku</button>
+      <button class="btn-karta duzy" id="pzRaport" title="Raport dnia: sektory, surowce, pobranie za wczoraj">🖨 Raport dnia</button>
       ${edycja?'<button class="btn maly szary" id="pzDuplikuj" title="Skopiuj wozy z wybranego dnia">⎘ Duplikuj z dnia</button>':''}
       ${edycja?'<button class="btn maly" id="pzDodaj">+ Wóz</button>':''}
     </div>
     <div class="pasek">
       <button class="btn szary maly" id="pzPrev">‹ Poprzedni dzień</button>
+      <button class="btn szary maly" id="pzNext" ${dzis?'disabled':''}>Następny ›</button>
       <button class="btn szary maly" id="pzDzis">Dziś</button>
       <span style="flex:1"></span>
-      ${dok ? '<span class="podpis">Zapisano: '+esc(dok.autor||'')+' · '+new Date(dok.ts).toTimeString().slice(0,5)+'</span>' : '<span class="podpis">Brak zapisu — nowy dzień</span>'}
+      <span class="podpis">${dok?.ts ? 'Zapisano: '+esc(dok.autor||'')+' · '+dataPL(new Date(dok.ts).toISOString().slice(0,10))+' '+new Date(dok.ts).toTimeString().slice(0,5) : (czeka?'Wczytywanie z serwera…':'Brak zapisu — nowy dzień')}</span>
     </div>
+    ${st.autoKopia ? `<div class="pasek-wersja">⎘ Wozy skopiowano automatycznie z dnia <b>${dataPL(st.autoKopia)}</b>.
+       Sprawdź receptury i ilości przed załadunkiem.
+       ${edycja?'<button class="btn maly" id="pzAutoOk" style="margin-left:8px">✓ OK, sprawdzone</button>':''}</div>` : ''}
+    ${czeka ? `<div class="pasek-wersja przyszla">⏳ Czekam na dane z serwera — wozy pojawią się za chwilę.</div>` : ''}
+  </div>
 
-    <div id="pzZawartosc">
-    ${wozy.length ? `
-    <div class="pz-siatka">
-      ${wozy.map((woz,i)=>{
-        const rec = recepturyWozu(woz);
-        const sumaUdz = rec.reduce((s,r)=>s+(r.udzial||0),0);
-        const maRecepture = rec.some(r=>r.dawkaId);
-        const masa = masaWozu(woz);
-        const sumaNd = masaNiedojadow(woz);
-        const swiezy = masaSwiezaWozu(woz);
-        // Waga kontrolna (opcjonalna) — odczyt z wagi wozu do wychwycenia błędów
-        const kontrola = woz.wagaKontrolna||0;
-        const odchylka = kontrola>0 ? kontrola - masa : 0;
-        const stan = !maRecepture ? 'brak'
-                   : Math.abs(sumaUdz-100)>0.5 ? 'zle'
-                   : !masa ? 'brak'
-                   : (kontrola>0 && Math.abs(odchylka)>=0.5) ? 'zle' : 'ok';
+  <div class="panel" id="pzKrok1">
+    <div class="panel-tyt krok"><span class="krok-nr">1</span>
+      Niedojady zebrane rano ${dataPL(data)}
+      <span class="licznik">resztki TMR z ${dataPL(wczoraj)} — obniżają realne pobranie za ten dzień</span>
+      <span style="flex:1"></span>
+      ${edycja?`<button class="btn maly szary ${st.niedojadyPotw&&!st.niedojady.length?'akt':''}" id="pzBrakNd" title="Potwierdź, że dziś rano nie było resztek">✓ Brak niedojadów</button>`:''}
+      ${edycja?'<button class="btn maly" id="pzDodZebr">+ Sektor z resztkami</button>':''}
+    </div>
+    <div class="pz-niedojady">
+      ${st.niedojady.length ? `<div class="pz-zebr-form">
+        ${st.niedojady.map(n=>{
+          const wz = przyp[n.id];
+          const maks = n.zrodloId ? zadWcz(n.zrodloId) : 0;
+          const zaDuzo = n.zrodloId && maks>0 && n.zebranoKg > maks+0.5;
+          return `<div class="pz-zebr-row ${wz?'przypisany':''}">
+            <select data-zebr-zrodlo="${n.id}" ${edycja?'':'disabled'}>
+              <option value="">— z którego sektora? —</option>
+              ${grupyZr.map(g=>{
+                const z = wczDok[g.id];
+                return `<option value="${g.id}" ${g.id===n.zrodloId?'selected':''}>${esc(g.nazwa)}${z?.zadaneKg!=null?' — wczoraj '+fmt(z.zadaneKg,0)+' kg':''}</option>`;
+              }).join('')}
+            </select>
+            <input type="number" step="0.01" min="0" inputmode="decimal" data-zebr-kg="${n.id}" value="${n.zebranoKg||''}" placeholder="kg" ${edycja?'':'readonly'}>
+            <span class="pz-hint">kg</span>
+            ${wz?`<span class="plakietka recept">→ ${esc(wz.nazwa)}</span>`:(n.zrodloId&&n.zebranoKg>0?'<span class="plakietka auto">czeka na wóz</span>':'')}
+            ${edycja?`<button class="ikonka usun" data-zebr-usun="${n.id}" title="Usuń wpis">✕</button>`:''}
+            ${zaDuzo?`<div class="pz-alert nadmiar" style="flex-basis:100%">⚠ Więcej niż sektor dostał wczoraj (${fmt(maks,0)} kg) — sprawdź wpis.</div>`:''}
+          </div>`;
+        }).join('')}
+      </div>` : `<div class="pusto" style="padding:10px 0">${st.niedojadyPotw
+          ? '✓ Potwierdzono: dziś rano nie było niedojadów — pobranie za '+dataPL(wczoraj)+' = zadane.'
+          : (edycja?'Kliknij <b>+ Sektor z resztkami</b> i wpisz ile kg zebrano. Jeśli resztek nie było — <b>✓ Brak niedojadów</b>.':'Brak wpisów.')}</div>`}
+      ${st.niedojady.length ? `<div class="pz-zebr-suma">Zebrano: <b>${fmt(sumaZebr,0)} kg</b>
+        · w wozach: <b>${fmt(sumaWWozach,0)} kg</b>
+        ${sumaZebr-sumaWWozach>0.5?` · <span style="color:var(--zolty);font-weight:600">do przypisania: ${fmt(sumaZebr-sumaWWozach,0)} kg</span>`:''}</div>`:''}
+    </div>
+    ${wolne.length && edycja ? `<div class="pz-pula" id="pzPula">
+      <div class="pz-pula-tyt">♻ Przeciągnij na wóz <span class="podpis">(albo dotknij chmurki, potem wozu)</span></div>
+      <div class="pz-chip-pool">
+        ${wolne.map(n=>`<div class="pz-chip" draggable="true" data-chip="${n.id}">
+          <span class="nd-badge">♻</span><b>${esc(store.grupyTech[n.zrodloId]?.nazwa||'?')}</b><span>${fmt(n.zebranoKg,0)} kg</span></div>`).join('')}
+      </div></div>` : ''}
+  </div>
+
+  <div class="panel" id="pzKrok2">
+    <div class="panel-tyt krok"><span class="krok-nr">2</span>
+      Wozy ${dataPL(data)}
+      <span class="licznik">najpierw niedojady, potem świeży TMR · masa wozu = suma rozdzielenia na sektory</span>
+    </div>
+    ${ileW ? `<div class="pz-siatka">
+      ${W.map(X=>{
+        const woz = X.woz;
         return `
-        <div class="pz-woz stan-${stan}" data-woz="${woz.id}">
+        <div class="pz-woz stan-${X.stan}" data-woz="${woz.id}">
           <div class="pz-woz-nag">
             <input class="pz-nazwa" data-woz-nazwa="${woz.id}" value="${esc(woz.nazwa)}" ${edycja?'':'readonly'}>
-            <span class="pz-stan ${stan}" title="${stan==='ok'?'Wóz gotowy':stan==='zle'?'Sprawdź udziały lub wagę':'Uzupełnij dane'}">${stan==='ok'?'●':stan==='zle'?'●':'○'}</span>
+            <span class="pz-stan ${X.stan}" title="${X.stan==='ok'?'Wóz gotowy':X.stan==='zle'?'Sprawdź uwagi':'Uzupełnij dane'}">${X.stan==='brak'?'○':'●'}</span>
             <button class="btn-karta" data-woz-karta="${woz.id}" title="Karta załadunku — wydruk dla operatora">🖨 Karta</button>
             ${edycja?`<button class="ikonka usun" data-woz-usun="${woz.id}" title="Usuń wóz">✕</button>`:''}
           </div>
+
+          <div class="pz-nd-woz pz-drop-zone" data-drop-woz="${woz.id}">
+            <div class="pz-rozdziel-nag">① Najpierw wsypać: ♻ niedojady
+              <span style="flex:1"></span><span class="pz-suma-r ${X.nd>0?'ok':''}">${fmt(X.ndWpisane,0)} kg</span></div>
+            ${(woz.niedojady||[]).length ? (woz.niedojady||[]).map(x=>`
+              <div class="pz-chip-w">
+                <span class="nd-badge">♻</span><b>${esc(store.grupyTech[x.zrodloId]?.nazwa||'?')}</b><span>${fmt(x.kg,0)} kg</span>
+                ${edycja?`<button class="ikonka usun" data-wnd-usun="${woz.id}|${x.zebraneId}" title="Wyjmij z wozu (wraca do puli)">✕</button>`:''}
+              </div>`).join('') : `<div class="pz-drop-hint">${edycja?(wolne.length?'Upuść tu niedojady z puli powyżej':'Bez niedojadów'):'—'}</div>`}
+          </div>
+
           <div class="pz-woz-pola">
-            <div class="pz-rozdziel-nag" style="margin-bottom:6px">Receptury
-              ${edycja?`<button class="ikonka dodaj" data-woz-dodrec="${woz.id}" title="Dodaj drugą recepturę">+</button>`:''}
+            <div class="pz-rozdziel-nag" style="margin-bottom:6px">② Potem świeży TMR — receptura
+              ${edycja?`<button class="ikonka dodaj" data-woz-dodrec="${woz.id}" title="Zmieszaj z drugą recepturą">+</button>`:''}
               <span style="flex:1"></span>
-              <span class="pz-suma-r ${Math.abs(sumaUdz-100)<0.5?'ok':'zle'}">${fmt(sumaUdz,0)}%</span>
+              <span class="pz-suma-r ${Math.abs(X.sumaUdzWsz-100)<0.5?'ok':'zle'}">${fmt(X.sumaUdzWsz,0)}%</span>
             </div>
-            ${rec.map((r,ri)=>{
-              const d = store.dawki[r.dawkaId];
-              return `<div class="pz-rec-row">
+            ${woz.receptury.map((r,ri)=>`
+              <div class="pz-rec-row">
                 <select data-rec-dawka="${woz.id}|${ri}" ${edycja?'':'disabled'}>
                   <option value="">— receptura —</option>
-                  ${dawki.map(dd=>`<option value="${dd.id}" ${dd.id===r.dawkaId?'selected':''}>${esc(dd.nazwa)}${dd.lokalizacja==='W'?' (W)':''}</option>`).join('')}
+                  ${dawki.map(d=>`<option value="${d.id}" ${d.id===r.dawkaId?'selected':''}>${esc(d.nazwa)}${(d.lokalizacja||'W')==='W'?' (W)':''}</option>`).join('')}
+                  ${r.dawkaId && !dawki.some(d=>d.id===r.dawkaId) ? `<option value="${r.dawkaId}" selected>${esc(store.dawki[r.dawkaId]?.nazwa||'(usunięta)')}</option>`:''}
                 </select>
-                <input type="number" step="1" min="0" max="100" data-rec-udzial="${woz.id}|${ri}" value="${r.udzial||''}" placeholder="%" ${edycja?'':'readonly'}>
+                <input type="number" step="1" min="0" max="100" inputmode="numeric" data-rec-udzial="${woz.id}|${ri}" value="${r.udzial||''}" placeholder="%" ${edycja?'':'readonly'}>
                 <span class="pz-hint">%</span>
-                ${edycja&&rec.length>1?`<button class="ikonka usun" data-rec-usun="${woz.id}|${ri}" title="Usuń recepturę">✕</button>`:''}
+                ${edycja&&woz.receptury.length>1?`<button class="ikonka usun" data-rec-usun="${woz.id}|${ri}" title="Usuń recepturę">✕</button>`:''}
+              </div>`).join('')}
+          </div>
+
+          <div class="pz-rozdziel">
+            <div class="pz-rozdziel-nag">③ Rozwieźć na sektory
+              ${edycja?`<button class="ikonka dodaj" data-woz-dodaj="${woz.id}" title="Dodaj sektor">+</button>`:''}
+              <span style="flex:1"></span>
+              <span class="pz-suma-r ok">${fmt(X.masa,0)} kg</span>
+            </div>
+            ${(woz.rozdzielenie||[]).length ? woz.rozdzielenie.map((rz,ri)=>{
+              const gr = store.grupyTech[rz.grupaId];
+              return `<div class="pz-rz">
+                <select data-rz-grupa="${woz.id}|${ri}" ${edycja?'':'disabled'}>
+                  <option value="">— sektor —</option>
+                  ${grupy.map(g=>`<option value="${g.id}" ${g.id===rz.grupaId?'selected':''}>${esc(g.nazwa)} (${g.sztuk||0} szt)</option>`).join('')}
+                </select>
+                <input type="number" step="0.01" min="0" inputmode="decimal" data-rz-kg="${woz.id}|${ri}" value="${rz.kg||''}" placeholder="kg" ${edycja?'':'readonly'}>
+                <span class="pz-hint" style="min-width:58px;text-align:right">${gr?.sztuk>0&&rz.kg>0?fmt(rz.kg/gr.sztuk,2)+'/szt':''}</span>
+                ${edycja?`<button class="ikonka usun" data-rz-usun="${woz.id}|${ri}" title="Usuń">✕</button>`:''}
               </div>`;
-            }).join('')}
-            ${Math.abs(sumaUdz-100)>0.5 && maRecepture ? `<div class="pz-alert brak">⚠ Udziały muszą sumować się do 100% (jest ${fmt(sumaUdz,0)}%)</div>`:''}
+            }).join('') : '<div class="pz-pusto">Kliknij + żeby dodać sektor</div>'}
 
             <div class="pz-masa-box">
               <div class="pz-masa-lbl">Masa wozu (z rozdzielenia)</div>
-              <div class="pz-masa-val">${fmt(masa,0)} <span>kg</span></div>
-              ${sumaNd>0?`<div class="pz-hint">świeży TMR ${fmt(swiezy,0)} kg + niedojady ${fmt(sumaNd,0)} kg</div>`:''}
+              <div class="pz-masa-val">${fmt(X.masa,0)} <span>kg</span></div>
+              ${X.nd>0?`<div class="pz-hint">♻ niedojady ${fmt(X.nd,0)} kg + świeży TMR <b>${fmt(X.swiezy,0)} kg</b></div>`:''}
             </div>
-            <label style="margin-top:8px">Waga z wagi wozu <span style="font-weight:400;text-transform:none">(opcjonalnie, do kontroli)</span></label>
-            <input class="pz-input num" data-woz-kontrola="${woz.id}" type="number" step="1" min="0" value="${woz.wagaKontrolna||''}" placeholder="—" ${edycja?'':'readonly'}>
-            ${kontrola>0 && Math.abs(odchylka)>=0.5 ? `<div class="pz-alert ${odchylka>0?'nadmiar':'brak'}">⚠ Waga o ${fmt(Math.abs(odchylka),0)} kg ${odchylka>0?'większa':'mniejsza'} niż plan</div>` : (kontrola>0?'<div class="pz-hint" style="color:var(--zielony-ok)">✓ Waga zgodna z planem</div>':'')}
-          </div>
-
-          ${(()=>{
-            /* Niedojady przypisane do tego wozu — tylko z puli zebranych */
-            const ndWozu = (woz.niedojady||[]);
-            return `<div class="pz-nd-woz pz-drop-zone" data-drop-woz="${woz.id}">
-              <div class="pz-rozdziel-nag">♻ Niedojady w wozie (${fmt(sumaNd,0)} kg)
-                <span style="flex:1"></span>
-              </div>
-              ${ndWozu.length ? ndWozu.map((nd,ni)=>{
-                const grZr = store.grupyTech[nd.zrodloId];
-                return `<div class="pz-chip-w" draggable="true" data-chip-woz="${woz.id}|${ni}">
-                  <span class="nd-badge">♻</span>
-                  <b>${esc(grZr?.nazwa||'?')}</b>
-                  <span>${fmt(nd.kg,0)} kg</span>
-                  ${edycja?`<button class="ikonka usun" data-wnd-usun="${woz.id}|${ni}" title="Wyjmij z wozu">✕</button>`:''}
-                </div>`;
-              }).join('') : `<div class="pz-drop-hint">${edycja?'Przeciągnij niedojady tutaj':'—'}</div>`}
-            </div>`;
-          })()}
-
-          <div class="pz-rozdziel">
-            <div class="pz-rozdziel-nag">Rozdzielenie na sektory
-              ${edycja?`<button class="ikonka dodaj" data-woz-dodaj="${woz.id}" title="Dodaj sektor">+</button>`:''}
-              <span style="flex:1"></span>
-              <span class="pz-suma-r ok">${fmt(masa,0)} kg</span>
-            </div>
-            ${(woz.rozdzielenie||[]).length ? (woz.rozdzielenie||[]).map((rz,ri)=>`
-              <div class="pz-rz">
-                <select data-rz-grupa="${woz.id}|${ri}" ${edycja?'':'disabled'}>
-                  <option value="">— sektor —</option>
-                  ${grupy.map(g=>`<option value="${g.id}" ${g.id===rz.grupaId?'selected':''}>${esc(g.nazwa)} (${g.sztuk||0})</option>`).join('')}
-                </select>
-                <input type="number" step="1" min="0" data-rz-kg="${woz.id}|${ri}" value="${rz.kg||''}" placeholder="kg" ${edycja?'':'readonly'}>
-                ${edycja?`<button class="ikonka usun" data-rz-usun="${woz.id}|${ri}" title="Usuń">✕</button>`:''}
-              </div>`).join('') : '<div class="pz-pusto">Kliknij + żeby dodać sektor</div>'}
-            <div class="pz-hint" style="margin-top:6px">Masa wozu = suma rozdzielenia na sektory.</div>
+            <label class="pz-lbl">Waga z wagi wozu <span>(opcjonalnie, kontrola)</span></label>
+            <input class="pz-input num" data-woz-kontrola="${woz.id}" type="number" step="1" min="0" inputmode="numeric" value="${woz.wagaKontrolna||''}" placeholder="—" ${edycja?'':'readonly'}>
+            ${X.bledy.map(b=>`<div class="pz-alert nadmiar">⚠ ${esc(b)}</div>`).join('')}
+            ${X.ostrz.map(b=>`<div class="pz-alert brak">⚠ ${esc(b)}</div>`).join('')}
+            ${X.kontrola>0 && !X.ostrz.length ? '<div class="pz-hint" style="color:var(--zielony-ok)">✓ Waga zgodna z planem</div>':''}
           </div>
         </div>`;
       }).join('')}
-    </div>
+    </div>` : `<div class="pusto" style="padding:40px 20px;text-align:center">
+      <div style="font-size:44px;margin-bottom:14px">🚛</div>
+      <div style="font-size:15px;font-weight:600;color:var(--tekst);margin-bottom:6px">Brak wozów na ${dataPL(data)}</div>
+      <div class="podpis" style="max-width:440px;margin:0 auto">${edycja?'Kliknij <b>+ Wóz</b>, albo <b>⎘ Duplikuj z dnia</b>, jeśli układ jest podobny jak wcześniej.':''}</div>
+    </div>`}
+  </div>
 
-    <div id="pzTabele">
-    <div class="panel-tyt" style="margin-top:24px;border-top:1px solid var(--linia)">
-      ♻ Zebrane niedojady <span class="licznik">korekta pobrania za ${dataPL(dataMinus(data,1))}</span>
+  ${Object.keys(wynik.sektory).length ? `
+  <div class="panel" id="pzKrok3">
+    <div class="panel-tyt krok"><span class="krok-nr">3</span>
+      Podsumowanie dnia — sektory
+      <span class="licznik">${Object.keys(wynik.sektory).length} obsłużonych · ${fmt(sumaMasa,0)} kg</span>
       <span style="flex:1"></span>
-      ${edycja?'<button class="btn maly szary" id="pzDodZebr">+ Zbieranie</button>':''}
-    </div>
-    ${(()=>{
-      const zebrane = niedojady;
-      const sumaZebr = zebrane.reduce((s,x)=>s+(x.zebranoKg||0),0);
-      // Sprawdź które z zebranych są przypisane do wozów (po zrodloId + kg)
-      const wWozach = new Set();
-      wozy.forEach(w=>(w.niedojady||[]).forEach(nd=>{
-        // Znajdź pasujący wpis w zebranych (pierwszy nieużyty o tym samym źródle i kg)
-        for(let i=0;i<zebrane.length;i++){
-          if(wWozach.has(i)) continue;
-          if(zebrane[i].zrodloId===nd.zrodloId && Math.abs((zebrane[i].zebranoKg||0)-(nd.kg||0))<0.5){
-            wWozach.add(i); break;
-          }
-        }
-      }));
-      const sumaPrzyp = [...wWozach].reduce((s,i)=>s+(zebrane[i]?.zebranoKg||0),0);
-      const wolne = zebrane.map((nd,i)=>({...nd, idx:i, przypisany:wWozach.has(i)}));
-      if(!zebrane.length) return `<div class="pusto" style="padding:12px">Brak niedojadów. Kliknij <b>+ Zbieranie</b> żeby wpisać co zebrano rano z sektorów.</div>`;
-      return `<div class="pz-niedojady">
-        <div class="pz-zebr-form">
-          ${zebrane.map((nd,i)=>{
-            const gr=store.grupyTech[nd.zrodloId];
-            const przyp = wWozach.has(i);
-            return `<div class="pz-zebr-row ${przyp?'przypisany':''}">
-              <select data-zebr-zrodlo="${i}" ${edycja&&!przyp?'':'disabled'}>
-                <option value="">— sektor —</option>
-                ${grupy.map(g=>`<option value="${g.id}" ${g.id===nd.zrodloId?'selected':''}>${esc(g.nazwa)} (${g.sztuk||0})</option>`).join('')}
-              </select>
-              <input type="number" step="1" min="0" data-zebr-kg="${i}" value="${nd.zebranoKg||''}" placeholder="kg" ${edycja&&!przyp?'':'readonly'}>
-              <span class="pz-hint">kg</span>
-              ${edycja&&!przyp?`<button class="ikonka usun" data-zebr-usun="${i}" title="Usuń">✕</button>`:''}
-              ${przyp?'<span class="plakietka recept">w wozie ✓</span>':''}
-            </div>`;
-          }).join('')}
-        </div>
-        <div class="pz-chip-pool" id="pzChipPool">
-          ${wolne.filter(nd=>!nd.przypisany && nd.zrodloId).map(nd=>{
-            const gr=store.grupyTech[nd.zrodloId];
-            return `<div class="pz-chip" draggable="true" data-chip-idx="${nd.idx}" data-chip-zrodlo="${nd.zrodloId}" data-chip-kg="${nd.zebranoKg||0}">
-              <span class="nd-badge">♻</span>
-              <b>${esc(gr?.nazwa||'?')}</b>
-              <span>${fmt(nd.zebranoKg,0)} kg</span>
-            </div>`;
-          }).join('') || (zebrane.every(nd=>wWozach.has(nd))?'<div class="pz-drop-hint">Wszystkie niedojady przypisane do wozów ✓</div>':'')}
-        </div>
-        <div class="pz-zebr-suma">Zebrano łącznie: <b>${fmt(sumaZebr,0)} kg</b>
-          ${sumaPrzyp>0?' · w wozach: <b>'+fmt(sumaPrzyp,0)+' kg</b>':''}
-          ${sumaZebr>sumaPrzyp+0.5?' · <span style="color:var(--zolty)">nieprzypisane: '+fmt(Math.max(0,sumaZebr-sumaPrzyp),0)+' kg — przeciągnij na wóz</span>':''}
-        </div>
-      </div>`;
-    })()}
-
-    ${(()=>{
-      /* Tabela pobrania realnego za WCZORAJ */
-      const wczoraj = dataMinus(data,1);
-      const dokWcz = dokDnia(lok, wczoraj);
-      if(!dokWcz?.grupy) return '';
-      const poz = Object.entries(dokWcz.grupy).map(([gid,z])=>{
-        const gr = store.grupyTech[gid];
-        const sztuk = z.sztuk||0;
-        const zadane = z.zadaneKg||0;
-        const nied = z.niedojadyKg||0;
-        const pobrane = Math.max(0, zadane - nied);
-        const planSzt = z.dawkaWyliczonaKgSzt||0;
-        const pobraneSzt = sztuk>0 ? pobrane/sztuk : 0;
-        const proc = planSzt>0 ? (pobraneSzt/planSzt)*100 : 0;
-        return {gid, nazwa:gr?.nazwa||z.nazwaGrupy||'?', sztuk, zadane, nied, pobrane, pobraneSzt, planSzt, proc, kolejnosc:gr?.kolejnosc??99};
-      }).filter(p=>p.zadane>0).sort((a,b)=>a.kolejnosc-b.kolejnosc);
-      if(!poz.length) return '';
-      const kolProc = p => Math.abs(p-100)<=3 ? 'var(--zielony-ok)' : (Math.abs(p-100)<=10 ? 'var(--zolty)' : 'var(--czerwony)');
-      return `
-      <div class="panel-tyt" style="margin-top:16px">
-        Realne pobranie za ${dataPL(wczoraj)} <span class="licznik">zadane − niedojady zebrane rano</span>
-        <span style="flex:1"></span>
-        ${przyciskEksportu('#pzPobranie','pobranie_'+lok+'_'+wczoraj,'Pobranie realne — '+nazwaLok+' '+dataPL(wczoraj))}
-      </div>
-      <div class="przewijak"><table class="gt-tabela" id="pzPobranie">
-        <thead><tr>
-          <th>Sektor</th><th class="num">Sztuk</th>
-          <th class="num">Zadano<br>kg</th><th class="num">Niedojady<br>kg</th>
-          <th class="num">Pobrano<br>kg</th><th class="num">Pobrano<br>kg/szt</th>
-          <th class="num">Plan<br>kg/szt</th><th class="num">% realiz.</th>
-        </tr></thead>
-        <tbody>
-          ${poz.map(p=>`<tr>
-            <td><b>${esc(p.nazwa)}</b></td>
-            <td class="num">${p.sztuk}</td>
-            <td class="num">${fmt(p.zadane,0)}</td>
-            <td class="num">${p.nied?'<span style="color:#b45309;font-weight:600">'+fmt(p.nied,0)+'</span>':'—'}</td>
-            <td class="num"><b>${fmt(p.pobrane,0)}</b></td>
-            <td class="num"><b>${fmt(p.pobraneSzt,2)}</b></td>
-            <td class="num">${fmt(p.planSzt,2)}</td>
-            <td class="num" style="color:${kolProc(p.proc)};font-weight:700">${fmt(p.proc,0)}%</td>
-          </tr>`).join('')}
-        </tbody>
-      </table></div>`;
-    })()}
-    ${(()=>{
-      /* Zestawienie surowców na wszystkie wozy — wiersze surowce, kolumny wozy */
-      const zWozami = wozy.filter(x=>recepturyWozu(x).some(r=>r.dawkaId) && masaWozu(x)>0);
-      if(!zWozami.length) return '';
-      const sklady = zWozami.map(woz=>{
-        const u = udzialyReceptur(woz);
-        const swiezy = masaSwiezaWozu(woz);
-        const o = {};
-        Object.entries(u).forEach(([sid,ud])=>{ o[sid]=swiezy*ud; });
-        return o;
-      });
-      const uzyte = new Set();
-      sklady.forEach(s=>Object.entries(s).forEach(([sid,kg])=>{ if(kg>0.01) uzyte.add(sid); }));
-      const uklad = wierszeDawek();
-      const wiersze = [...uklad.filter(id=>uzyte.has(id)), ...[...uzyte].filter(id=>!uklad.includes(id))];
-      if(!wiersze.length) return '';
-      return `
-      <div class="panel-tyt" style="margin-top:24px;border-top:1px solid var(--linia)">
-        Surowce na wozy <span class="licznik">kg do załadunku (świeży TMR)</span>
-        <span style="flex:1"></span>
-        ${przyciskEksportu('#pzSurowce','surowce_na_wozy_'+lok+'_'+data,'Surowce na wozy — '+nazwaLok+' '+dataPL(data))}
-      </div>
-      <div class="macierz" style="max-height:none" id="pzSurowce"><table>
-        <colgroup><col style="width:220px">${zWozami.map(()=>'<col style="width:120px">').join('')}</colgroup>
-        <thead><tr><th class="lipka">Surowiec</th>
-          ${zWozami.map(woz=>`<th><span class="nazwa-kol" title="${esc(woz.nazwa)}">${esc(woz.nazwa)}</span>
-            <span style="font-size:9.5px;opacity:.85;display:block;font-weight:400">${fmt(masaWozu(woz),0)} kg</span></th>`).join('')}
-        </tr></thead>
-        <tbody>
-          ${wiersze.map(sid=>{
-            const sur=store.surowce[sid];
-            return `<tr><td class="lipka"><span class="nazwaS">${esc(sur?.nazwa||'?')}</span></td>
-              ${sklady.map(s=>{
-                const kg=s[sid]||0;
-                return `<td class="num">${kg>0.01?fmt(kg,1):'—'}</td>`;
-              }).join('')}</tr>`;
-          }).join('')}
-          ${(()=>{
-            const ndKol = zWozami.map(woz=>masaNiedojadow(woz));
-            if(!ndKol.some(x=>x>0)) return '';
-            return `<tr style="background:#fff8e8"><td class="lipka">♻ Niedojady</td>
-              ${ndKol.map(kg=>`<td class="num">${kg>0?fmt(kg,1):'—'}</td>`).join('')}</tr>`;
-          })()}
-          <tr class="suma-wiersz"><td class="lipka">Razem kg</td>
-            ${zWozami.map(woz=>`<td class="num">${fmt(masaWozu(woz),0)}</td>`).join('')}</tr>
-        </tbody>
-      </table></div>`;
-    })()}
-
-    <div class="panel-tyt" style="margin-top:24px;border-top:1px solid var(--linia)">
-      Zbiorczo per sektor <span class="licznik">${Object.keys(sektorKg).length} obsłużonych · razem ${fmt(sumaZadana,0)} kg</span>
+      ${przyciskEksportu('#pzZbiorczo','paszowoz_sektory_'+lok+'_'+data,'Paszowóz '+nazwaLok+' — sektory '+dataPL(data))}
     </div>
     <div class="przewijak"><table class="gt-tabela" id="pzZbiorczo">
-      <thead><tr>
-        <th>Sektor</th><th class="num">Sztuk</th>
-        <th class="num">Plan wg<br>receptury<br>kg/szt</th>
-        <th class="num">Plan<br>kg/grupę</th>
-        <th class="num">Podane<br>kg</th>
-        <th class="num">Per sztukę<br>kg</th>
-        <th class="num">% realiz.</th>
-        <th class="num">Z ilu<br>wozów</th>
-        <th>Z wozów</th>
-      </tr></thead>
+      <thead><tr><th>Sektor</th><th class="num">Sztuk</th><th class="num">Plan<br>kg/szt</th><th class="num">Plan<br>kg</th>
+        <th class="num">Zadane<br>kg</th><th class="num">♻ w tym<br>odzysk</th><th class="num">Świeży<br>TMR kg</th>
+        <th class="num">Zadane<br>kg/szt</th><th class="num">%<br>zadania</th><th>Z wozów</th></tr></thead>
       <tbody>
-        ${grupy.map(gr=>{
-          const kg = sektorKg[gr.id]||0;
-          if(!kg && !edycja) return '';
-          const wkl = sektorWklady[gr.id]||[];
-          const opis = wkl.map(w=>{
-            const wz = wozy.find(x=>x.id===w.wozId);
-            return `${esc(wz?.nazwa||'?')}: ${fmt(w.kg,0)} kg`;
-          }).join(' · ');
-          // plan liczony z aktualnej receptury grupy (miksuje udziały jak w Dawkach)
-          const planKgSzt = obliczGrupe(gr).kgSzt;
-          const planKgGrupa = planKgSzt * (gr.sztuk||0);
-          const perSzt = gr.sztuk>0 ? kg/gr.sztuk : 0;
-          const proc = planKgSzt>0 ? (perSzt/planKgSzt)*100 : 0;
-          const kolProc = p => Math.abs(p-100)<=3 ? 'var(--zielony-ok)' : (Math.abs(p-100)<=10 ? 'var(--zolty)' : 'var(--czerwony)');
-          return `<tr class="${!kg?'wgplanu':''}">
-            <td><b>${esc(gr.nazwa)}</b></td>
-            <td class="num">${gr.sztuk||0}</td>
-            <td class="num">${planKgSzt>0?fmt(planKgSzt,2):'—'}</td>
-            <td class="num">${planKgGrupa>0?fmt(planKgGrupa,0):'—'}</td>
-            <td class="num"><b>${kg?fmt(kg,0):'—'}</b></td>
-            <td class="num"><b>${kg&&gr.sztuk>0?fmt(perSzt,2):'—'}</b></td>
-            <td class="num" style="${kg&&planKgSzt>0?'color:'+kolProc(proc)+';font-weight:700':'color:var(--tekst-slaby)'}">${kg&&planKgSzt>0?fmt(proc,0)+'%':'—'}</td>
-            <td class="num">${wkl.length||'—'}</td>
-            <td class="podpis">${opis||'—'}</td>
-          </tr>`;
-        }).join('')}
+        ${poDzis.map(p=>`<tr>
+          <td><b>${esc(p.nazwa)}</b></td><td class="num">${p.sztuk}</td>
+          <td class="num">${fmt(p.wylicz,2)}</td><td class="num">${fmt(p.planKg,0)}</td>
+          <td class="num"><b>${fmt(p.zadaneKg,0)}</b></td>
+          <td class="num">${p.odzysk>0.5?'<span class="odzysk">'+fmt(p.odzysk,0)+'</span>':'—'}</td>
+          <td class="num">${fmt(p.swiezy,0)}</td>
+          <td class="num"><b>${fmt(p.perSzt,2)}</b></td>${procKomorka(p.procZad)}
+          <td class="podpis">${p.wklady.map(x=>esc((x.wozNazwa||'')+': '+fmt(x.kg,0)+' kg')).join(' · ')}</td>
+        </tr>`).join('')}
+        <tr class="suma"><td>SUMA</td><td class="num">${poDzis.reduce((s,p)=>s+p.sztuk,0)}</td><td></td>
+          <td class="num">${fmt(poDzis.reduce((s,p)=>s+p.planKg,0),0)}</td>
+          <td class="num">${fmt(poDzis.reduce((s,p)=>s+p.zadaneKg,0),0)}</td>
+          <td class="num">${fmt(poDzis.reduce((s,p)=>s+p.odzysk,0),0)}</td>
+          <td class="num">${fmt(poDzis.reduce((s,p)=>s+p.swiezy,0),0)}</td><td></td><td></td><td></td></tr>
       </tbody>
     </table></div>
-    <div class="podpis" style="padding:8px 14px">
-      <b>Plan</b> to ilość TMR wg receptury grupy × liczba sztuk. <b>% realizacji</b> = podane per sztukę ÷ plan per sztukę.
-      Kolory: zielony ±3%, żółty ±10%, czerwony powyżej. Uwaga: 100% masy nie znaczy że skład był zgodny —
-      to widać niżej w macierzy realnego składu.
-    </div>
 
-    <div class="panel-tyt" style="margin-top:24px;border-top:1px solid var(--linia)">
-      Realny skład dawek per sektor <span class="licznik">kg surowca / sztukę / dobę</span>
+    <div class="panel-tyt" style="border-top:1px solid var(--linia)">Surowce na wozy <span class="licznik">kg do załadunku</span>
+      <span style="flex:1"></span>
+      ${przyciskEksportu('#pzSurowce','surowce_na_wozy_'+lok+'_'+data,'Surowce na wozy — '+nazwaLok+' '+dataPL(data))}
     </div>
     ${(()=>{
-      const dokWczoraj = dokDnia(lok, dataMinus(data,1));
-      const pozycje = grupy.map(gr=>{
-        const kg = sektorKg[gr.id]||0;
-        const skl = {};
-        (sektorWklady[gr.id]||[]).forEach(w=>{
-          const daw = store.dawki[w.dawka]; if(!daw) return;
-          const sumaR = (daw.skladniki||[]).reduce((s,x)=>s+x.kg,0);
-          if(sumaR<=0) return;
-          daw.skladniki.forEach(x=>{ skl[x.surowiecId] = (skl[x.surowiecId]||0) + w.kg*(x.kg/sumaR); });
-        });
-        return {gid:gr.id, gr, sztuk:gr.sztuk||0, kg, skl};
-      }).filter(p=>p.kg>0);
-      if(!pozycje.length) return '<div class="pusto">Brak wozów przypisanych do sektorów.</div>';
-      return macierzZWozow(pozycje, {id:'pzRealny'});
+      const L = W.filter(X=>X.liczony);
+      const uzyte = new Set(); L.forEach(X=>Object.entries(X.sklSwiezy).forEach(([s,kg])=>{ if(kg>0.05) uzyte.add(s); }));
+      const wiersze = wierszeSurowcow([...uzyte]);
+      return `<div class="macierz" style="max-height:none" id="pzSurowce"><table>
+        <colgroup><col style="width:220px">${L.map(()=>'<col style="width:120px">').join('')}<col style="width:120px"></colgroup>
+        <thead><tr><th class="lipka">Surowiec</th>${L.map(X=>`<th><span class="nazwa-kol" title="${esc(X.woz.nazwa)}">${esc(X.woz.nazwa)}</span><span class="mac-pod">${fmt(X.masa,0)} kg</span></th>`).join('')}<th>Razem</th></tr></thead>
+        <tbody>
+          ${sumaNd>0?`<tr class="wiersz-odzysk"><td class="lipka">♻ Niedojady (najpierw)</td>${L.map(X=>`<td class="num">${X.nd>0?fmt(X.nd,0):'—'}</td>`).join('')}<td class="num"><b>${fmt(sumaNd,0)}</b></td></tr>`:''}
+          ${wiersze.map(sid=>`<tr><td class="lipka"><span class="nazwaS">${esc(store.surowce[sid]?.nazwa||'?')}</span></td>
+            ${L.map(X=>{ const kg=X.sklSwiezy[sid]||0; return `<td class="num">${kg>0.05?fmt(kg,1):'—'}</td>`; }).join('')}
+            <td class="num"><b>${fmt(L.reduce((s,X)=>s+(X.sklSwiezy[sid]||0),0),1)}</b></td></tr>`).join('')}
+          <tr class="suma-wiersz"><td class="lipka">Razem do wozu</td>${L.map(X=>`<td class="num">${fmt(X.masa,0)}</td>`).join('')}<td class="num">${fmt(sumaMasa,0)}</td></tr>
+        </tbody></table></div>`;
     })()}
+
+    <div class="panel-tyt" style="border-top:1px solid var(--linia)">Realny skład dawek zadanych <span class="licznik">kg surowca / sztukę / dobę</span>
+      <span style="flex:1"></span>
+      ${przyciskEksportu('#pzRealny','sklad_zadany_'+lok+'_'+data,'Skład dawek zadanych — '+nazwaLok+' '+dataPL(data))}
     </div>
-    ` : `<div class="pusto" style="padding:40px 20px;text-align:center">
-      <div style="font-size:44px;margin-bottom:14px">🚛</div>
-      <div style="font-size:15px;font-weight:600;color:var(--tekst);margin-bottom:6px">Brak wozów na ten dzień</div>
-      <div class="podpis" style="max-width:440px;margin:0 auto">Kliknij <b>+ Wóz</b> żeby dodać pierwszy, albo <b>⎘ Duplikuj z dnia</b> jeśli układ jest podobny.</div>
-    </div>`}
+    ${macierzSkladu(poDzis, {id:'pzRealny', tryb:'zadany'})}
+  </div>` : ''}
+
+  <div class="panel" id="pzKrok4">
+    <div class="panel-tyt krok"><span class="krok-nr">4</span>
+      Realne pobranie za ${dataPL(wczoraj)}
+      <span class="licznik">zadane − niedojady zebrane ${dataPL(data)} rano</span>
+      <span style="flex:1"></span>
+      ${poWcz.length?przyciskEksportu('#pzPobranie','pobranie_'+lok+'_'+wczoraj,'Realne pobranie — '+nazwaLok+' '+dataPL(wczoraj)):''}
     </div>
+    ${!poWcz.length ? `<div class="pusto">Brak danych żywienia za ${dataPL(wczoraj)}.</div>`
+      : (!ndZnane ? `<div class="pasek-wersja">Niedojady za ${dataPL(wczoraj)} nie są jeszcze wpisane — uzupełnij krok 1 (albo potwierdź <b>✓ Brak niedojadów</b>), żeby policzyć realne pobranie.</div>`:'')
+        + (poWcz.length ? tabelaDniaHTML(poWcz, 'pzPobranie', wczoraj) : '')}
+    ${poWcz.length && ndZnane ? `
+      <div class="panel-tyt" style="border-top:1px solid var(--linia)">Skład realnie pobrany za ${dataPL(wczoraj)} <span class="licznik">kg / szt / dobę</span>
+        <span style="flex:1"></span>
+        ${przyciskEksportu('#pzPobranieMac','sklad_pobrany_'+lok+'_'+wczoraj,'Skład realnie pobrany — '+nazwaLok+' '+dataPL(wczoraj))}
+      </div>
+      ${macierzSkladu(poWcz, {id:'pzPobranieMac', tryb:'pobrany'})}` : ''}
   </div>`;
 
   // ===== PODPIĘCIA =====
-  w.querySelector('#pzData').onchange = e=>{ pzData[lok]=e.target.value; renderPaszowoz(w,lok); };
-  w.querySelector('#pzPrev').onclick = ()=>{ pzData[lok]=dataMinus(data,1); renderPaszowoz(w,lok); };
-  w.querySelector('#pzDzis').onclick = ()=>{ pzData[lok]=dzisiaj(); renderPaszowoz(w,lok); };
+  const ustaw = d=>{ pzData[lok]=d; renderPaszowoz(w,lok); };
+  w.querySelector('#pzData').onchange = e=>{ if(e.target.value) ustaw(e.target.value); };
+  w.querySelector('#pzPrev').onclick = ()=>ustaw(dataMinus(data,1));
+  w.querySelector('#pzNext').onclick = ()=>{ const n=dataPlus(data,1); if(n<=dzisiaj()) ustaw(n); };
+  w.querySelector('#pzDzis').onclick = ()=>ustaw(dzisiaj());
+
+  const nazwaWoz = id => st.wozy.find(x=>x.id===id)?.nazwa || '';
+  w.querySelector('#pzKartyWszystkie').onclick = ()=>{
+    const L = W.filter(X=>X.liczony);
+    if(!L.length){ toast('Brak wozów z recepturą i rozdzieleniem.', true); return; }
+    drukujHTML(zbiorczaKartaZaladunku(L), 'Karty załadunku — '+nazwaLok+' '+dataPL(data), {poziom:true, duzy:true, zbiorcza:true});
+  };
+  w.querySelectorAll('[data-woz-karta]').forEach(b=>{
+    b.onclick = e=>{
+      e.stopPropagation();
+      const X = W.find(x=>x.woz.id===b.dataset.wozKarta); if(!X) return;
+      if(!X.liczony){ toast('Uzupełnij recepturę i rozdzielenie wozu.', true); return; }
+      drukujHTML(kartaZaladunku(X), 'Karta załadunku: '+X.woz.nazwa+' — '+nazwaLok+' '+dataPL(data), {duzy:true});
+    };
+  });
+  w.querySelector('#pzRaport').onclick = ()=>{
+    const czesci = [];
+    const dodaj = (sel, tyt)=>{ const el=w.querySelector(sel); if(el) czesci.push('<h2>'+esc(tyt)+'</h2>'+htmlDoDruku(el)); };
+    dodaj('#pzZbiorczo', 'Sektory — '+dataPL(data));
+    dodaj('#pzSurowce', 'Surowce na wozy');
+    dodaj('#pzPobranie', 'Realne pobranie za '+dataPL(wczoraj));
+    if(!czesci.length){ toast('Brak danych do raportu.', true); return; }
+    drukujHTML(czesci.join(''), 'Raport dnia — Paszowóz '+nazwaLok+' '+dataPL(data), {poziom:true});
+  };
 
   if(!edycja) return;
+  const E = fn => pzEdytuj(lok, data, fn);
+  const woz = (st2, id) => st2.wozy.find(x=>x.id===id);
 
-  w.querySelector('#pzDodaj').onclick = async ()=>{
-    wozy.push(nowyWoz(wozy.length+1));
-    await zapiszPaszowoz(lok, data, wozy, niedojady);
-  };
-  w.querySelector('#pzDuplikuj').onclick = ()=>{
-    // Dni, które mają wozy — podpowiadamy je jako skróty
-    const dostepne = [];
-    for(let i=1;i<=30;i++){
-      const dd = dataMinus(data,i);
-      const dk = pzDok(lok,dd);
-      if(dk?.wozy?.length) dostepne.push({data:dd, ile:dk.wozy.length});
-      if(dostepne.length>=6) break;
-    }
-    modal({
-      tytul:'Z którego dnia skopiować wozy?',
-      tresc:`
-        <div class="podpis" style="margin-bottom:12px">
-          Wozy zostaną skopiowane wraz z recepturami i rozdzieleniem na sektory.
-          ${wozy.length?'<b style="color:var(--zolty)">Bieżące wozy zostaną zastąpione.</b>':''}
-        </div>
-        ${dostepne.length?`<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
-          ${dostepne.map(x=>`<label class="wybor-data"><input type="radio" name="dupd" value="${x.data}" ${x===dostepne[0]?'checked':''}>
-            <span><b>${dataPL(x.data)}</b> — ${x.ile} ${x.ile===1?'wóz':x.ile<5?'wozy':'wozów'}</span></label>`).join('')}
-          <label class="wybor-data"><input type="radio" name="dupd" value="__data">
-            <span><b>Inny dzień</b><br><input type="date" id="dupData" max="${dzisiaj()}" value="${dataMinus(data,1)}" style="margin-top:5px"></span></label>
-        </div>`:`
-          <div class="pole-grupa"><label>Wybierz dzień</label>
-            <input type="date" id="dupData" max="${dzisiaj()}" value="${dataMinus(data,1)}"></div>
-          <div class="podpis">W ostatnich 30 dniach nie znaleziono dnia z wozami — wskaż datę ręcznie.</div>`}`,
-      przyciski:[
-        {tekst:'Anuluj', akcja:()=>{}},
-        {tekst:'Kopiuj', klasa:'', akcja:async(n)=>{
-          const wyb = n.querySelector('input[name=dupd]:checked')?.value;
-          const zrod = (!wyb || wyb==='__data') ? n.querySelector('#dupData')?.value : wyb;
-          if(!zrod){ toast('Wybierz dzień.', true); return false; }
-          if(zrod===data){ toast('To ten sam dzień.', true); return false; }
-          const src = pzDok(lok, zrod);
-          if(!src?.wozy?.length){ toast('Brak wozów za '+dataPL(zrod), true); return false; }
-          const kopia = src.wozy.map((w,i)=>({...w, id:'w'+Date.now()+'_'+i, wagaKontrolna:null, niedojady:[]}));
-          await zapiszPaszowoz(lok, data, kopia, niedojady);
-          toast(`Skopiowano ${kopia.length} ${kopia.length===1?'wóz':'wozów'} z ${dataPL(zrod)}.`);
-        }}
-      ]
-    });
-  };
-
-  w.querySelectorAll('[data-woz-nazwa]').forEach(i=>{
-    i.onchange = async ()=>{
-      const woz = wozy.find(x=>x.id===i.dataset.wozNazwa); if(woz){ woz.nazwa=i.value.trim()||woz.nazwa; await zapiszPaszowoz(lok,data,wozy); }
-    };
+  const ok = w.querySelector('#pzAutoOk');
+  if(ok) ok.onclick = ()=>E(s=>{ s.autoKopia=null; });
+  w.querySelector('#pzDodaj').onclick = ()=>E(s=>{ s.wozy.push(nowyWoz(s.wozy.length+1)); s.autoKopia=null; });
+  w.querySelector('#pzBrakNd').onclick = ()=>E(s=>{
+    if(s.niedojady.length){ toast('Najpierw usuń wpisane niedojady.', true); return false; }
+    s.niedojadyPotw = !s.niedojadyPotw;
   });
-  // Receptury mieszane
-  w.querySelectorAll('[data-rec-dawka]').forEach(s=>{
-    s.onchange = async ()=>{
-      const [wid,ri] = s.dataset.recDawka.split('|');
-      const woz = wozy.find(x=>x.id===wid); if(!woz) return;
-      woz.receptury = recepturyWozu(woz).map(r=>({...r}));
-      woz.receptury[+ri].dawkaId = s.value;
-      delete woz.dawkaId;
-      await zapiszPaszowoz(lok,data,wozy,niedojady);
-    };
+  w.querySelector('#pzDodZebr').onclick = ()=>E(s=>{
+    s.niedojady.push({id:'nd'+Date.now().toString(36)+Math.random().toString(36).slice(2,5), zrodloId:'', zebranoKg:0});
+    s.niedojadyPotw = false;
   });
-  w.querySelectorAll('[data-rec-udzial]').forEach(i=>{
-    i.onchange = async ()=>{
-      const [wid,ri] = i.dataset.recUdzial.split('|');
-      const woz = wozy.find(x=>x.id===wid); if(!woz) return;
-      woz.receptury = recepturyWozu(woz).map(r=>({...r}));
-      woz.receptury[+ri].udzial = Math.max(0, Math.min(100, liczba(i.value)));
-      delete woz.dawkaId;
-      await zapiszPaszowoz(lok,data,wozy,niedojady);
-    };
+  w.querySelectorAll('[data-zebr-zrodlo]').forEach(el=>{
+    el.onchange = ()=>E(s=>{ const n=s.niedojady.find(x=>x.id===el.dataset.zebrZrodlo); if(!n) return false; n.zrodloId=el.value; });
   });
-  w.querySelectorAll('[data-woz-dodrec]').forEach(b=>{
-    b.onclick = async ()=>{
-      const woz = wozy.find(x=>x.id===b.dataset.wozDodrec); if(!woz) return;
-      const rec = recepturyWozu(woz).map(r=>({...r}));
-      const suma = rec.reduce((s,r)=>s+(r.udzial||0),0);
-      rec.push({dawkaId:'', udzial: Math.max(0, 100-suma)});
-      woz.receptury = rec;
-      delete woz.dawkaId;
-      await zapiszPaszowoz(lok,data,wozy,niedojady);
-    };
-  });
-  w.querySelectorAll('[data-rec-usun]').forEach(b=>{
-    b.onclick = async ()=>{
-      const [wid,ri] = b.dataset.recUsun.split('|');
-      const woz = wozy.find(x=>x.id===wid); if(!woz) return;
-      woz.receptury = recepturyWozu(woz).map(r=>({...r}));
-      woz.receptury.splice(+ri,1);
-      delete woz.dawkaId;
-      await zapiszPaszowoz(lok,data,wozy,niedojady);
-    };
-  });
-  // Waga kontrolna (opcjonalna)
-  w.querySelectorAll('[data-woz-kontrola]').forEach(i=>{
-    i.onchange = async ()=>{
-      const woz = wozy.find(x=>x.id===i.dataset.wozKontrola); if(woz){
-        woz.wagaKontrolna = Math.max(0, liczba(i.value)) || null;
-        await zapiszPaszowoz(lok,data,wozy,niedojady);
-      }
-    };
-  });
-  // Karty załadunku wszystkich wozów — jedna strona na wóz
-  const btnKarty = w.querySelector('#pzKartyWszystkie');
-  if(btnKarty) btnKarty.onclick = ()=>{
-    const zWozami = wozy.filter(x=>recepturyWozu(x).some(r=>r.dawkaId) && masaWozu(x)>0);
-    if(!zWozami.length){ toast('Brak wozów z recepturą i rozdzieleniem.', true); return; }
-    const tmp = document.createElement('div');
-    tmp.innerHTML = zbiorczaKartaZaladunku(zWozami);
-    document.body.appendChild(tmp);
-    eksportDruk(tmp, 'Karty załadunku — '+nazwaLok+' '+dataPL(data), {poziom:true});
-    tmp.remove();
-  };
-
-  // Karta załadunku pojedynczego wozu
-  w.querySelectorAll('[data-woz-karta]').forEach(b=>{
-    b.onclick = (e)=>{
-      e.stopPropagation();
-      const woz = wozy.find(x=>x.id===b.dataset.wozKarta); if(!woz) return;
-      const tmp = document.createElement('div');
-      tmp.innerHTML = kartaZaladunku(woz, lok);
-      document.body.appendChild(tmp);
-      eksportDruk(tmp, 'Karta załadunku: '+woz.nazwa+' — '+nazwaLok+' '+dataPL(data), {duzy:true});
-      tmp.remove();
-    };
-  });
-  w.querySelectorAll('[data-woz-usun]').forEach(b=>{
-    b.onclick = async ()=>{
-      if(!confirm('Usunąć ten wóz?')) return;
-      wozy = wozy.filter(x=>x.id!==b.dataset.wozUsun);
-      await zapiszPaszowoz(lok,data,wozy);
-    };
-  });
-  w.querySelectorAll('[data-woz-dodaj]').forEach(b=>{
-    b.onclick = async ()=>{
-      const woz = wozy.find(x=>x.id===b.dataset.wozDodaj); if(!woz) return;
-      woz.rozdzielenie = woz.rozdzielenie||[];
-      woz.rozdzielenie.push({grupaId:'', kg:0});
-      await zapiszPaszowoz(lok,data,wozy);
-    };
-  });
-  w.querySelectorAll('[data-rz-grupa]').forEach(s=>{
-    s.onchange = async ()=>{
-      const [wid,i] = s.dataset.rzGrupa.split('|');
-      const woz = wozy.find(x=>x.id===wid); if(woz){ woz.rozdzielenie[+i].grupaId=s.value; await zapiszPaszowoz(lok,data,wozy); }
-    };
-  });
-  w.querySelectorAll('[data-rz-kg]').forEach(i=>{
-    i.onchange = async ()=>{
-      const [wid,idx] = i.dataset.rzKg.split('|');
-      const woz = wozy.find(x=>x.id===wid); if(woz){ woz.rozdzielenie[+idx].kg=Math.max(0,liczba(i.value)); await zapiszPaszowoz(lok,data,wozy); }
-    };
-  });
-  w.querySelectorAll('[data-rz-usun]').forEach(b=>{
-    b.onclick = async ()=>{
-      const [wid,idx] = b.dataset.rzUsun.split('|');
-      const woz = wozy.find(x=>x.id===wid); if(woz){ woz.rozdzielenie.splice(+idx,1); await zapiszPaszowoz(lok,data,wozy, niedojady); }
-    };
-  });
-
-  // === ZEBRANE NIEDOJADY ===
-  const btnZebr = w.querySelector('#pzDodZebr');
-  if(btnZebr) btnZebr.onclick = async ()=>{
-    niedojady.push({zrodloId:'', zebranoKg:0});
-    await zapiszPaszowoz(lok, data, wozy, niedojady);
-  };
-  w.querySelectorAll('[data-zebr-zrodlo]').forEach(s=>{
-    s.onchange = async ()=>{ niedojady[+s.dataset.zebrZrodlo].zrodloId=s.value; await zapiszPaszowoz(lok,data,wozy,niedojady); };
-  });
-  w.querySelectorAll('[data-zebr-kg]').forEach(i=>{
-    i.onchange = async ()=>{ niedojady[+i.dataset.zebrKg].zebranoKg=Math.max(0,liczba(i.value)); await zapiszPaszowoz(lok,data,wozy,niedojady); };
+  w.querySelectorAll('[data-zebr-kg]').forEach(el=>{
+    el.onchange = ()=>E(s=>{ const n=s.niedojady.find(x=>x.id===el.dataset.zebrKg); if(!n) return false; n.zebranoKg=Math.max(0,liczba(el.value)); });
   });
   w.querySelectorAll('[data-zebr-usun]').forEach(b=>{
-    b.onclick = async ()=>{ niedojady.splice(+b.dataset.zebrUsun,1); await zapiszPaszowoz(lok,data,wozy,niedojady); };
+    b.onclick = ()=>E(s=>{
+      const id = b.dataset.zebrUsun;
+      s.niedojady = s.niedojady.filter(x=>x.id!==id);
+      s.wozy.forEach(x=>{ x.niedojady=(x.niedojady||[]).filter(y=>y.zebraneId!==id); });
+    });
   });
 
-  // === DRAG & DROP + TOUCH dla niedojadów ===
-  // Wyjmij z wozu
+  w.querySelector('#pzDuplikuj').onclick = ()=>oknoDuplikujPz(lok, data, st);
+
+  w.querySelectorAll('[data-woz-nazwa]').forEach(el=>{
+    el.onchange = ()=>E(s=>{ const x=woz(s,el.dataset.wozNazwa); if(!x) return false; x.nazwa = el.value.trim() || x.nazwa; });
+  });
+  w.querySelectorAll('[data-woz-usun]').forEach(b=>{
+    b.onclick = ()=>{
+      const id=b.dataset.wozUsun;
+      potwierdz('Usunąć wóz?', `„${esc(nazwaWoz(id))}” zniknie z dnia ${dataPL(data)}. Niedojady z tego wozu wrócą do puli.`,
+        ()=>E(s=>{ s.wozy = s.wozy.filter(x=>x.id!==id); }));
+    };
+  });
+  w.querySelectorAll('[data-rec-dawka]').forEach(el=>{
+    el.onchange = ()=>E(s=>{ const [wid,ri]=el.dataset.recDawka.split('|'); const x=woz(s,wid); if(!x||!x.receptury[+ri]) return false; x.receptury[+ri].dawkaId=el.value; });
+  });
+  w.querySelectorAll('[data-rec-udzial]').forEach(el=>{
+    el.onchange = ()=>E(s=>{
+      const [wid,ri]=el.dataset.recUdzial.split('|'); const x=woz(s,wid); if(!x||!x.receptury[+ri]) return false;
+      const v = Math.max(0, Math.min(100, liczba(el.value)));
+      x.receptury[+ri].udzial = v;
+      // przy dwóch recepturach druga uzupełnia się do 100%
+      if(x.receptury.length===2) x.receptury[1-(+ri)].udzial = Math.round((100-v)*100)/100;
+    });
+  });
+  w.querySelectorAll('[data-woz-dodrec]').forEach(b=>{
+    b.onclick = ()=>E(s=>{
+      const x=woz(s,b.dataset.wozDodrec); if(!x) return false;
+      if(x.receptury.length===1 && x.receptury[0].udzial>=100){ x.receptury[0].udzial=50; x.receptury.push({dawkaId:'', udzial:50}); }
+      else { const suma=x.receptury.reduce((a,r)=>a+(r.udzial||0),0); x.receptury.push({dawkaId:'', udzial:Math.max(0,100-suma)}); }
+    });
+  });
+  w.querySelectorAll('[data-rec-usun]').forEach(b=>{
+    b.onclick = ()=>E(s=>{
+      const [wid,ri]=b.dataset.recUsun.split('|'); const x=woz(s,wid); if(!x) return false;
+      x.receptury.splice(+ri,1);
+      if(x.receptury.length===1) x.receptury[0].udzial=100;
+    });
+  });
+  w.querySelectorAll('[data-woz-kontrola]').forEach(el=>{
+    el.onchange = ()=>E(s=>{ const x=woz(s,el.dataset.wozKontrola); if(!x) return false; x.wagaKontrolna = Math.max(0,liczba(el.value)) || null; });
+  });
+  w.querySelectorAll('[data-woz-dodaj]').forEach(b=>{
+    b.onclick = ()=>E(s=>{ const x=woz(s,b.dataset.wozDodaj); if(!x) return false; x.rozdzielenie.push({grupaId:'', kg:0}); });
+  });
+  w.querySelectorAll('[data-rz-grupa]').forEach(el=>{
+    el.onchange = ()=>E(s=>{ const [wid,i]=el.dataset.rzGrupa.split('|'); const x=woz(s,wid); if(!x||!x.rozdzielenie[+i]) return false; x.rozdzielenie[+i].grupaId=el.value; });
+  });
+  w.querySelectorAll('[data-rz-kg]').forEach(el=>{
+    el.onchange = ()=>E(s=>{ const [wid,i]=el.dataset.rzKg.split('|'); const x=woz(s,wid); if(!x||!x.rozdzielenie[+i]) return false; x.rozdzielenie[+i].kg=Math.max(0,liczba(el.value)); });
+  });
+  w.querySelectorAll('[data-rz-usun]').forEach(b=>{
+    b.onclick = ()=>E(s=>{ const [wid,i]=b.dataset.rzUsun.split('|'); const x=woz(s,wid); if(!x) return false; x.rozdzielenie.splice(+i,1); });
+  });
   w.querySelectorAll('[data-wnd-usun]').forEach(b=>{
-    b.onclick = async (e)=>{
+    b.onclick = e=>{
       e.stopPropagation();
-      const [wid,ni] = b.dataset.wndUsun.split('|');
-      const woz = wozy.find(x=>x.id===wid); if(woz){ woz.niedojady.splice(+ni,1); await zapiszPaszowoz(lok,data,wozy,niedojady); }
+      const [wid,zid]=b.dataset.wndUsun.split('|');
+      E(s=>{ const x=woz(s,wid); if(!x) return false; x.niedojady=x.niedojady.filter(y=>y.zebraneId!==zid); });
     };
   });
 
-  // Drag & Drop (desktop)
-  w.querySelectorAll('[data-chip-idx]').forEach(chip=>{
-    chip.ondragstart = e=>{
-      e.dataTransfer.setData('text/plain', chip.dataset.chipIdx);
-      chip.classList.add('dragging');
-    };
-    chip.ondragend = ()=> chip.classList.remove('dragging');
+  // ===== Niedojady → wóz: przeciągnij (mysz), przeciągnij palcem, albo dotknij chmurki i wozu =====
+  const wrzuc = (zid, wid)=>E(s=>{
+    const n = s.niedojady.find(x=>x.id===zid);
+    const x = woz(s,wid);
+    if(!n || !x || !n.zrodloId || !(n.zebranoKg>0)) return false;
+    s.wozy.forEach(y=>{ y.niedojady=(y.niedojady||[]).filter(q=>q.zebraneId!==zid); });   // nigdy w dwóch wozach
+    x.niedojady.push({zebraneId:n.id, zrodloId:n.zrodloId, kg:n.zebranoKg});
   });
-  w.querySelectorAll('.pz-drop-zone').forEach(zone=>{
-    zone.ondragover = e=>{ e.preventDefault(); zone.classList.add('drag-over'); };
-    zone.ondragleave = ()=> zone.classList.remove('drag-over');
-    zone.ondrop = async e=>{
-      e.preventDefault(); zone.classList.remove('drag-over');
-      const idx = +e.dataTransfer.getData('text/plain');
-      const nd = niedojady[idx]; if(!nd?.zrodloId) return;
-      const wozId = zone.dataset.dropWoz;
-      const woz = wozy.find(x=>x.id===wozId); if(!woz) return;
-      woz.niedojady = woz.niedojady||[];
-      woz.niedojady.push({zrodloId:nd.zrodloId, kg:nd.zebranoKg||0});
-      await zapiszPaszowoz(lok, data, wozy, niedojady);
-    };
-  });
-
-  // Touch support (tablet)
-  let touchChip = null, touchGhost = null;
-  w.querySelectorAll('[data-chip-idx]').forEach(chip=>{
-    chip.ontouchstart = e=>{
-      touchChip = chip;
-      const t = e.touches[0];
-      touchGhost = chip.cloneNode(true);
-      touchGhost.className = 'pz-chip pz-ghost';
-      touchGhost.style.cssText = 'position:fixed;z-index:999;pointer-events:none;opacity:.85;transform:scale(1.05);'+
-        'left:'+(t.clientX-60)+'px;top:'+(t.clientY-20)+'px';
-      document.body.appendChild(touchGhost);
-      chip.classList.add('dragging');
-    };
-    chip.ontouchmove = e=>{
-      if(!touchGhost) return;
-      e.preventDefault();
-      const t = e.touches[0];
-      touchGhost.style.left = (t.clientX-60)+'px';
-      touchGhost.style.top = (t.clientY-20)+'px';
-      // podświetl zone pod palcem
-      document.querySelectorAll('.pz-drop-zone').forEach(z=>z.classList.remove('drag-over'));
-      const el = document.elementFromPoint(t.clientX, t.clientY);
-      const zone = el?.closest?.('.pz-drop-zone');
-      if(zone) zone.classList.add('drag-over');
-    };
-    chip.ontouchend = async e=>{
-      if(touchGhost){ touchGhost.remove(); touchGhost=null; }
-      if(!touchChip) return;
-      touchChip.classList.remove('dragging');
-      const t = e.changedTouches[0];
-      const el = document.elementFromPoint(t.clientX, t.clientY);
-      const zone = el?.closest?.('.pz-drop-zone');
-      document.querySelectorAll('.pz-drop-zone').forEach(z=>z.classList.remove('drag-over'));
-      if(zone){
-        const idx = +touchChip.dataset.chipIdx;
-        const nd = niedojady[idx]; if(!nd?.zrodloId){ touchChip=null; return; }
-        const wozId = zone.dataset.dropWoz;
-        const woz = wozy.find(x=>x.id===wozId); if(!woz){ touchChip=null; return; }
-        woz.niedojady = woz.niedojady||[];
-        woz.niedojady.push({zrodloId:nd.zrodloId, kg:nd.zebranoKg||0});
-        await zapiszPaszowoz(lok, data, wozy, niedojady);
-      }
-      touchChip = null;
-    };
-  });
-
-  // Click-to-assign fallback (kliknij chip → kliknij wóz)
-  let wybranyChip = null;
-  w.querySelectorAll('[data-chip-idx]').forEach(chip=>{
+  let wybrany = null;
+  w.querySelectorAll('[data-chip]').forEach(chip=>{
+    chip.ondragstart = e=>{ e.dataTransfer.setData('text/plain', chip.dataset.chip); chip.classList.add('dragging'); };
+    chip.ondragend = ()=>chip.classList.remove('dragging');
     chip.onclick = ()=>{
-      if(wybranyChip===chip){ chip.classList.remove('wybrany'); wybranyChip=null; return; }
+      const juz = chip.classList.contains('wybrany');
       w.querySelectorAll('.pz-chip.wybrany').forEach(c=>c.classList.remove('wybrany'));
-      chip.classList.add('wybrany');
-      wybranyChip = chip;
-      toast('Kliknij teraz wóz, do którego chcesz dodać niedojady.');
+      w.querySelectorAll('.pz-drop-zone').forEach(z=>z.classList.toggle('czeka', !juz));
+      wybrany = juz ? null : chip.dataset.chip;
+      if(!juz){ chip.classList.add('wybrany'); toast('Dotknij teraz wozu, do którego trafią te niedojady.'); }
     };
+    // dotyk: przeciąganie palcem
+    let duch=null, start=null, ruszyl=false;
+    chip.addEventListener('touchstart', e=>{ const t=e.touches[0]; start={x:t.clientX,y:t.clientY}; ruszyl=false; }, {passive:true});
+    chip.addEventListener('touchmove', e=>{
+      const t=e.touches[0];
+      if(!ruszyl && Math.hypot(t.clientX-start.x, t.clientY-start.y)<8) return;
+      e.preventDefault();
+      if(!ruszyl){
+        ruszyl=true;
+        duch = chip.cloneNode(true); duch.classList.add('pz-ghost');
+        duch.style.cssText='position:fixed;z-index:999;pointer-events:none;opacity:.9';
+        document.body.appendChild(duch); chip.classList.add('dragging');
+      }
+      duch.style.left=(t.clientX-60)+'px'; duch.style.top=(t.clientY-22)+'px';
+      w.querySelectorAll('.pz-drop-zone').forEach(z=>z.classList.remove('drag-over'));
+      document.elementFromPoint(t.clientX,t.clientY)?.closest?.('.pz-drop-zone')?.classList.add('drag-over');
+    }, {passive:false});
+    chip.addEventListener('touchend', e=>{
+      if(!ruszyl) return;                           // zwykłe dotknięcie → obsłuży onclick
+      e.preventDefault();
+      duch?.remove(); duch=null; chip.classList.remove('dragging');
+      w.querySelectorAll('.pz-drop-zone').forEach(z=>z.classList.remove('drag-over'));
+      const t=e.changedTouches[0];
+      const zona = document.elementFromPoint(t.clientX,t.clientY)?.closest?.('.pz-drop-zone, .pz-woz');
+      const wid = zona?.dataset.dropWoz || zona?.dataset.woz;
+      if(wid) wrzuc(chip.dataset.chip, wid);
+    });
   });
-  w.querySelectorAll('.pz-drop-zone').forEach(zone=>{
-    zone.onclick = async e=>{
-      if(!wybranyChip || e.target.closest('button,select,input')) return;
-      const idx = +wybranyChip.dataset.chipIdx;
-      const nd = niedojady[idx]; if(!nd?.zrodloId) return;
-      const wozId = zone.dataset.dropWoz;
-      const woz = wozy.find(x=>x.id===wozId); if(!woz) return;
-      woz.niedojady = woz.niedojady||[];
-      woz.niedojady.push({zrodloId:nd.zrodloId, kg:nd.zebranoKg||0});
-      wybranyChip = null;
-      await zapiszPaszowoz(lok, data, wozy, niedojady);
+  w.querySelectorAll('.pz-woz').forEach(karta=>{
+    const wid = karta.dataset.woz;
+    karta.ondragover = e=>{ e.preventDefault(); karta.querySelector('.pz-drop-zone')?.classList.add('drag-over'); };
+    karta.ondragleave = e=>{ if(!karta.contains(e.relatedTarget)) karta.querySelector('.pz-drop-zone')?.classList.remove('drag-over'); };
+    karta.ondrop = e=>{
+      e.preventDefault();
+      karta.querySelector('.pz-drop-zone')?.classList.remove('drag-over');
+      const zid = e.dataTransfer.getData('text/plain');
+      if(zid) wrzuc(zid, wid);
     };
+    karta.addEventListener('click', e=>{
+      if(!wybrany || e.target.closest('button,select,input')) return;
+      const zid = wybrany; wybrany = null;
+      wrzuc(zid, wid);
+    });
   });
-
 }
 
-/* Macierz surowce × sektory dla widoku Paszowóz — na podstawie realnych wozów */
-function macierzZWozow(pozycje, opcje){
-  opcje = opcje||{};
-  const uzyte = new Set();
-  pozycje.forEach(p=>Object.entries(p.skl).forEach(([sid,kg])=>{ if(kg>0.001) uzyte.add(sid); }));
-  const uklad = wierszeDawek();
-  const wiersze = [...uklad.filter(id=>uzyte.has(id)), ...[...uzyte].filter(id=>!uklad.includes(id))];
-  const naglowki = pozycje.map(p=>{
-    const perSzt = p.sztuk>0 ? p.kg/p.sztuk : 0;
-    return `<th><span class="nazwa-kol" title="${esc(p.gr.nazwa)}">${esc(p.gr.nazwa)}</span>
-      <span style="font-size:9.5px;opacity:.85;display:block;font-weight:400">${p.sztuk} szt · ${fmt(perSzt,1)} kg/szt</span></th>`;
-  }).join('');
-  const body = wiersze.map(sid=>{
-    const sur = store.surowce[sid];
-    return `<tr>
-      <td class="lipka"><span class="nazwaS" title="${esc(sur?.nazwa||'?')}">${esc(sur?.nazwa||'?')}</span></td>
-      ${pozycje.map(p=>{
-        const kgTot = p.skl[sid]||0;
-        if(kgTot<=0.001) return '<td class="num">—</td>';
-        const kgSzt = kgTot/(p.sztuk||1);
-        return `<td class="num" title="${fmt(kgTot,1)} kg na sektor">${fmt(kgSzt,2)}</td>`;
-      }).join('')}
-    </tr>`;
-  }).join('');
-  const sumy = pozycje.map(p=>`<td class="num">${fmt(p.sztuk>0?p.kg/p.sztuk:0,2)}</td>`).join('');
-  return `<div class="macierz" style="max-height:none" ${opcje.id?`id="${opcje.id}"`:''}>
-    <table>
-      <thead><tr><th class="lipka">Surowiec</th>${naglowki}</tr></thead>
-      <tbody>${body}
-        <tr class="suma-wiersz"><td class="lipka">Razem kg/szt</td>${sumy}</tr>
-      </tbody>
-    </table>
-  </div>`;
+function oknoDuplikujPz(lok, data, st){
+  const dostepne = [];
+  for(let i=1;i<=45 && dostepne.length<6;i++){
+    const dd = dataMinus(data,i);
+    const dk = pzDok(lok,dd);
+    if(dk?.wozy?.length) dostepne.push({data:dd, ile:dk.wozy.length, kg:dk.wozy.reduce((s,w)=>s+masaWozu(w),0)});
+  }
+  modal({
+    tytul:'Z którego dnia skopiować wozy?',
+    tresc:`
+      <div class="podpis" style="margin-bottom:12px">Kopiujemy receptury i rozdzielenie na sektory. Niedojady i waga kontrolna
+        się nie kopiują — niedojady wpisujesz każdego dnia rano.
+        ${st.wozy.length?'<br><b style="color:var(--zolty)">Bieżące wozy ('+st.wozy.length+') zostaną zastąpione.</b>':''}</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:6px">
+        ${dostepne.map((x,i)=>`<label class="wybor-data"><input type="radio" name="dupd" value="${x.data}" ${i===0?'checked':''}>
+          <span><b>${dataPL(x.data)}</b> — ${x.ile} ${x.ile===1?'wóz':x.ile<5?'wozy':'wozów'} · ${fmt(x.kg,0)} kg</span></label>`).join('')}
+        <label class="wybor-data"><input type="radio" name="dupd" value="__data" ${dostepne.length?'':'checked'}>
+          <span><b>Inny dzień</b><br><input type="date" id="dupData" max="${dzisiaj()}" value="${dataMinus(data,1)}" style="margin-top:5px"></span></label>
+      </div>`,
+    przyciski:[
+      {tekst:'Anuluj'},
+      {tekst:'Kopiuj', klasa:'', akcja:async(n)=>{
+        const wyb = n.querySelector('input[name=dupd]:checked')?.value;
+        const zrod = (!wyb || wyb==='__data') ? n.querySelector('#dupData')?.value : wyb;
+        if(!zrod){ toast('Wybierz dzień.', true); return false; }
+        if(zrod===data){ toast('To ten sam dzień.', true); return false; }
+        const src = pzDok(lok, zrod);
+        if(!src?.wozy?.length){ toast('Brak wozów za '+dataPL(zrod), true); return false; }
+        const kopia = kopiujWozy(src.wozy);
+        await pzEdytuj(lok, data, s=>{ s.wozy = kopia; s.autoKopia = null; });
+        toast(`Skopiowano ${kopia.length} ${kopia.length===1?'wóz':'wozów'} z ${dataPL(zrod)}.`);
+      }}
+    ]
+  });
 }
 
 /* ===================== ZAKŁADKA: MIESZALNIA =============================== */
@@ -3687,7 +3759,8 @@ function renderMieszalnia(w){
   w.innerHTML = `
   <div class="panel">
     <div class="panel-tyt">Mieszalnia <span class="licznik">${mieszanki.length} receptur</span><span style="flex:1"></span>
-      ${mixZakladka==='receptury'?przyciskEksportu('#tabReceptury','receptury_mieszanek','Receptury mieszanek'):''}
+      ${mixZakladka==='receptury'&&mieszanki.length?przyciskEksportu('#tabReceptury','receptury_mieszanek','Receptury mieszanek'):''}
+      ${mixZakladka==='historia'&&produkcje.length?przyciskEksportu('#tabMixHist','produkcja_mieszalni','Mieszalnia — historia produkcji'):''}
       ${edycja?'<button class="btn maly" id="btnNowaMix">+ Receptura</button>':''}
     </div>
     <div class="pasek">
@@ -3807,9 +3880,16 @@ function renderMixProdukcja(el,mieszanki){
 
 function renderMixHistoria(el,produkcje){
   if(!produkcje.length){el.innerHTML='<div class="pusto">Brak historii produkcji.</div>';return;}
-  el.innerHTML=produkcje.map(p=>{const m=store.mieszanki[p.mieszankaId];
-    return `<div class="hist-row"><span class="data">${dataPL(p.data)}</span><b>${esc(m?.nazwa||'?')}</b><span>${fmt(p.kg,0)} kg</span><span>${fmt(p.koszt,2)} z\u0142</span><span class="podpis">${fmt(p.kosztKg,4)} z\u0142/kg</span><span class="plakietka">${p.lokalizacja==='obie'?'obie lok.':esc(p.lokalizacja||'?')}</span><span class="podpis">${esc(p.uzytkownik||'')}</span></div>`;
-  }).join('');
+  const sKg=produkcje.reduce((s,p)=>s+(p.kg||0),0), sZl=produkcje.reduce((s,p)=>s+(p.koszt||0),0);
+  el.innerHTML=`<div class="przewijak"><table class="gt-tabela" id="tabMixHist">
+    <thead><tr><th>Data</th><th>Mieszanka</th><th class="num">kg</th><th class="num">Koszt zł</th><th class="num">zł/kg</th><th>Lokalizacja</th><th>Kto</th></tr></thead>
+    <tbody>${produkcje.map(p=>{const m=store.mieszanki[p.mieszankaId];
+      return `<tr><td>${dataPL(p.data)}</td><td><b>${esc(m?.nazwa||'?')}</b></td><td class="num">${fmt(p.kg,0)}</td>
+        <td class="num">${fmt(p.koszt,2)}</td><td class="num">${fmt(p.kosztKg,4)}</td>
+        <td>${p.lokalizacja==='obie'?'obie lok.':esc(nazwaLokalizacji(p.lokalizacja))}</td><td class="podpis">${esc(p.uzytkownik||'')}</td></tr>`;
+    }).join('')}
+    <tr class="suma"><td>SUMA</td><td></td><td class="num">${fmt(sKg,0)}</td><td class="num">${fmt(sZl,0)} zł</td><td class="num">${sKg?fmt(sZl/sKg,4):''}</td><td></td><td></td></tr>
+    </tbody></table></div>`;
 }
 
 function oknoMix(edId){
@@ -3933,6 +4013,7 @@ function renderRaporty(w){
   const podz = [
     {id:'kalendarz',txt:'\ud83d\udcc5 Kalendarz'},
     {id:'zmiany',   txt:'Zmiany dawek'},
+    {id:'wersje',   txt:'Historia dawek'},
     {id:'historia', txt:'Historia \u017cywienia'},
     {id:'miesiac',  txt:'Zestawienie miesi\u0119czne'},
     {id:'zuzycie',  txt:'Zu\u017cycie surowc\u00f3w'},
@@ -3963,6 +4044,7 @@ function renderRaporty(w){
   else if(rapZakladka==='historia') rapHistoria(t);
   else if(rapZakladka==='miesiac') rapMiesiacWidok(t);
   else if(rapZakladka==='zuzycie') rapZuzycie(t);
+  else if(rapZakladka==='wersje') rapSnapshoty(t);
   else rapProdukcja(t);
 }
 
@@ -4033,92 +4115,186 @@ function rapKalendarz(el){
   if(kalWybranyDzien) rysujDzienSzczegoly(el.querySelector('#kalSzczegoly'), kalWybranyDzien);
 }
 
-/* Pełny raport wybranego dnia — dane zamrożone z tamtego dnia, nie przeliczane na dziś */
+/* Zużycie świeżych surowców z listy pozycji dnia (odzysk nie zużywa surowców drugi raz) */
+function zuzycieZPozycji(poz, cel){
+  cel = cel || {};
+  poz.forEach(p=>mapaDodaj(cel, p.sklSwieze||{}));
+  return cel;
+}
+function tabelaZuzyciaHTML(zuz, id){
+  const lista = Object.entries(zuz).filter(([,kg])=>kg>0.005).map(([sid,kg])=>{
+    const sur = store.surowce[sid];
+    return {nazwa:sur?.nazwa||'?', kg, zl:kg*((sur?.cenaTona||0)/1000)};
+  }).sort((a,b)=>b.kg-a.kg);
+  if(!lista.length) return '<div class="pusto">Brak zużycia.</div>';
+  const sKg = lista.reduce((s,x)=>s+x.kg,0), sZl = lista.reduce((s,x)=>s+x.zl,0);
+  return `<div class="przewijak"><table class="gt-tabela" id="${id}" style="max-width:720px">
+    <colgroup><col style="width:46%"><col style="width:18%"><col style="width:16%"><col style="width:20%"></colgroup>
+    <thead><tr><th>Surowiec</th><th class="num">kg</th><th class="num">t</th><th class="num">Wartość zł</th></tr></thead>
+    <tbody>${lista.map(x=>`<tr><td>${esc(x.nazwa)}</td><td class="num">${fmt(x.kg,2)}</td><td class="num">${fmt(x.kg/1000,3)}</td><td class="num">${fmt(x.zl,2)}</td></tr>`).join('')}
+      <tr class="suma"><td>SUMA</td><td class="num">${fmt(sKg,0)}</td><td class="num">${fmt(sKg/1000,2)}</td><td class="num">${fmt(sZl,0)} zł</td></tr>
+    </tbody></table></div>`;
+}
+
+/* Pełny raport wybranego dnia — dane zamrożone z tamtego dnia */
 function rysujDzienSzczegoly(el, dataISO){
-  const dok = dokDnia(rapLok, dataISO);
+  const nazwaLok = nazwaLokalizacji(rapLok);
+  const poz = analizaDnia(rapLok, dataISO, false);
   const snap = store.snapshoty['snap_'+dataISO];
-  if(!dok){
-    el.innerHTML = `<div class="pusto">Brak zapisu żywienia za ${dataPL(dataISO)} w lokalizacji ${rapLok==='nadarzyn'?'Nadarzyn':'Boguszyny'}.</div>`;
+  if(!poz.length){
+    el.innerHTML = `<div class="pusto">Brak zapisu żywienia za ${dataPL(dataISO)} w lokalizacji ${esc(nazwaLok)}.</div>`;
     return;
   }
-  const poz = Object.entries(dok.grupy||{}).map(([gid,z])=>{
-    const gr = store.grupyTech[gid];
-    const potw = z.zadaneKg!=null;
-    const wylicz = z.dawkaWyliczonaKgSzt||0;
-    const planKg = wylicz*(z.sztuk||0);
-    const zadEff = potw ? z.zadaneKg : planKg;
-    const odzysk = z.niedojadyDodaneKg||0;
-    const swiezy = Math.max(0, zadEff-odzysk);
-    const pobr = (z.sztuk>0) ? (zadEff-(z.niedojadyKg||0))/z.sztuk : 0;
-    const koszt = swiezy*(z.kosztKgTMR||0);
-    return {gid, nazwa: gr?.nazwa||z.nazwaGrupy||'?', z, potw, wylicz, planKg, zadEff, odzysk, swiezy, pobr, koszt};
-  }).filter(p=>p.zadEff>0);
-
-  // Zużycie surowców tego dnia
-  const zuz = {};
-  poz.forEach(p=>{
-    const skl = p.z.skladniki || [];
-    const wsp = p.planKg>0 ? p.swiezy/p.planKg : 0;
-    skl.forEach(sk=>{ zuz[sk.surowiecId]=(zuz[sk.surowiecId]||0)+sk.kg*(p.z.sztuk||0)*wsp; });
-  });
-  const sumKoszt = poz.reduce((s,p)=>s+p.koszt,0);
-  const sumSzt = poz.reduce((s,p)=>s+(p.z.sztuk||0),0);
-
+  const s = sumyDnia(poz);
+  const sufiks = rapLok+'_'+dataISO;
   el.innerHTML = `
   <div style="border-top:8px solid var(--tlo)">
-    <div class="panel-tyt">Raport dnia ${dataPL(dataISO)} — ${rapLok==='nadarzyn'?'Nadarzyn':'Boguszyny'}
-      <span class="licznik">${poz.length} grup · ${sumSzt} szt · ${fmt(sumKoszt,0)} zł</span>
+    <div class="panel-tyt">Raport dnia ${dataPL(dataISO)} — ${esc(nazwaLok)}
+      <span class="licznik">${poz.length} grup · ${s.szt} szt · ${fmt(s.koszt,0)} zł</span>
       <span style="flex:1"></span>
-      ${przyciskEksportu('#tabDzienKal','raport_dnia_'+rapLok+'_'+dataISO,'Raport dnia '+dataPL(dataISO)+' — '+(rapLok==='nadarzyn'?'Nadarzyn':'Boguszyny'))}
+      <button class="btn-karta" id="kalDrukCaly">🖨 Cały raport</button>
+      ${przyciskEksportu('#tabDzienKal','raport_dnia_'+sufiks,'Raport dnia '+dataPL(dataISO)+' — '+nazwaLok)}
     </div>
-    <div class="przewijak"><table class="gt-tabela" id="tabDzienKal">
-      <thead><tr><th>Grupa</th><th class="num">Sztuk</th><th class="num">Dawka wylicz.<br>kg/szt</th>
-      <th class="num">Odzysk<br>kg</th><th class="num">Świeży TMR<br>kg</th><th class="num">Podane<br>kg</th>
-      <th class="num">Niedojady<br>kg</th><th class="num">Pobranie<br>kg/szt</th><th class="num">Koszt<br>zł</th></tr></thead>
-      <tbody>
-        ${poz.map(p=>`<tr>
-          <td><b>${esc(p.nazwa)}</b>${p.potw?'':' <span class="plakietka auto">plan</span>'}</td>
-          <td class="num">${p.z.sztuk||0}</td>
-          <td class="num">${fmt(p.wylicz,1)}</td>
-          <td class="num">${p.odzysk?'<span style="color:#7a5c00;font-weight:600">'+fmt(p.odzysk,0)+'</span>':'—'}</td>
-          <td class="num">${fmt(p.swiezy,0)}</td>
-          <td class="num">${fmt(p.zadEff,0)}</td>
-          <td class="num">${p.z.niedojadyKg!=null?fmt(p.z.niedojadyKg,0):'—'}</td>
-          <td class="num"><b>${fmt(p.pobr,1)}</b></td>
-          <td class="num">${fmt(p.koszt,0)}</td>
-        </tr>`).join('')}
-        <tr class="suma"><td>SUMA</td><td class="num">${sumSzt}</td><td class="num"></td>
-          <td class="num">${fmt(poz.reduce((s,p)=>s+p.odzysk,0),0)}</td>
-          <td class="num">${fmt(poz.reduce((s,p)=>s+p.swiezy,0),0)}</td>
-          <td class="num">${fmt(poz.reduce((s,p)=>s+p.zadEff,0),0)}</td>
-          <td class="num">${fmt(poz.reduce((s,p)=>s+(p.z.niedojadyKg||0),0),0)}</td>
-          <td class="num"></td><td class="num">${fmt(sumKoszt,0)} zł</td></tr>
-      </tbody>
-    </table></div>
+    <div id="kalRaportCaly">
+    ${tabelaDniaHTML(poz, 'tabDzienKal', dataISO)}
 
-    <div class="panel-tyt" style="border-top:1px solid var(--linia)">Zużycie surowców ${dataPL(dataISO)}</div>
-    <div style="padding:10px 14px"><table class="gt-tabela" style="max-width:560px">
-      <thead><tr><th>Surowiec</th><th class="num">kg</th><th class="num">t</th></tr></thead>
-      <tbody>${Object.entries(zuz).sort((a,b)=>b[1]-a[1]).map(([sid,kg])=>{
-        const sur=store.surowce[sid];
-        return `<tr><td>${esc(sur?.nazwa||'?')}</td><td class="num">${fmt(kg,2)}</td><td class="num">${fmt(kg/1000,3)}</td></tr>`;
-      }).join('')}</tbody>
-    </table></div>
+    <div class="panel-tyt" style="border-top:1px solid var(--linia)">Realny skład dawek zadanych <span class="licznik">kg / szt / dobę</span>
+      <span style="flex:1"></span>${przyciskEksportu('#macDzienZad','sklad_zadany_'+sufiks,'Skład zadany — '+nazwaLok+' '+dataPL(dataISO))}</div>
+    ${macierzSkladu(poz, {id:'macDzienZad', tryb:'zadany'})}
+
+    ${s.ileZnane ? `<div class="panel-tyt" style="border-top:1px solid var(--linia)">Skład realnie pobrany <span class="licznik">po odjęciu niedojadów</span>
+      <span style="flex:1"></span>${przyciskEksportu('#macDzienPobr','sklad_pobrany_'+sufiks,'Skład pobrany — '+nazwaLok+' '+dataPL(dataISO))}</div>
+      ${macierzSkladu(poz, {id:'macDzienPobr', tryb:'pobrany'})}` : ''}
+
+    <div class="panel-tyt" style="border-top:1px solid var(--linia)">Zużycie surowców ${dataPL(dataISO)} <span class="licznik">świeży TMR</span>
+      <span style="flex:1"></span>${przyciskEksportu('#tabZuzDnia','zuzycie_'+sufiks,'Zużycie surowców — '+nazwaLok+' '+dataPL(dataISO))}</div>
+    <div style="padding:10px 14px">${tabelaZuzyciaHTML(zuzycieZPozycji(poz), 'tabZuzDnia')}</div>
+    </div>
 
     ${snap ? `<div class="panel-tyt" style="border-top:1px solid var(--linia)">Dawki obowiązujące ${dataPL(dataISO)}
-        <span class="licznik">stan zapisany tego dnia</span></div>
-      <div class="przewijak"><table class="gt-tabela">
-        <thead><tr><th>Grupa żywieniowa</th><th class="num">Całość kg/szt</th><th>Skład</th></tr></thead>
-        <tbody>${Object.values(snap.dane||{}).sort((a,b)=>(a.kolejnosc??99)-(b.kolejnosc??99)).map(dw=>{
-          const suma=(dw.skladniki||[]).reduce((s,x)=>s+x.kg,0);
-          const skl=(dw.skladniki||[]).filter(x=>x.kg>0).sort((a,b)=>b.kg-a.kg)
-            .map(x=>esc(store.surowce[x.surowiecId]?.nazwa||'?')+' '+fmt(x.kg,2)).join(' · ');
-          return `<tr><td><b>${esc(dw.nazwa)}</b></td><td class="num">${fmt(suma,2)}</td><td class="podpis">${skl||'—'}</td></tr>`;
-        }).join('')}</tbody>
-      </table></div>`
+        <span class="licznik">stan zapisany tego dnia</span><span style="flex:1"></span>
+        ${przyciskEksportu('#macSnapDzien','dawki_'+dataISO,'Dawki — stan '+dataPL(dataISO))}</div>
+      ${macierzDawekHTML(snap.dane||{}, {id:'macSnapDzien'})}`
     : '<div class="podpis" style="padding:12px 14px">Brak zapisanej wersji dawek z tego dnia — dawek wtedy nie zmieniano.</div>'}
   </div>`;
+  el.querySelector('#kalDrukCaly').onclick = ()=>{
+    const czesci = [];
+    el.querySelectorAll('#kalRaportCaly table').forEach(t=>czesci.push(htmlDoDruku(t)));
+    drukujHTML(czesci.join('<div style="height:10px"></div>'), 'Raport dnia '+dataPL(dataISO)+' — '+nazwaLok, {poziom:true});
+  };
+}
 
+/* ---------- Historia żywienia: dowolny dzień ---------- */
+function rapHistoria(el){
+  if(!rapData) rapData = dzisiaj();
+  const nazwaLok = nazwaLokalizacji(rapLok);
+  const poz = analizaDnia(rapLok, rapData, false);
+  const s = sumyDnia(poz);
+  const sufiks = rapLok+'_'+rapData;
+
+  el.innerHTML = `
+  <div style="padding:12px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:end;border-bottom:1px solid var(--linia)">
+    <div class="pole-grupa" style="margin:0"><label>Dzień</label>
+      <input type="date" id="rhData" value="${rapData}" max="${dzisiaj()}"></div>
+    <button class="btn szary maly" id="rhPrev">‹ Poprzedni</button>
+    <button class="btn szary maly" id="rhNext" ${rapData>=dzisiaj()?'disabled':''}>Następny ›</button>
+    <button class="btn szary maly" id="rhDzis">Dziś</button>
+    <span style="flex:1"></span>
+    <span class="podpis">${poz.length} grup · ${s.szt} szt · ${s.ilePotw} potwierdzonych · koszt ${fmt(s.koszt,0)} zł</span>
+  </div>
+  ${!poz.length ? `<div class="pusto">Brak zapisu żywienia za ${dataPL(rapData)} w lokalizacji ${esc(nazwaLok)}.</div>` : `
+  <div class="panel-tyt">Podsumowanie grup — ${esc(nazwaLok)}, ${dataPL(rapData)}<span style="flex:1"></span>
+    ${przyciskEksportu('#tabHistPodsum','podsumowanie_'+sufiks,'Podsumowanie grup — '+nazwaLok+' '+dataPL(rapData))}</div>
+  ${tabelaDniaHTML(poz, 'tabHistPodsum', rapData)}
+
+  <div class="panel-tyt" style="border-top:8px solid var(--tlo)">Realny skład dawek zadanych
+    <span class="licznik">kg surowca / sztukę / dobę</span><span style="flex:1"></span>
+    ${przyciskEksportu('#macierzHist','sklad_zadany_'+sufiks,'Skład dawek zadanych — '+nazwaLok+' '+dataPL(rapData))}</div>
+  ${macierzSkladu(poz, {id:'macierzHist', tryb:'zadany'})}
+
+  <div class="panel-tyt" style="border-top:8px solid var(--tlo)">Skład realnie pobrany
+    <span class="licznik">zadane − niedojady</span><span style="flex:1"></span>
+    ${s.ileZnane?przyciskEksportu('#macierzHistPobr','sklad_pobrany_'+sufiks,'Skład realnie pobrany — '+nazwaLok+' '+dataPL(rapData)):''}</div>
+  ${macierzSkladu(poz, {id:'macierzHistPobr', tryb:'pobrany'})}`}`;
+
+  const odsw = ()=>renderRaporty(document.getElementById('widok'));
+  el.querySelector('#rhData').onchange=e=>{ if(e.target.value){ rapData=e.target.value; odsw(); } };
+  el.querySelector('#rhPrev').onclick=()=>{ rapData=dataMinus(rapData,1); odsw(); };
+  el.querySelector('#rhNext').onclick=()=>{ const n=dataPlus(rapData,1); if(n<=dzisiaj()){ rapData=n; odsw(); } };
+  el.querySelector('#rhDzis').onclick=()=>{ rapData=dzisiaj(); odsw(); };
+}
+
+/* ---------- Zestawienie miesięczne ---------- */
+function rapMiesiacWidok(el){
+  const dni = Object.values(store.zywienie).filter(d=>d.lokalizacja===rapLok && (d.data||'').startsWith(rapMiesiac) && d.data<=dzisiaj())
+    .map(d=>d.data).sort();
+  const agg = {};
+  dni.forEach(data=>analizaDnia(rapLok, data, false).forEach(p=>{
+    if(!(p.zadaneKg>0)) return;
+    const a = agg[p.gid] || (agg[p.gid] = {nazwa:p.nazwa, kolejnosc:p.kolejnosc, dni:0, dniPotw:0, dniZnane:0,
+      sztDni:0, plan:0, zad:0, odzysk:0, koszt:0, planZn:0, zadZn:0, nied:0, pobr:0, sztDniZn:0});
+    a.dni++; if(p.potw) a.dniPotw++;
+    a.sztDni += p.sztuk; a.plan += p.planKg; a.zad += p.zadaneKg; a.odzysk += p.odzysk; a.koszt += p.koszt;
+    if(p.niedojadyKg!=null){ a.dniZnane++; a.planZn += p.planKg; a.zadZn += p.zadaneKg; a.nied += p.niedojadyKg; a.pobr += p.pobraneKg; a.sztDniZn += p.sztuk; }
+  }));
+  const lista = Object.values(agg).sort((a,b)=>a.kolejnosc-b.kolejnosc);
+  const S = k => lista.reduce((s,a)=>s+a[k],0);
+
+  el.innerHTML=`
+  <div style="padding:12px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:end;border-bottom:1px solid var(--linia)">
+    <div class="pole-grupa" style="margin:0"><label>Miesiąc</label><input type="month" id="rmM" value="${rapMiesiac}"></div>
+    <span style="flex:1"></span>${lista.length?przyciskEksportu('#tabMiesiac','miesiac_'+rapLok+'_'+rapMiesiac,'Zestawienie miesięczne — '+nazwaLokalizacji(rapLok)+' '+rapMiesiac):''}
+  </div>
+  ${lista.length?`<div class="przewijak"><table class="gt-tabela" id="tabMiesiac">
+    <thead><tr><th>Grupa</th><th class="num">Dni<br>(potw.)</th>
+      <th class="num">Śr. plan<br>kg/szt</th><th class="num">Śr. zadane<br>kg/szt</th><th class="num">%<br>zadania</th>
+      <th class="num">Dni z<br>niedojadami</th><th class="num">Śr. pobranie<br>kg/szt</th><th class="num">%<br>pobrania</th>
+      <th class="num">Niedojady<br>%</th><th class="num">♻ Odzysk<br>kg</th>
+      <th class="num">Koszt<br>zł/szt/dobę</th><th class="num">Koszt<br>zł</th></tr></thead>
+    <tbody>${lista.map(a=>{
+      const procZ = a.plan>0 ? a.zad/a.plan*100 : null;
+      const procP = a.planZn>0 ? a.pobr/a.planZn*100 : null;
+      const procN = a.zadZn>0 ? a.nied/a.zadZn*100 : null;
+      return `<tr><td><b>${esc(a.nazwa)}</b></td><td class="num">${a.dni} <span class="podpis">(${a.dniPotw})</span></td>
+        <td class="num">${fmt(a.sztDni?a.plan/a.sztDni:0,2)}</td>
+        <td class="num"><b>${fmt(a.sztDni?a.zad/a.sztDni:0,2)}</b></td>${procKomorka(procZ)}
+        <td class="num">${a.dniZnane}</td>
+        <td class="num"><b>${a.sztDniZn?fmt(a.pobr/a.sztDniZn,2):'—'}</b></td>${procKomorka(procP)}
+        <td class="num">${procN!=null?fmt(procN,1)+'%':'—'}</td>
+        <td class="num">${a.odzysk>0.5?'<span class="odzysk">'+fmt(a.odzysk,0)+'</span>':'—'}</td>
+        <td class="num">${fmt(a.sztDni?a.koszt/a.sztDni:0,2)}</td><td class="num">${fmt(a.koszt,0)}</td></tr>`;
+    }).join('')}
+    <tr class="suma"><td>SUMA</td><td class="num">${dni.length} dni</td><td></td><td></td>${procKomorka(S('plan')>0?S('zad')/S('plan')*100:null)}
+      <td></td><td></td>${procKomorka(S('planZn')>0?S('pobr')/S('planZn')*100:null)}
+      <td class="num">${S('zadZn')>0?fmt(S('nied')/S('zadZn')*100,1)+'%':'—'}</td>
+      <td class="num">${fmt(S('odzysk'),0)}</td><td></td><td class="num">${fmt(S('koszt'),0)} zł</td></tr>
+    </tbody></table></div>
+    <div class="podpis" style="padding:8px 14px">Średnie ważone liczbą sztuk. Pobranie i niedojady liczone tylko z dni, w których wpisano niedojady
+      (zebrane następnego dnia rano w Paszowozie). Koszt od świeżego TMR.</div>`
+  :'<div class="pusto">Brak danych za ten miesiąc.</div>'}`;
+
+  el.querySelector('#rmM').onchange=e=>{ if(e.target.value){ rapMiesiac=e.target.value; renderRaporty(document.getElementById('widok')); } };
+}
+
+/* ---------- Zużycie surowców ---------- */
+function rapZuzycie(el){
+  const dni = Object.values(store.zywienie).filter(d=>d.lokalizacja===rapLok && d.data>=rapOdDo.od && d.data<=rapOdDo.do).map(d=>d.data);
+  const zuz = {};
+  dni.forEach(data=>zuzycieZPozycji(analizaDnia(rapLok, data, false), zuz));
+  const ma = Object.values(zuz).some(kg=>kg>0.005);
+
+  el.innerHTML=`
+  <div style="padding:12px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:end;border-bottom:1px solid var(--linia)">
+    <div class="pole-grupa" style="margin:0"><label>Od</label><input type="date" id="rzOd" value="${rapOdDo.od}"></div>
+    <div class="pole-grupa" style="margin:0"><label>Do</label><input type="date" id="rzDo" value="${rapOdDo.do}"></div>
+    <span style="flex:1"></span>${ma?przyciskEksportu('#tabZuzycie','zuzycie_'+rapLok,'Zużycie surowców — '+nazwaLokalizacji(rapLok)+' '+dataPL(rapOdDo.od)+' – '+dataPL(rapOdDo.do)):''}
+  </div>
+  ${ma ? `<div style="padding:10px 14px">${tabelaZuzyciaHTML(zuz,'tabZuzycie')}</div>
+    <div class="podpis" style="padding:0 14px 10px">Świeży TMR z ${dni.length} dni (wozy i wpisy dzienne). Niedojady domieszane ponownie nie są liczone drugi raz.</div>`
+  :'<div class="pusto">Brak wpisów żywienia w tym okresie.</div>'}`;
+
+  el.querySelector('#rzOd').onchange=e=>{rapOdDo.od=e.target.value;renderRaporty(document.getElementById('widok'));};
+  el.querySelector('#rzDo').onchange=e=>{rapOdDo.do=e.target.value;renderRaporty(document.getElementById('widok'));};
 }
 
 /* ---------- Zmiany dawek: stan aktualny + rejestr z historycznymi tabelami ---------- */
@@ -4260,167 +4436,6 @@ function dawkiZDnia(data){
   return store.dawki;
 }
 
-/* ---------- Historia żywienia: macierz realnego składu z wybranego dnia ---------- */
-function rapHistoria(el){
-  if(!rapData) rapData = dzisiaj();
-  const poz = pozycjeDnia(rapLok, rapData);
-  const dokWcz = dokDnia(rapLok, dataMinus(rapData,1));
-  const nazwaLok = rapLok==='nadarzyn'?'Nadarzyn':'Boguszyny';
-  const sumSzt = poz.reduce((s,p)=>s+p.sztuk,0);
-  const sumKoszt = poz.reduce((s,p)=>s+p.koszt,0);
-  const ilePotw = poz.filter(p=>p.potw).length;
-
-  el.innerHTML = `
-  <div style="padding:12px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:end;border-bottom:1px solid var(--linia)">
-    <div class="pole-grupa" style="margin:0"><label>Dzień</label>
-      <input type="date" id="rhData" value="${rapData}" max="${dzisiaj()}"></div>
-    <button class="btn szary maly" id="rhPrev">‹ Poprzedni</button>
-    <button class="btn szary maly" id="rhNext">Następny ›</button>
-    <button class="btn szary maly" id="rhDzis">Dziś</button>
-    <span style="flex:1"></span>
-    <span class="podpis">${poz.length} grup · ${sumSzt} szt · ${ilePotw} potwierdzonych</span>
-  </div>
-  ${!poz.length ? `<div class="pusto">Brak zapisu żywienia za ${dataPL(rapData)} w lokalizacji ${nazwaLok}.</div>` : `
-  <div class="panel-tyt" style="border-bottom:1px solid var(--linia)">
-    Realny skład dawek — ${nazwaLok}, ${dataPL(rapData)}
-    <span class="licznik">kg surowca / sztukę / dobę</span>
-    <span style="flex:1"></span>
-    <span class="podpis">koszt dnia: ${fmt(sumKoszt,0)} zł</span>
-    ${przyciskEksportu('#macierzHist','sklad_'+rapLok+'_'+rapData,'Realny skład dawek — '+nazwaLok+' '+dataPL(rapData))}
-  </div>
-  ${macierzSurowcowa(poz, dokWcz, {id:'macierzHist'})}
-
-  <div class="panel-tyt" style="border-top:8px solid var(--tlo)">Podsumowanie grup<span style="flex:1"></span>
-    ${przyciskEksportu('#tabHistPodsum','podsumowanie_'+rapLok+'_'+rapData,'Podsumowanie grup — '+nazwaLok+' '+dataPL(rapData))}</div>
-  <div class="przewijak"><table class="gt-tabela" id="tabHistPodsum">
-    <thead><tr><th>Grupa</th><th class="num">Sztuk</th><th class="num">Wyliczona<br>kg/szt</th>
-    <th class="num">Odzysk<br>kg</th><th class="num">Świeży TMR<br>kg</th><th class="num">Podane<br>kg</th>
-    <th class="num">Podane<br>kg/szt</th><th class="num">% realiz.</th>
-    <th class="num">Niedojady<br>kg</th><th class="num">Pobranie<br>kg/szt</th><th class="num">Koszt zł</th></tr></thead>
-    <tbody>
-      ${poz.map(p=>{
-        const kol = Math.abs(p.proc-100)<=3?'var(--zielony-ok)':(Math.abs(p.proc-100)<=10?'var(--zolty)':'var(--czerwony)');
-        return `<tr>
-        <td><b>${esc(p.nazwa)}</b>${p.potw?'':' <span class="plakietka auto">plan</span>'}</td>
-        <td class="num">${p.sztuk}</td>
-        <td class="num">${fmt(p.wylicz,1)}</td>
-        <td class="num">${p.odzysk?'<span style="color:#7a5c00;font-weight:600">'+fmt(p.odzysk,0)+'</span>':'—'}</td>
-        <td class="num">${fmt(p.swiezy,0)}</td>
-        <td class="num">${fmt(p.zadaneKg,0)}</td>
-        <td class="num"><b>${fmt(p.perSzt,2)}</b></td>
-        <td class="num" style="color:${kol};font-weight:700">${fmt(p.proc,0)}%</td>
-        <td class="num">${p.z.niedojadyKg!=null?fmt(p.z.niedojadyKg,0):'—'}</td>
-        <td class="num"><b>${fmt(p.pobr,1)}</b></td>
-        <td class="num">${fmt(p.koszt,0)}</td>
-      </tr>`;}).join('')}
-      <tr class="suma"><td>SUMA</td><td class="num">${sumSzt}</td><td class="num"></td>
-        <td class="num">${fmt(poz.reduce((s,p)=>s+p.odzysk,0),0)}</td>
-        <td class="num">${fmt(poz.reduce((s,p)=>s+p.swiezy,0),0)}</td>
-        <td class="num">${fmt(poz.reduce((s,p)=>s+p.zadaneKg,0),0)}</td>
-        <td class="num"></td><td class="num"></td>
-        <td class="num">${fmt(poz.reduce((s,p)=>s+(p.z.niedojadyKg||0),0),0)}</td>
-        <td class="num"></td><td class="num">${fmt(sumKoszt,0)} zł</td></tr>
-    </tbody>
-  </table></div>`}`;
-
-  el.querySelector('#rhData').onchange=e=>{rapData=e.target.value;renderRaporty(document.getElementById('widok'));};
-  el.querySelector('#rhPrev').onclick=()=>{rapData=dataMinus(rapData,1);renderRaporty(document.getElementById('widok'));};
-  el.querySelector('#rhNext').onclick=()=>{
-    const n=dataPlus(rapData,1); if(n<=dzisiaj()){rapData=n;renderRaporty(document.getElementById('widok'));}
-    else toast('To już dziś.');
-  };
-  el.querySelector('#rhDzis').onclick=()=>{rapData=dzisiaj();renderRaporty(document.getElementById('widok'));};
-}
-
-/* ---------- Zestawienie miesięczne ---------- */
-function rapMiesiacWidok(el){
-  const dni=Object.values(store.zywienie).filter(d=>d.lokalizacja===rapLok && (d.data||'').startsWith(rapMiesiac));
-  const agg={};
-  dni.forEach(d=>Object.entries(d.grupy||{}).forEach(([gid,z])=>{
-    const potw = z.zadaneKg!=null;
-    const zadEff = potw ? z.zadaneKg : (z.dawkaWyliczonaKgSzt||0)*(z.sztuk||0);
-    if(!zadEff) return;
-    const a=agg[gid]||(agg[gid]={dni:0,dniPotw:0,sumPobrKgSzt:0,sumNiedoj:0,sumZadane:0,sumOdzysk:0,sumKoszt:0,sumSzt:0,nazwa:store.grupyTech[gid]?.nazwa||z.nazwaGrupy||'?'});
-    const pobr=(z.sztuk>0)?(zadEff-(z.niedojadyKg||0))/z.sztuk:0;
-    const odzysk=z.niedojadyDodaneKg||0;
-    const swiezy=Math.max(0,zadEff-odzysk);
-    a.dni++; if(potw) a.dniPotw++;
-    a.sumPobrKgSzt+=pobr; a.sumNiedoj+=(z.niedojadyKg||0); a.sumZadane+=zadEff;
-    a.sumOdzysk+=odzysk;
-    a.sumKoszt+=swiezy*(z.kosztKgTMR||0); a.sumSzt+=(z.sztuk||0);
-  }));
-  const lista=Object.values(agg);
-  const sumKoszt=lista.reduce((s,a)=>s+a.sumKoszt,0);
-
-  el.innerHTML=`
-  <div style="padding:12px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:end;border-bottom:1px solid var(--linia)">
-    <div class="pole-grupa" style="margin:0"><label>Miesi\u0105c</label><input type="month" id="rmM" value="${rapMiesiac}"></div>
-    <span style="flex:1"></span>${lista.length?przyciskEksportu('#tabMiesiac','miesiac_'+rapLok+'_'+rapMiesiac,'Zestawienie miesi\u0119czne — '+rapMiesiac):''}
-  </div>
-  ${lista.length?`<div class="przewijak"><table class="gt-tabela" id="tabMiesiac">
-    <thead><tr><th>Grupa</th><th class="num">Dni<br>(potwierdzone)</th><th class="num">\u015arednie pobranie<br>kg/szt/dob\u0119</th>
-    <th class="num">\u015arednie<br>niedojady %</th><th class="num">Odzysk<br>kg \u0142\u0105cznie</th>
-    <th class="num">Koszt<br>z\u0142/szt/dob\u0119</th><th class="num">Koszt \u0142\u0105cznie<br>z\u0142</th></tr></thead>
-    <tbody>${lista.map(a=>{
-      const srPobr=a.dni?a.sumPobrKgSzt/a.dni:0;
-      const srNied=a.sumZadane?(a.sumNiedoj/a.sumZadane)*100:0;
-      const srSzt=a.dni?a.sumSzt/a.dni:0;
-      const kosztSzt=(srSzt>0&&a.dni>0)?a.sumKoszt/(srSzt*a.dni):0;
-      return `<tr><td><b>${esc(a.nazwa)}</b></td><td class="num">${a.dni} <span class="podpis">(${a.dniPotw})</span></td>
-        <td class="num"><b>${fmt(srPobr,1)}</b></td>
-        <td class="num" style="color:${srNied<=3?'var(--zielony-ok)':srNied<=8?'var(--zolty)':'var(--czerwony)'};font-weight:700">${fmt(srNied,1)}%</td>
-        <td class="num">${a.sumOdzysk?'<span style="color:#7a5c00;font-weight:600">'+fmt(a.sumOdzysk,0)+'</span>':'\u2014'}</td>
-        <td class="num">${fmt(kosztSzt,2)}</td><td class="num">${fmt(a.sumKoszt,0)}</td></tr>`;
-    }).join('')}
-    <tr class="suma"><td>SUMA</td><td class="num"></td><td class="num"></td><td class="num"></td>
-      <td class="num">${fmt(lista.reduce((s,a)=>s+a.sumOdzysk,0),0)}</td><td class="num"></td><td class="num">${fmt(sumKoszt,0)} z\u0142</td></tr>
-    </tbody></table></div>`
-  :'<div class="pusto">Brak danych za ten miesi\u0105c.</div>'}`;
-
-  el.querySelector('#rmM').onchange=e=>{rapMiesiac=e.target.value;renderRaporty(document.getElementById('widok'));};
-}
-
-/* ---------- Zużycie surowców ---------- */
-function rapZuzycie(el){
-  const dni=Object.values(store.zywienie).filter(d=>d.lokalizacja===rapLok && d.data>=rapOdDo.od && d.data<=rapOdDo.do);
-  const zuz={};
-  dni.forEach(d=>Object.entries(d.grupy||{}).forEach(([gid,z])=>{
-    const skl=z.skladniki || obliczGrupe(store.grupyTech[gid]||{dawki:[]}).skladniki;
-    const planKgSzt=z.dawkaWyliczonaKgSzt||0;
-    const planGrupa=planKgSzt*(z.sztuk||0);
-    const zadEff = z.zadaneKg!=null ? z.zadaneKg : planGrupa;   // brak wpisu = plan
-    const swiezy = Math.max(0, zadEff - (z.niedojadyDodaneKg||0)); // odzysk nie zużywa świeżych surowców
-    if(!swiezy) return;
-    const wsp=planGrupa>0 ? swiezy/planGrupa : 0;
-    (skl||[]).forEach(sk=>{
-      zuz[sk.surowiecId]=(zuz[sk.surowiecId]||0)+sk.kg*(z.sztuk||0)*wsp;
-    });
-  }));
-  const lista=Object.entries(zuz).map(([sid,kg])=>{
-    const sur=store.surowce[sid];
-    return {nazwa:sur?.nazwa||'?', kg, zl:kg*((sur?.cenaTona||0)/1000)};
-  }).sort((a,b)=>b.zl-a.zl);
-  const sumZl=lista.reduce((s,x)=>s+x.zl,0), sumKg=lista.reduce((s,x)=>s+x.kg,0);
-
-  el.innerHTML=`
-  <div style="padding:12px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:end;border-bottom:1px solid var(--linia)">
-    <div class="pole-grupa" style="margin:0"><label>Od</label><input type="date" id="rzOd" value="${rapOdDo.od}"></div>
-    <div class="pole-grupa" style="margin:0"><label>Do</label><input type="date" id="rzDo" value="${rapOdDo.do}"></div>
-    <span style="flex:1"></span>${lista.length?przyciskEksportu('#tabZuzycie','zuzycie_'+rapLok,'Zu\u017cycie surowc\u00f3w '+dataPL(rapOdDo.od)+' — '+dataPL(rapOdDo.do)):''}
-  </div>
-  ${lista.length?`<div class="przewijak"><table class="gt-tabela" id="tabZuzycie">
-    <thead><tr><th>Surowiec</th><th class="num">Zu\u017cycie kg</th><th class="num">Zu\u017cycie t</th><th class="num">Warto\u015b\u0107 z\u0142</th></tr></thead>
-    <tbody>${lista.map(x=>`<tr><td>${esc(x.nazwa)}</td><td class="num">${fmt(x.kg,2)}</td>
-      <td class="num">${fmt(x.kg/1000,3)}</td><td class="num">${fmt(x.zl,2)}</td></tr>`).join('')}
-    <tr class="suma"><td>SUMA</td><td class="num">${fmt(sumKg,0)}</td><td class="num">${fmt(sumKg/1000,2)}</td><td class="num">${fmt(sumZl,0)} z\u0142</td></tr>
-    </tbody></table></div>
-    <div class="podpis" style="padding:8px 14px">Liczone z faktycznie zadanych kg i receptur dawek obowi\u0105zuj\u0105cych w dniu wpisu.</div>`
-  :'<div class="pusto">Brak wpis\u00f3w \u017cywienia w tym okresie.</div>'}`;
-
-  el.querySelector('#rzOd').onchange=e=>{rapOdDo.od=e.target.value;renderRaporty(document.getElementById('widok'));};
-  el.querySelector('#rzDo').onchange=e=>{rapOdDo.do=e.target.value;renderRaporty(document.getElementById('widok'));};
-}
-
 /* ---------- Produkcja mieszalni ---------- */
 function rapProdukcja(el){
   const p=Object.values(store.produkcja)
@@ -4449,21 +4464,42 @@ function rapProdukcja(el){
   el.querySelector('#rpDo').onchange=e=>{rapOdDo.do=e.target.value;renderRaporty(document.getElementById('widok'));};
 }
 
-/* ---------- Historia dawek (snapshoty) ---------- */
+/* ---------- Historia dawek: zapisane wersje (snapshoty) z eksportem ---------- */
+let snapRozwiniety = null;
 function rapSnapshoty(el){
-  const s=Object.values(store.snapshoty).sort((a,b)=>(b.ts||0)-(a.ts||0));
-  el.innerHTML = s.length ? s.map(x=>{
-    const d=new Date(x.ts||0);
-    const ile=Object.keys(x.dane||{}).length;
-    return `<div class="hist-row"><span class="data">${dataPL(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))}</span>
-      <span class="podpis">${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}</span>
-      <b>${esc(x.typ||'dawki')}</b><span>${ile} pozycji</span>
-      <span class="podpis">${esc(x.autor||'')}</span></div>`;
-  }).join('') : '<div class="pusto">Brak zapisanych wersji. Snapshot powstaje automatycznie po zmianie dawek (co najwy\u017cej raz na godzin\u0119).</div>';
+  const s = Object.values(store.snapshoty).sort((a,b)=>(b.ts||0)-(a.ts||0));
+  const dataZ = x => x.data || (x.ts ? new Date(x.ts).toISOString().slice(0,10) : '');
+  el.innerHTML = `
+  <div style="padding:12px 14px;border-bottom:1px solid var(--linia);display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <span class="podpis">Wersja dawek zapisuje się automatycznie po zmianie (najwyżej raz na godzinę). Kliknij wiersz, żeby zobaczyć pełną tabelę.</span>
+    <span style="flex:1"></span>
+    ${s.length?przyciskEksportu('#tabSnapshoty','historia_dawek','Historia dawek — zapisane wersje'):''}
+  </div>
+  ${s.length ? `<div class="przewijak"><table class="gt-tabela" id="tabSnapshoty">
+    <thead><tr><th>Data</th><th>Godzina</th><th>Rodzaj</th><th class="num">Grup żywieniowych</th><th>Kto</th></tr></thead>
+    <tbody>${s.map(x=>{
+      const d = new Date(x.ts||0);
+      const rozw = snapRozwiniety===x.id;
+      return `<tr data-snap="${esc(x.id)}" style="cursor:pointer" class="${rozw?'rozwiniety':''}">
+        <td><b>${rozw?'▾':'▸'} ${dataPL(dataZ(x))}</b></td>
+        <td>${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}</td>
+        <td>${esc(x.typ||'dawki')}</td><td class="num">${Object.keys(x.dane||{}).length}</td>
+        <td class="podpis">${esc(x.autor||'')}</td></tr>
+        ${rozw?`<tr class="det-wiersz"><td colspan="5">
+          <div class="panel-tyt" style="background:#fafcfa">Dawki — wersja z ${dataPL(dataZ(x))}<span style="flex:1"></span>
+            ${przyciskEksportu('#macSnap','dawki_wersja_'+dataZ(x),'Dawki — wersja z '+dataPL(dataZ(x)))}</div>
+          ${macierzDawekHTML(x.dane||{}, {id:'macSnap'})}</td></tr>`:''}`;
+    }).join('')}</tbody></table></div>`
+  : '<div class="pusto">Brak zapisanych wersji. Wersja powstaje automatycznie po zmianie dawek.</div>'}`;
+  el.querySelectorAll('[data-snap]').forEach(tr=>{
+    tr.onclick = e=>{
+      if(e.target.closest('button')) return;
+      snapRozwiniety = snapRozwiniety===tr.dataset.snap ? null : tr.dataset.snap;
+      renderRaporty(document.getElementById('widok'));
+    };
+  });
 }
 
-
-/* ===================== USTAWIENIA ========================================= */
 function oknoUstawienia(){
   const st = store.config.settings || {};
   const mozeHasla = ROLE[rolaAkt]?.hasla;
@@ -4573,7 +4609,10 @@ function oknoUstawienia(){
             if(r==='tworca') return;   // pomijamy — Twórca nietykalny
             (upr[r] ||= {})[z] = v || 'brak';
           });
-          noweUprawnienia = upr;
+          // zapisujemy tylko faktyczną zmianę — inaczej „zamrażalibyśmy” domyślne uprawnienia
+          const biezace = {};
+          Object.keys(upr).forEach(r=>{ biezace[r]={}; Object.keys(upr[r]).forEach(z=>{ biezace[r][z]=ROLE[r]?.zakl?.[z]||'brak'; }); });
+          if(JSON.stringify(biezace)!==JSON.stringify(upr)) noweUprawnienia = upr;
         }
         // Teraz bezpiecznie zapisujemy — inputy już nie są potrzebne
         await DB.zapisz('config','settings',dane);
@@ -4719,7 +4758,7 @@ document.getElementById('btnInstaluj').onclick = async () => {
 };
 
 /* ===================== REAKCJA NA ZMIANY DANYCH =========================== */
-['surowce','dawki','mieszanki','grupyTech','produkcja','zywienie'].forEach(kol=>{
+['surowce','dawki','mieszanki','grupyTech','produkcja','zywienie','paszowozy','zmianyDawek','wersjeDawek','snapshoty'].forEach(kol=>{
   nasluchuj(kol, ()=>{
     if(!rolaAkt) return;
     const akt = document.activeElement;
@@ -4731,8 +4770,10 @@ document.getElementById('btnInstaluj').onclick = async () => {
 nasluchuj('config', ()=>{
   if(!rolaAkt) return;
   document.getElementById('hNazwa').textContent = store.config.settings?.nazwaGospodarstwa || 'OHZ Lubiana';
-  // Uprawnienia mogły się zmienić — przebuduj pasek zakładek
-  if(typeof zbudujTaby === 'function') zbudujTaby();
+  // Uprawnienia mogły się zmienić — pasek zakładek przebudowujemy TYLKO gdy faktycznie
+  // zmienił się zestaw dostępnych zakładek (inaczej każdy zapis konfiguracji skakał na górę strony)
+  const podpis = ZAKLADKI.map(z=>z.id+':'+(poziom(z.id)||'')).join('|');
+  if(podpis!==podpisZakladek){ podpisZakladek = podpis; zbudujTaby(); return; }
   // Kolejność wierszy macierzy siedzi w config/ukladDawki — bez tego strzałki nie odświeżały widoku
   const akt = document.activeElement;
   if(akt && akt.tagName==='INPUT' && akt.closest && akt.closest('#macierzDawek')) return;
