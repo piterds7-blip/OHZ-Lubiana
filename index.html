@@ -532,7 +532,7 @@ const firebaseConfig = {
 };
 /* ###############  KONIEC KONFIGURACJI  ##################### */
 
-const WERSJA_APP = '1.3.1 (przywracanie z kopii)';
+const WERSJA_APP = '1.3.2 (karta zbiorcza na 1 stronę)';
 const SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
 
 /* ===================== SHA-256 (czysty JS, bez zależności) ================= */
@@ -657,8 +657,19 @@ function nowyId(){
   return (Date.now().toString(36) + Math.random().toString(36).slice(2,8));
 }
 
+/* Każda zmiana dawek, grup, surowców (ceny) lub mieszanek przez użytkownika odświeża
+   pełną kopię dnia (snapshot) — z odstępem kilku sekund, żeby nie pisać przy każdym polu. */
+const KOL_KOPII = ['dawki','grupyTech','surowce','mieszanki'];
+let kopiaTimer = null;
+function zaplanujKopieDnia(kolekcja){
+  if(!rolaAkt || !KOL_KOPII.includes(kolekcja)) return;
+  clearTimeout(kopiaTimer);
+  kopiaTimer = setTimeout(()=>{ try{ zapiszSnapshotDnia(); }catch(e){ console.error(e); } }, 4000);
+}
+
 const DB = {
   async zapisz(kolekcja, id, dane){
+    zaplanujKopieDnia(kolekcja);
     id = id || nowyId();
     store[kolekcja][id] = {...(store[kolekcja][id]||{}), ...dane, id};
     powiadom(kolekcja);
@@ -674,6 +685,7 @@ const DB = {
   /* Zapis CAŁEGO dokumentu (bez scalania). Firestore przy merge:true scala zagnieżdżone
      mapy, więc usunięta grupa/wóz zostawałby na serwerze — tu dokument jest zastępowany. */
   async zapiszCaly(kolekcja, id, dane){
+    zaplanujKopieDnia(kolekcja);
     store[kolekcja][id] = {...dane, id};
     powiadom(kolekcja);
     zapiszCache(kolekcja);
@@ -686,6 +698,7 @@ const DB = {
     return id;
   },
   async usun(kolekcja, id){
+    zaplanujKopieDnia(kolekcja);
     delete store[kolekcja][id];
     powiadom(kolekcja);
     zapiszCache(kolekcja);
@@ -1184,6 +1197,7 @@ function zaloguj(rola){
   document.getElementById('hRola').textContent  = ROLE[rola].nazwa;
   zbudujTaby();
   stanSync(stanBiezacy);
+  przypomnienieBackupu();
 }
 
 function wyloguj(){
@@ -2169,6 +2183,29 @@ function drukujHTML(html, tytul, opcje){
   const fTh = duzy ? (zb?'14px':'18px') : (poziom ? (maxKol>14?'10px':'12px') : '13px');
   const pad = duzy ? (zb?'7px 6px':'11px 12px') : (poziom ? '5px 5px' : '8px 10px');
   const st = store.config.settings?.nazwaGospodarstwa || 'OHZ Lubiana';
+  const jedna = !!opcje.jednaStrona;
+  // Tryb „cała karta na jednej stronie”: czcionka startuje duża i maleje, aż tabela zmieści się na A4
+  const css1 = jedna ? `
+      body{padding:0 !important;width:${poziom?'279mm':'192mm'}}
+      #strona{--fs:26px}
+      table.karta-zb{width:100%;border-collapse:collapse;margin:0;table-layout:auto}
+      table.karta-zb th{font-size:calc(var(--fs)*.82);padding:.2em .25em;line-height:1.1;white-space:nowrap;vertical-align:bottom}
+      table.karta-zb th b{display:block;font-size:1.08em}
+      table.karta-zb th span{display:block;font-weight:400;font-size:.68em;white-space:normal;max-width:6.5em;margin:0 auto;line-height:1.1}
+      table.karta-zb td{font-size:var(--fs);padding:.06em .3em;font-weight:700;white-space:nowrap;border:1px solid #888}
+      table.karta-zb td.pierw small{font-weight:400;font-size:.72em;color:#444}
+      table.karta-zb tr.nd td{background:#fff1cc}
+      table.karta-zb td.pusta{background:#e9e9e9 !important}
+      table.karta-zb tr.suma td{border-top:3px solid #14532d;background:#dcebe0;font-weight:900}
+      table.karta-zb tr.sep td{background:#14532d !important;color:#fff;font-weight:800;font-size:calc(var(--fs)*.85);border-color:#0d3d20}
+      table.karta-zb tr:last-child td{font-size:var(--fs)}` : '';
+  const skrypt1 = jedna ? `<script>(function(){
+      var s=document.getElementById('strona'), t=s.querySelector('table'); if(!t) return;
+      var m=document.createElement('div'); m.style.height='${poziom?'192mm':'279mm'}'; document.body.appendChild(m);
+      var H=m.offsetHeight; m.remove();
+      var dost=H - s.getBoundingClientRect().top - 6, W=s.clientWidth, fs=26;
+      while(fs>7 && (t.offsetHeight>dost || t.scrollWidth>W+1)){ fs-=0.5; s.style.setProperty('--fs', fs+'px'); }
+    })();<\/script>` : '';
   const dok = `<!DOCTYPE html><html lang="pl"><head><meta charset="utf-8">
     <title>${esc(tytul)}</title>
     <style>
@@ -2194,10 +2231,11 @@ function drukujHTML(html, tytul, opcje){
       .plakietka,.podpis{font-size:.8em;font-weight:400;color:#555}
       .nazwa-kol{display:block}
       a{color:#000;text-decoration:none}
+      ${css1}
     </style></head><body>
     <h1>${esc(tytul)}</h1>
     <div class="meta">${esc(st)} · wydruk ${dataPL(dzisiaj())} ${new Date().toTimeString().slice(0,5)} · ${esc(ROLE[rolaAkt]?.nazwa||'')}</div>
-    ${html}
+    ${jedna ? '<div id="strona">'+html+'</div>'+skrypt1 : html}
     </body></html>`;
   const okno = window.open('', '_blank', 'width=1200,height=800');
   if(okno && okno.document){
@@ -2207,7 +2245,8 @@ function drukujHTML(html, tytul, opcje){
   }
   // Zablokowane okno (np. aplikacja zainstalowana na tablecie) — drukujemy przez ukrytą ramkę
   const ifr = document.createElement('iframe');
-  ifr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
+  // ramka musi mieć prawdziwy rozmiar, inaczej dopasowanie czcionki nie ma czego zmierzyć
+  ifr.style.cssText = 'position:fixed;left:-12000px;top:0;width:1200px;height:900px;border:0;opacity:0;pointer-events:none';
   document.body.appendChild(ifr);
   const d = ifr.contentDocument || ifr.contentWindow?.document;
   if(!d){ toast('Nie udało się otworzyć wydruku.', true); ifr.remove(); return; }
@@ -3215,43 +3254,53 @@ function kartaZaladunku(W){
     </table>`;
 }
 
-/* Zbiorcza karta — wszystkie wozy w jednej tabeli (A4 poziomo, do ~10 wozów) */
-function zbiorczaKartaZaladunku(lista){
+/* Zbiorcza karta — WSZYSTKO na jednej stronie A4 poziomo, układ jak arkusz zootechnika:
+   jedna tabela, wspólne kolumny wozów; u góry załadunek, pod paskiem rozwiezienie na sektory
+   z kontrolą kg/szt i % planu. Czcionka dobiera się w oknie wydruku do rozmiaru strony. */
+function zbiorczaKartaZaladunku(lista, lok, data){
   const uzyte = new Set();
-  lista.forEach(W=>Object.entries(W.sklSwiezy).forEach(([sid,kg])=>{ if(kg>0.05) uzyte.add(sid); }));
+  lista.forEach(W=>Object.entries(W.sklSwiezy).forEach(([sid,kg])=>{ if(kg>=0.5) uzyte.add(sid); }));
   const wiersze = wierszeSurowcow([...uzyte]);
-  const nag = lista.map(W=>`<th>${esc(W.woz.nazwa)}<br><span style="font-weight:400;font-size:.8em">${esc(W.opisRec||'')}</span></th>`).join('');
   const suma = f => lista.reduce((s,W)=>s+f(W),0);
   const maNd = lista.some(W=>W.nd>0);
+  const liczba0 = kg => kg>=0.5 ? fmt(kg,0) : '—';
+  const nag = lista.map(W=>`<th><b>${esc(W.woz.nazwa)}</b><span>${esc(skrotReceptury(W))}</span></th>`).join('');
   const sektory = [];
   lista.forEach(W=>(W.woz.rozdzielenie||[]).forEach(r=>{ if(r.grupaId && r.kg>0 && !sektory.includes(r.grupaId)) sektory.push(r.grupaId); }));
-  return `
-  <table>
-    <thead><tr><th>ZAŁADUNEK</th>${nag}<th>Razem</th></tr></thead>
+  sektory.sort((a,b)=>(store.grupyTech[a]?.kolejnosc??99)-(store.grupyTech[b]?.kolejnosc??99));
+  const zDnia = dokDnia(lok, data)?.grupy || {};
+  const puste = '<td class="pusta"></td><td class="pusta"></td>';
+  return `<table class="karta-zb">
+    <thead><tr><th class="pierw">${dataPL(data)}</th>${nag}<th><b>RAZEM</b></th><th>kg/szt</th><th>% planu</th></tr></thead>
     <tbody>
-      ${maNd?`<tr style="background:#fff3d6"><td>♻ 1. NIEDOJADY</td>${lista.map(W=>`<td>${W.nd>0?fmt(W.nd,0):'—'}</td>`).join('')}<td>${fmt(suma(W=>W.nd),0)}</td></tr>`:''}
-      ${wiersze.map(sid=>`<tr><td>${esc(store.surowce[sid]?.nazwa||'?')}</td>
-        ${lista.map(W=>{ const kg=W.sklSwiezy[sid]||0; return `<td>${kg>0.05?fmt(kg,0):'—'}</td>`; }).join('')}
-        <td>${fmt(suma(W=>W.sklSwiezy[sid]||0),0)}</td></tr>`).join('')}
-      ${maNd?`<tr><td>Świeży TMR</td>${lista.map(W=>`<td>${fmt(W.swiezy,0)}</td>`).join('')}<td>${fmt(suma(W=>W.swiezy),0)}</td></tr>`:''}
-      <tr><td>RAZEM DO WOZU</td>${lista.map(W=>`<td>${fmt(W.masa,0)}</td>`).join('')}<td>${fmt(suma(W=>W.masa),0)}</td></tr>
-    </tbody>
-  </table>
-  <h2>ROZWIEŹĆ NA SEKTORY</h2>
-  <table>
-    <thead><tr><th>Sektor</th><th>Sztuk</th>${lista.map(W=>`<th>${esc(W.woz.nazwa)}</th>`).join('')}<th>Razem kg</th><th>kg/szt</th></tr></thead>
-    <tbody>
+      ${maNd?`<tr class="nd"><td class="pierw">♻ NIEDOJADY (najpierw)</td>${lista.map(W=>`<td>${liczba0(W.nd)}</td>`).join('')}<td><b>${fmt(suma(W=>W.nd),0)}</b></td>${puste}</tr>`:''}
+      ${wiersze.map(sid=>`<tr><td class="pierw">${esc(store.surowce[sid]?.nazwa||'?')}</td>
+        ${lista.map(W=>`<td>${liczba0(W.sklSwiezy[sid]||0)}</td>`).join('')}
+        <td><b>${fmt(suma(W=>W.sklSwiezy[sid]||0),0)}</b></td>${puste}</tr>`).join('')}
+      <tr class="suma"><td class="pierw">RAZEM DO WOZU</td>${lista.map(W=>`<td>${fmt(W.masa,0)}</td>`).join('')}<td>${fmt(suma(W=>W.masa),0)}</td>${puste}</tr>
+      <tr class="sep"><td class="pierw" colspan="${lista.length+4}">ROZWIEŹĆ NA SEKTORY ↓</td></tr>
       ${sektory.map(gid=>{
-        const gr = store.grupyTech[gid];
+        const gr = store.grupyTech[gid], z = zDnia[gid];
+        const szt = z?.sztuk ?? gr?.sztuk ?? 0;
+        const plan = z?.dawkaWyliczonaKgSzt ?? (gr ? obliczGrupe(gr).kgSzt : 0);
         const kol = lista.map(W=>(W.woz.rozdzielenie||[]).filter(x=>x.grupaId===gid).reduce((s,x)=>s+(x.kg||0),0));
         const raz = kol.reduce((a,b)=>a+b,0);
-        return `<tr><td>${esc(gr?.nazwa||'?')}</td><td>${gr?.sztuk||0}</td>
-          ${kol.map(kg=>`<td>${kg>0?fmt(kg,0):'—'}</td>`).join('')}
-          <td>${fmt(raz,0)}</td><td>${gr?.sztuk>0?fmt(raz/gr.sztuk,2):'—'}</td></tr>`;
+        const perSzt = szt>0 ? raz/szt : 0;
+        const proc = plan>0 && szt>0 ? perSzt/plan*100 : null;
+        const kolor = proc==null ? '#000' : Math.abs(proc-100)<=3 ? '#15803d' : Math.abs(proc-100)<=10 ? '#a16207' : '#b91c1c';
+        return `<tr><td class="pierw">${esc(gr?.nazwa||z?.nazwaGrupy||'?')} <small>${szt} szt</small></td>
+          ${kol.map(kg=>`<td>${kg>0?fmt(kg,0):''}</td>`).join('')}
+          <td><b>${fmt(raz,0)}</b></td><td><b>${szt>0?fmt(perSzt,2):'—'}</b></td>
+          <td style="color:${kolor};font-weight:900">${proc==null?'—':fmt(proc,0)+'%'+(Math.abs(proc-100)>10?' ⚠':'')}</td></tr>`;
       }).join('')}
-      <tr><td>RAZEM</td><td></td>${lista.map(W=>`<td>${fmt(W.masa,0)}</td>`).join('')}<td>${fmt(suma(W=>W.masa),0)}</td><td></td></tr>
-    </tbody>
-  </table>`;
+      <tr class="suma"><td class="pierw">RAZEM</td>${lista.map(W=>`<td>${fmt(W.masa,0)}</td>`).join('')}<td>${fmt(suma(W=>W.masa),0)}</td><td></td><td></td></tr>
+    </tbody></table>`;
+}
+/* Krótki opis receptury do nagłówka kolumny: „Krowy lakt. 60% + Pierw. lakt. 40%” */
+function skrotReceptury(W){
+  const skr = s => String(s||'?').split(/\s+/).map(w=>w.length>6?w.slice(0,5)+'.':w).join(' ');
+  const r = W.rec.map(r=>skr(store.dawki[r.dawkaId]?.nazwa)+(W.rec.length>1?' '+fmt(r.udzial/W.sumaUdz*100,0)+'%':'')).join(' + ');
+  return r + (W.nd>0 ? ' + ♻' : '');
 }
 
 /* ---------- Widok ---------- */
@@ -3550,7 +3599,7 @@ function renderPaszowoz(w, lok){
   w.querySelector('#pzKartyWszystkie').onclick = ()=>{
     const L = W.filter(X=>X.liczony);
     if(!L.length){ toast('Brak wozów z recepturą i rozdzieleniem.', true); return; }
-    drukujHTML(zbiorczaKartaZaladunku(L), 'Karty załadunku — '+nazwaLok+' '+dataPL(data), {poziom:true, duzy:true, zbiorcza:true});
+    drukujHTML(zbiorczaKartaZaladunku(L, lok, data), 'Karta załadunku — '+nazwaLok+' '+dataPL(data), {poziom:true, jednaStrona:true});
   };
   w.querySelectorAll('[data-woz-karta]').forEach(b=>{
     b.onclick = e=>{
@@ -5053,6 +5102,29 @@ function eksportBackup(){
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
   toast('Pobrano kopię zapasową.');
+  DB.zapisz('config','settings',{ostatniBackup:dzisiaj()});
+}
+
+/* Twórca raz w tygodniu dostaje przypomnienie o pobraniu kopii zapasowej (.json) */
+function przypomnienieBackupu(){
+  if(rolaAkt!=='tworca') return;
+  const ost = store.config.settings?.ostatniBackup || null;
+  const dni = ost ? Math.round((Date.parse(dzisiaj())-Date.parse(ost))/86400000) : null;
+  if(dni!=null && dni<7) return;
+  let odl=null; try{ odl = localStorage.getItem('ohz_backup_pozniej'); }catch(e){}
+  if(odl===dzisiaj()) return;
+  setTimeout(()=>{
+    if(!document.getElementById('nakladka').hidden) return;
+    modal({tytul:'Kopia zapasowa',
+      tresc:`<p style="margin-top:0">${ost?`Ostatnia kopia zapasowa: <b>${dataPL(ost)}</b> (${dni} dni temu).`:'Nie pobrano jeszcze żadnej kopii zapasowej.'}</p>
+        <p class="podpis">Plik .json z pełnym stanem aplikacji (surowce z cenami, dawki, mieszanki, grupy, żywienie).
+        Trzymaj go poza aplikacją — na dysku albo w mailu. W razie awarii przywrócisz z niego wszystko narzędziem
+        „⟲ Przywróć dane z kopii” (Raporty → Historia dawek).</p>`,
+      przyciski:[
+        {tekst:'Przypomnij jutro', akcja:()=>{ try{ localStorage.setItem('ohz_backup_pozniej', dzisiaj()); }catch(e){} }},
+        {tekst:'⬇ Pobierz kopię teraz', klasa:'', akcja:()=>{ eksportBackup(); }}
+      ]});
+  }, 2500);
 }
 
 function importBackup(dane){

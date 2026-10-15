@@ -1,5 +1,5 @@
 /* OHZ Lubiana — Żywienie | service worker */
-const WERSJA = 'ohz-lubiana-v14';
+const WERSJA = 'ohz-lubiana-v15';
 const SHELL = [
   './',
   './index.html',
