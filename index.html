@@ -358,6 +358,12 @@ input.pole.potw{background:#f0faf3;border-color:#b9dfc6}
 .wiersz-odzysk td{background:#fff6dc !important}
 .gt-tabela tr.det-wiersz>td{padding:0;background:#fafcfa;cursor:default}
 .gt-tabela tr.det-wiersz:hover>td{background:#fafcfa}
+.prz-sekcja{border:1px solid var(--linia);border-radius:10px;padding:10px 12px;margin-bottom:12px;background:#fff}
+.prz-tyt{display:flex;gap:8px;align-items:center;font-weight:700;font-size:14.5px;margin-bottom:8px;flex-wrap:wrap}
+.prz-tab td{vertical-align:top}
+.prz-tab input[type=checkbox]{width:20px;height:20px}
+.prz-roz{line-height:1.6;min-width:320px}
+.baner-przywr{background:#fdecea;color:#7a1d14;border:1px solid #f3b8b0;border-radius:10px;padding:10px 14px;margin:0 0 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .ikonka.dodaj{color:var(--zielen);font-weight:700;font-size:16px;padding:0 6px}
 @media(max-width:700px){
   .pz-siatka{grid-template-columns:1fr;padding:8px}
@@ -526,7 +532,7 @@ const firebaseConfig = {
 };
 /* ###############  KONIEC KONFIGURACJI  ##################### */
 
-const WERSJA_APP = '1.3.0 (niedojady i realne pobranie)';
+const WERSJA_APP = '1.3.1 (przywracanie z kopii)';
 const SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
 
 /* ===================== SHA-256 (czysty JS, bez zależności) ================= */
@@ -789,7 +795,7 @@ function bladSplash(t){
   }
 
   await zasiej();
-  try{ await zastosujZaplanowane(); }catch(e){ console.error('Zaplanowane zmiany:', e); }
+  zastosujZaplanowane().catch(e=>console.error('Zaplanowane zmiany:', e));   // w tle, po danych z serwera
   stanSplash('Gotowe');
   document.getElementById('splash').hidden = true;
 
@@ -860,35 +866,10 @@ async function preloadConfig(){
   if(!pierwszySnapshot.config) console.warn('Konfiguracja nie dotarła w 8 s — działam na pamięci podręcznej.');
 }
 
-/* ---------- Zasiew danych startowych ---------- */
-async function zasiej(){
-  if(!store.config.settings){
-    await DB.zapisz('config','settings',{
-      nazwaGospodarstwa:'OHZ Lubiana',
-      waluta:'PLN',
-      jednostkaCeny:'zl_tona',        // ceny wprowadzane w zł/t, w obliczeniach zł/kg
-      kategorie:KATEGORIE_START,
-      wersja:WERSJA_APP
-    });
-  }
-  if(!store.config.passwords){
-    const hasla={}, jawne={};
-    for(const [k,v] of Object.entries(HASLA_STARTOWE)){ hasla[k]=sha256(v); jawne[k]=v; }
-    await DB.zapisz('config','passwords',{hasla, jawne, zmienione:dzisiaj()});
-    console.info('Zasiano hasła startowe:', HASLA_STARTOWE);
-  }
-  // Dane przykładowe — tylko gdy baza jest pusta
-  if(Object.keys(store.surowce).length===0) await zasiejPrzykladowe();
-  // Grupy technologiczne — osobny warunek, mogą być puste mimo istniejących surowców
-  else if(Object.keys(store.grupyTech).length===0) await zasiejGrupy();
-}
-
-async function zasiejPrzykladowe(){
-  console.info('Zasiewam dane przykładowe…');
-  const d = dzisiaj();
-
-  /* ===== SUROWCE ===== */
-  const S = [
+/* Dane przykładowe (startowe). Trzymane osobno, żeby narzędzie przywracania
+   umiało rozpoznać rekordy nadpisane nimi przez pomyłkę. */
+const PRZYKLADOWE = {
+  surowce:[
     // Pasze objętościowe
     {id:'sur_01', nazwa:'Kiszonka z kukurydzy',          kategoria:'Pasze objętościowe', cenaTona:180},
     {id:'sur_02', nazwa:'Kiszonka z traw',               kategoria:'Pasze objętościowe', cenaTona:160},
@@ -918,17 +899,8 @@ async function zasiejPrzykladowe(){
     {id:'sur_20', nazwa:'Tlenek magnezu',                kategoria:'Mineralne i dodatki', cenaTona:3200},
     {id:'sur_21', nazwa:'Premiks mleczny 2%',            kategoria:'Mineralne i dodatki', cenaTona:6500},
     {id:'sur_22', nazwa:'Drożdże żywe',                  kategoria:'Mineralne i dodatki', cenaTona:12000},
-  ];
-  for(let i=0; i<S.length; i++){
-    const s=S[i];
-    await DB.zapisz('surowce', s.id, {
-      nazwa:s.nazwa, kategoria:s.kategoria, cenaTona:s.cenaTona,
-      dataCeny:d, kolejnosc:i+1, zMieszalni:false, mieszankaId:null, lokalizacja:null
-    });
-  }
-
-  /* ===== MIESZANKI (receptury w %) ===== */
-  const M = [
+  ],
+  mieszanki:[
     {id:'mix_01', nazwa:'Mineralna', surId:'sur_m1', skladniki:[
       {surowiecId:'sur_15', procent:30}, {surowiecId:'sur_16', procent:15},
       {surowiecId:'sur_21', procent:20}, {surowiecId:'sur_20', procent:15},
@@ -975,30 +947,8 @@ async function zasiejPrzykladowe(){
       {surowiecId:'sur_15', procent:4},  {surowiecId:'sur_21', procent:3},
       {surowiecId:'sur_16', procent:2},  {surowiecId:'sur_20', procent:1}
     ]}
-  ];
-
-  // Oblicz koszt mieszanki i dodaj jako surowiec
-  const cenySur = {};
-  S.forEach(s=> cenySur[s.id]=s.cenaTona);
-
-  for(let i=0; i<M.length; i++){
-    const m = M[i];
-    // Koszt zł/t = Σ (procent/100 × cenaTona składnika)
-    const kosztTona = m.skladniki.reduce((sum,sk)=> sum + (sk.procent/100)*(cenySur[sk.surowiecId]||0), 0);
-    const kosztKg = kosztTona / 1000;
-
-    await DB.zapisz('mieszanki', m.id, {
-      nazwa:m.nazwa, skladniki:m.skladniki, kosztKg:Math.round(kosztKg*10000)/10000
-    });
-    // Dodaj mieszankę jako surowiec
-    await DB.zapisz('surowce', m.surId, {
-      nazwa:m.nazwa, kategoria:'Mieszanka własna', cenaTona:Math.round(kosztTona*100)/100,
-      dataCeny:d, kolejnosc:S.length+i+1, zMieszalni:true, mieszankaId:m.id, lokalizacja:null
-    });
-  }
-
-  /* ===== DAWKI (10 grup żywieniowych — kg świeżej masy / szt / dobę) ===== */
-  const D = [
+  ],
+  dawki:[
     {id:'daw_01', nazwa:'Krowy laktacja', suchyTMR:false, kolejnosc:1, skladniki:[
       {surowiecId:'sur_01', kg:22},   {surowiecId:'sur_02', kg:8},
       {surowiecId:'sur_03', kg:5},    {surowiecId:'sur_12', kg:8},
@@ -1051,23 +1001,8 @@ async function zasiejPrzykladowe(){
       {surowiecId:'sur_02', kg:3},    {surowiecId:'sur_04', kg:1},
       {surowiecId:'sur_m7', kg:0.5}
     ]}
-  ];
-
-  for(const daw of D){
-    await DB.zapisz('dawki', daw.id, {
-      nazwa:daw.nazwa, suchyTMR:daw.suchyTMR,
-      skladniki:daw.skladniki, kolejnosc:daw.kolejnosc
-    });
-  }
-
-  console.info('Zasiano:', S.length, 'surowców,', M.length, 'mieszanek,', D.length, 'dawek');
-  await zasiejGrupy();
-}
-
-/* Grupy technologiczne obu lokalizacji — osobna funkcja, żeby dało się zasiać
-   niezależnie od tego, czy surowce i dawki już są w bazie. */
-async function zasiejGrupy(){
-  const GT = [
+  ],
+  grupy:[
     // NADARZYN
     {id:'gtn01',lok:'nadarzyn',nazwa:'GR 8',sztuk:60,kol:1,dawki:[{dawkaId:'daw_01',udzial:100}]},
     {id:'gtn02',lok:'nadarzyn',nazwa:'GR 9',sztuk:40,kol:2,dawki:[{dawkaId:'daw_02',udzial:100}]},
@@ -1101,7 +1036,107 @@ async function zasiejGrupy(){
     {id:'gtb12',lok:'boguszyn',nazwa:'Jałówki cielne',sztuk:14,kol:12,dawki:[{dawkaId:'daw_07',udzial:100}]},
     {id:'gtb13',lok:'boguszyn',nazwa:'Jałówki powyżej roku',sztuk:18,kol:13,dawki:[{dawkaId:'daw_08',udzial:100}]},
     {id:'gtb14',lok:'boguszyn',nazwa:'Jałówki do roku',sztuk:16,kol:14,dawki:[{dawkaId:'daw_09',udzial:100}]},
-  ];
+  ]
+};
+
+/* ---------- Zasiew danych startowych ---------- */
+/* Czeka, aż wskazane kolekcje przyjdą z SERWERA (nie z pamięci urządzenia). */
+async function czekajNaSerwer(kolekcje, ms){
+  if(trybLokalny) return true;
+  const start = Date.now();
+  while(Date.now()-start < ms){
+    if(kolekcje.every(k=>serwerPotwierdzil[k])) return true;
+    await new Promise(r=>setTimeout(r,100));
+  }
+  return kolekcje.every(k=>serwerPotwierdzil[k]);
+}
+
+/* Zasiew danych startowych — WYŁĄCZNIE gdy serwer potwierdził, że baza jest naprawdę pusta.
+   Wcześniej wystarczyło, że urządzenie z pustą pamięcią nie dostało jeszcze danych,
+   i dane przykładowe nadpisywały prawdziwe (incydent z 25.09.2026). */
+async function zasiej(){
+  if(!trybLokalny){
+    if(!navigator.onLine) return;
+    const ok = await czekajNaSerwer(['config','surowce','dawki','grupyTech','mieszanki'], 8000);
+    if(!ok){ console.warn('Brak potwierdzenia z serwera — pomijam zasiew danych startowych.'); return; }
+  }
+  if(!store.config.settings){
+    await DB.zapisz('config','settings',{
+      nazwaGospodarstwa:'OHZ Lubiana',
+      waluta:'PLN',
+      jednostkaCeny:'zl_tona',        // ceny wprowadzane w zł/t, w obliczeniach zł/kg
+      kategorie:KATEGORIE_START,
+      wersja:WERSJA_APP
+    });
+  }
+  if(!store.config.passwords){
+    const hasla={}, jawne={};
+    for(const [k,v] of Object.entries(HASLA_STARTOWE)){ hasla[k]=sha256(v); jawne[k]=v; }
+    await DB.zapisz('config','passwords',{hasla, jawne, zmienione:dzisiaj()});
+    console.info('Zasiano hasła startowe:', HASLA_STARTOWE);
+  }
+  // Dane przykładowe — tylko gdy baza jest pusta
+  const pusto = k => Object.keys(store[k]).length===0;
+  if(pusto('surowce') && pusto('dawki') && pusto('mieszanki') && pusto('grupyTech')) await zasiejPrzykladowe();
+  // Grupy dosiewamy tylko do bazy, w której są dawki przykładowe — nigdy nie nadpisujemy istniejących grup
+  else if(pusto('grupyTech') && PRZYKLADOWE.dawki.every(d=>store.dawki[d.id])) await zasiejGrupy();
+}
+
+async function zasiejPrzykladowe(){
+  console.info('Zasiewam dane przykładowe…');
+  const d = dzisiaj();
+
+  /* ===== SUROWCE ===== */
+  const S = PRZYKLADOWE.surowce;
+  for(let i=0; i<S.length; i++){
+    const s=S[i];
+    await DB.zapisz('surowce', s.id, {
+      nazwa:s.nazwa, kategoria:s.kategoria, cenaTona:s.cenaTona,
+      dataCeny:d, kolejnosc:i+1, zMieszalni:false, mieszankaId:null, lokalizacja:null
+    });
+  }
+
+  /* ===== MIESZANKI (receptury w %) ===== */
+  const M = PRZYKLADOWE.mieszanki;
+
+  // Oblicz koszt mieszanki i dodaj jako surowiec
+  const cenySur = {};
+  S.forEach(s=> cenySur[s.id]=s.cenaTona);
+
+  for(let i=0; i<M.length; i++){
+    const m = M[i];
+    // Koszt zł/t = Σ (procent/100 × cenaTona składnika)
+    const kosztTona = m.skladniki.reduce((sum,sk)=> sum + (sk.procent/100)*(cenySur[sk.surowiecId]||0), 0);
+    const kosztKg = kosztTona / 1000;
+
+    await DB.zapisz('mieszanki', m.id, {
+      nazwa:m.nazwa, skladniki:m.skladniki, kosztKg:Math.round(kosztKg*10000)/10000
+    });
+    // Dodaj mieszankę jako surowiec
+    await DB.zapisz('surowce', m.surId, {
+      nazwa:m.nazwa, kategoria:'Mieszanka własna', cenaTona:Math.round(kosztTona*100)/100,
+      dataCeny:d, kolejnosc:S.length+i+1, zMieszalni:true, mieszankaId:m.id, lokalizacja:null
+    });
+  }
+
+  /* ===== DAWKI (10 grup żywieniowych — kg świeżej masy / szt / dobę) ===== */
+  const D = PRZYKLADOWE.dawki;
+
+  for(const daw of D){
+    await DB.zapisz('dawki', daw.id, {
+      nazwa:daw.nazwa, suchyTMR:daw.suchyTMR,
+      skladniki:daw.skladniki, kolejnosc:daw.kolejnosc
+    });
+  }
+
+  console.info('Zasiano:', S.length, 'surowców,', M.length, 'mieszanek,', D.length, 'dawek');
+  await zasiejGrupy();
+}
+
+/* Grupy technologiczne obu lokalizacji — osobna funkcja, żeby dało się zasiać
+   niezależnie od tego, czy surowce i dawki już są w bazie. */
+async function zasiejGrupy(){
+  const GT = PRZYKLADOWE.grupy;
   for(const g of GT){
     await DB.zapisz('grupyTech', g.id, {
       lokalizacja:g.lok, nazwa:g.nazwa, sztuk:g.sztuk,
@@ -1549,6 +1584,9 @@ async function zapiszDoZaplanowanej(odData, mutator){
 
 /* Wejście w życie zaplanowanych zmian — wywoływane przy starcie aplikacji */
 async function zastosujZaplanowane(){
+  // Tylko na świeżych danych z serwera — stara pamięć urządzenia mogłaby ponownie
+  // wprowadzić wersję zastosowaną już dawno temu na innym urządzeniu.
+  if(!(await czekajNaSerwer(['wersjeDawek','dawki','grupyTech'], 15000))) return;
   const dzis = dzisiaj();
   const doZast = Object.values(store.wersjeDawek)
     .filter(w=>w.zaplanowana && (w.odData||'')<=dzis)
@@ -1710,10 +1748,12 @@ function zapiszZmiane(dawkaId, surowiecId, stara, nowa, odData, zaplanowana){
    czy ktoś ma otwartą aplikację o północy. */
 function zapiszSnapshotDnia(){
   const d = dzisiaj();
-  DB.zapisz('snapshoty', 'snap_'+d, {
+  // pełny stan: dawki + grupy + surowce + mieszanki — żeby dało się odtworzyć wszystko
+  DB.zapiszCaly('snapshoty', 'snap_'+d, {
     typ:'dawki', data:d, ts:Date.now(),
     autor: ROLE[rolaAkt]?.nazwa || '?',
-    dane: store.dawki
+    dane: klon(store.dawki), grupy: klon(store.grupyTech),
+    surowce: klon(store.surowce), mieszanki: klon(store.mieszanki)
   });
 }
 
@@ -1797,7 +1837,7 @@ function renderDawki(w){
 
   const zapl = wersjeZaplanowane();
   const trybPrzyszly = wersjaOd && wersjaOd>dzisiaj();
-  w.innerHTML = `
+  w.innerHTML = banerPrzywracania() + `
   <div class="panel">
     <div class="panel-tyt">
       Dawki
@@ -4471,8 +4511,9 @@ function rapSnapshoty(el){
   const dataZ = x => x.data || (x.ts ? new Date(x.ts).toISOString().slice(0,10) : '');
   el.innerHTML = `
   <div style="padding:12px 14px;border-bottom:1px solid var(--linia);display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-    <span class="podpis">Wersja dawek zapisuje się automatycznie po zmianie (najwyżej raz na godzinę). Kliknij wiersz, żeby zobaczyć pełną tabelę.</span>
+    <span class="podpis">Kopia dawek zapisuje się automatycznie po każdej zmianie (jedna na dzień — stan z końca dnia). Kliknij wiersz, żeby zobaczyć pełną tabelę.</span>
     <span style="flex:1"></span>
+    ${rolaAkt==='tworca'?'<button class="btn maly" id="btnPrzywroc">⟲ Przywróć dane z kopii…</button>':''}
     ${s.length?przyciskEksportu('#tabSnapshoty','historia_dawek','Historia dawek — zapisane wersje'):''}
   </div>
   ${s.length ? `<div class="przewijak"><table class="gt-tabela" id="tabSnapshoty">
@@ -4491,6 +4532,7 @@ function rapSnapshoty(el){
           ${macierzDawekHTML(x.dane||{}, {id:'macSnap'})}</td></tr>`:''}`;
     }).join('')}</tbody></table></div>`
   : '<div class="pusto">Brak zapisanych wersji. Wersja powstaje automatycznie po zmianie dawek.</div>'}`;
+  const bp = el.querySelector('#btnPrzywroc'); if(bp) bp.onclick = oknoPrzywracania;
   el.querySelectorAll('[data-snap]').forEach(tr=>{
     tr.onclick = e=>{
       if(e.target.closest('button')) return;
@@ -4498,6 +4540,349 @@ function rapSnapshoty(el){
       renderRaporty(document.getElementById('widok'));
     };
   });
+}
+
+/* ===================== PRZYWRACANIE DANYCH Z KOPII ========================
+   Narzędzie Twórcy: porównuje obecne dawki / grupy / surowce / mieszanki z kopią
+   z wybranego dnia i przywraca zaznaczone pozycje. Przed zapisem robi kopię
+   stanu bieżącego, więc każde przywrócenie można cofnąć tym samym narzędziem.
+   ========================================================================= */
+
+/* Czy rekord jest identyczny z danymi przykładowymi (czyli najpewniej nadpisany)? */
+const sklKlucz = lista => JSON.stringify((lista||[]).filter(x=>(x.kg||x.procent||0)>0)
+  .map(x=>[x.surowiecId, Math.round((x.kg??x.procent)*1000)/1000]).sort((a,b)=>a[0].localeCompare(b[0])));
+const grDawKlucz = lista => JSON.stringify((lista||[]).map(x=>[x.dawkaId, x.udzial]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))));
+function jakPrzykladowa(typ, id, rek){
+  if(!rek) return false;
+  if(typ==='dawka'){ const p=PRZYKLADOWE.dawki.find(x=>x.id===id); return !!p && sklKlucz(p.skladniki)===sklKlucz(rek.skladniki); }
+  if(typ==='mieszanka'){ const p=PRZYKLADOWE.mieszanki.find(x=>x.id===id); return !!p && sklKlucz(p.skladniki)===sklKlucz(rek.skladniki); }
+  if(typ==='surowiec'){ const p=PRZYKLADOWE.surowce.find(x=>x.id===id); return !!p && p.nazwa===rek.nazwa && Math.abs((rek.cenaTona||0)-p.cenaTona)<0.01; }
+  if(typ==='grupaSkl'){ const p=PRZYKLADOWE.grupy.find(x=>x.id===id); return !!p && p.nazwa===rek.nazwa && grDawKlucz(p.dawki)===grDawKlucz(rek.dawki); }
+  if(typ==='grupaSzt'){ const p=PRZYKLADOWE.grupy.find(x=>x.id===id); return !!p && p.sztuk===rek.sztuk; }
+  return false;
+}
+
+/* Data nadpisania danymi przykładowymi: najczęstsza data ceny wśród surowców
+   identycznych z przykładowymi — o ile istnieją dane starsze (inaczej to zwykła instalacja). */
+function wykryjNadpisanie(){
+  const licz = {};
+  PRZYKLADOWE.surowce.forEach(p=>{
+    const s = store.surowce[p.id];
+    if(s && s.dataCeny && jakPrzykladowa('surowiec', p.id, s)) licz[s.dataCeny]=(licz[s.dataCeny]||0)+1;
+  });
+  const [data, ile] = Object.entries(licz).sort((a,b)=>b[1]-a[1])[0] || [];
+  if(!data || ile<5) return null;
+  const starsze = [...Object.values(store.snapshoty).map(s=>s.data||''), ...Object.values(store.zywienie).map(z=>z.data||''),
+                   ...Object.values(store.wersjeDawek).map(w=>w.odData||'')].some(d=>d && d<data);
+  return starsze ? {data, ile} : null;
+}
+
+/* Wszystkie kopie w bazie, z których da się przywracać */
+function zrodlaPrzywracania(){
+  const z = [];
+  Object.values(store.snapshoty).forEach(s=>{
+    if(!s.dane) return;
+    const d = s.data || (s.ts ? new Date(s.ts).toISOString().slice(0,10) : '');
+    z.push({id:'s:'+s.id, data:d, ts:s.ts||0, kto:s.autor||'',
+      opis: s.typ==='przed przywróceniem' ? 'Stan sprzed przywracania' : 'Kopia dawek (koniec dnia)',
+      dawki:s.dane, grupy:s.grupy||null, surowce:s.surowce||null, mieszanki:s.mieszanki||null});
+  });
+  Object.values(store.wersjeDawek).forEach(w=>{
+    if(w.zaplanowana && !w.zastosowanaTs) return;
+    if(!w.dawki) return;
+    z.push({id:'w:'+w.id, data:w.odData||'', ts:w.ts||0, kto:w.rola||'',
+      opis:'Wersja dawek obowiązująca od tego dnia', dawki:w.dawki, grupy:w.grupy||null, surowce:null, mieszanki:null});
+  });
+  return z.sort((a,b)=>(b.data||'').localeCompare(a.data||'') || b.ts-a.ts);
+}
+
+/* Grupy wg dziennych zapisów żywienia: ostatni wpis każdej grupy nie późniejszy niż `doDnia` */
+function grupyZZywienia(doDnia){
+  const wynik = {};
+  Object.values(store.zywienie).filter(d=>(d.data||'')<=doDnia).sort((a,b)=>a.data.localeCompare(b.data)).forEach(d=>{
+    Object.entries(d.grupy||{}).forEach(([gid,z])=>{
+      if(!z) return;
+      const w = wynik[gid] || (wynik[gid]={});
+      if(z.sztuk!=null) w.sztuk = z.sztuk;
+      if((z.udzialy||[]).length) w.dawki = z.udzialy;
+      if(z.nazwaGrupy) w.nazwa = z.nazwaGrupy;
+      w.zDnia = d.data;
+    });
+  });
+  return wynik;
+}
+
+let przywrStan = null;   // {zrodloId, plik, doDnia}
+
+/* Czerwony baner dla Twórcy, gdy wykryto nadpisanie danymi przykładowymi */
+function banerPrzywracania(){
+  if(rolaAkt!=='tworca') return '';
+  const n = wykryjNadpisanie(); if(!n) return '';
+  // po wykonanym przywróceniu baner już nie straszy (narzędzie zostaje w Raporty → Historia dawek)
+  if(Object.values(store.snapshoty).some(s=>s.typ==='przed przywróceniem' && (s.data||'')>=n.data)) return '';
+  return `<div class="baner-przywr">⚠ <span><b>${dataPL(n.data)}</b> część danych została nadpisana danymi przykładowymi
+    (${n.ile} surowców ma ceny i nazwy przykładowe).</span><span style="flex:1"></span>
+    <button class="btn maly" onclick="window.__przywroc&&window.__przywroc()">⟲ Przywróć z kopii…</button></div>`;
+}
+window.__przywroc = ()=>oknoPrzywracania();
+
+function oknoPrzywracania(){
+  if(rolaAkt!=='tworca'){ toast('Narzędzie dostępne tylko dla Twórcy.', true); return; }
+  const nadp = wykryjNadpisanie();
+  const zrodla = zrodlaPrzywracania();
+  const domDzien = nadp ? dataMinus(nadp.data,1) : dzisiaj();
+  const domZrodlo = zrodla.find(z=>z.data<=domDzien && z.opis!=='Stan sprzed przywracania') || zrodla[0];
+  przywrStan = {zrodloId: domZrodlo?.id || '', plik:null, doDnia:domDzien};
+  const n = modal({tytul:'⟲ Przywróć dane z kopii', szer:'1180px', tresc:'<div id="przTresc"></div>',
+    przyciski:[{tekst:'Zamknij'}, {tekst:'⟲ Przywróć zaznaczone', klasa:'', akcja:async(nn)=>{
+      const ok = await wykonajPrzywracanie(nn);
+      return ok ? undefined : false;
+    }}]});
+  rysujPrzywracanie(n, nadp, zrodla);
+}
+
+function rysujPrzywracanie(n, nadp, zrodla){
+  const el = n.querySelector('#przTresc');
+  const zr = przywrStan.plik || zrodla.find(z=>z.id===przywrStan.zrodloId) || null;
+  const grupyZr = zr?.grupy || null;
+  const grupyZyw = grupyZZywienia(zr?.data || przywrStan.doDnia);
+  const nazwaSur = id => store.surowce[id]?.nazwa || zr?.surowce?.[id]?.nazwa || '(brak surowca)';
+  const nazwaDaw = id => store.dawki[id]?.nazwa || zr?.dawki?.[id]?.nazwa || '?';
+
+  // ---- DAWKI ----
+  const dawkiRoz = [];
+  Object.entries(zr?.dawki||{}).forEach(([id,k])=>{
+    const t = store.dawki[id];
+    const mapa = l => { const m={}; (l||[]).forEach(x=>{ if(x.kg>0) m[x.surowiecId]=(m[x.surowiecId]||0)+x.kg; }); return m; };
+    const a = mapa(t?.skladniki), b = mapa(k.skladniki);
+    const zmiany = [...new Set([...Object.keys(a),...Object.keys(b)])].filter(s=>Math.abs((a[s]||0)-(b[s]||0))>0.0005)
+      .map(s=>({s, teraz:a[s]||0, kopia:b[s]||0}));
+    const zmNazwa = t && t.nazwa!==k.nazwa;
+    if(!t || zmiany.length || zmNazwa){
+      const brakSur = Object.keys(b).filter(s=>!store.surowce[s]);
+      dawkiRoz.push({id, k, t, zmiany, zmNazwa, brakSur, przykl:jakPrzykladowa('dawka', id, t),
+        sumaT:mapaSuma(a), sumaK:mapaSuma(b)});
+    }
+  });
+
+  // ---- GRUPY ----
+  const grupyRoz = [];
+  const idsGr = new Set([...Object.keys(store.grupyTech), ...Object.keys(grupyZr||{})]);
+  idsGr.forEach(id=>{
+    const t = store.grupyTech[id];
+    const k = grupyZr?.[id] || (grupyZyw[id] && t ? {...t, ...grupyZyw[id]} : null);
+    if(!k) return;
+    const sklInna = !t || (k.nazwa||'')!==(t.nazwa||'') || grDawKlucz(k.dawki)!==grDawKlucz(t.dawki);
+    const sztInna = !t || (k.sztuk??null)!==(t.sztuk??null);
+    if(!sklInna && !sztInna) return;
+    grupyRoz.push({id, t, k, sklInna, sztInna, zDnia: grupyZr?.[id] ? zr.data : grupyZyw[id]?.zDnia,
+      przyklSkl: jakPrzykladowa('grupaSkl', id, t), przyklSzt: jakPrzykladowa('grupaSzt', id, t)});
+  });
+  grupyRoz.sort((a,b)=>((a.t||a.k).lokalizacja||'').localeCompare((b.t||b.k).lokalizacja||'') || ((a.t||a.k).kolejnosc??99)-((b.t||b.k).kolejnosc??99));
+
+  // ---- MIESZANKI ----
+  const mixRoz = [];
+  Object.entries(zr?.mieszanki||{}).forEach(([id,k])=>{
+    const t = store.mieszanki[id];
+    if(!t || sklKlucz(t.skladniki)!==sklKlucz(k.skladniki) || t.nazwa!==k.nazwa)
+      mixRoz.push({id, k, t, przykl:jakPrzykladowa('mieszanka', id, t)});
+  });
+
+  // ---- SUROWCE ----
+  const surRoz = [];
+  const idsSur = new Set([...Object.keys(zr?.surowce||{}), ...PRZYKLADOWE.surowce.map(p=>p.id)]);
+  idsSur.forEach(id=>{
+    const t = store.surowce[id], k = zr?.surowce?.[id] || null;
+    if(!t && !k) return;
+    if(t?.zMieszalni || k?.zMieszalni) return;     // ceny mieszanek liczą się same z receptur
+    const przykl = jakPrzykladowa('surowiec', id, t);
+    const inna = k && t && (Math.abs((k.cenaTona||0)-(t.cenaTona||0))>0.005 || k.nazwa!==t.nazwa);
+    if(!inna && !(przykl && nadp && t?.dataCeny===nadp.data) && !(k && !t)) return;
+    surRoz.push({id, t, k, przykl});
+  });
+  const uzyteSur = new Set();
+  Object.values(store.dawki).forEach(d=>(d.skladniki||[]).forEach(x=>{ if(x.kg>0) uzyteSur.add(x.surowiecId); }));
+  Object.values(zr?.dawki||{}).forEach(d=>(d.skladniki||[]).forEach(x=>{ if(x.kg>0) uzyteSur.add(x.surowiecId); }));
+  Object.values(store.mieszanki).forEach(m=>(m.skladniki||[]).forEach(x=>uzyteSur.add(x.surowiecId)));
+  Object.values(zr?.mieszanki||{}).forEach(m=>(m.skladniki||[]).forEach(x=>uzyteSur.add(x.surowiecId)));
+  const wHistorii = new Set();
+  Object.values(store.zywienie).forEach(d=>Object.values(d.grupy||{}).forEach(z=>(z?.skladniki||[]).forEach(x=>wHistorii.add(x.surowiecId))));
+
+  const zaznacz = (domyslnie, klucz) => `<input type="checkbox" class="prz-ch" data-prz="${klucz}" ${domyslnie?'checked':''}>`;
+  const opisZr = z => `${dataPL(z.data)} — ${z.opis}${z.kto?' · '+esc(z.kto):''}${z.ts?' · zapis '+new Date(z.ts).toTimeString().slice(0,5):''}`
+    + ` [${[z.dawki?'dawki':'', z.grupy?'grupy':'', z.surowce?'surowce':'', z.mieszanki?'mieszanki':''].filter(Boolean).join(', ')}]`;
+
+  el.innerHTML = `
+    ${nadp ? `<div class="pasek-wersja" style="margin:-4px 0 12px;border-radius:8px">⚠ Wykryto nadpisanie danymi przykładowymi
+       <b>${dataPL(nadp.data)}</b> (${nadp.ile} surowców identycznych z przykładowymi). Proponuję kopię z <b>${dataPL(dataMinus(nadp.data,1))}</b> lub wcześniej.</div>` : ''}
+    <div class="wiersz2" style="align-items:end;gap:10px;flex-wrap:wrap">
+      <div class="pole-grupa" style="flex:3;min-width:320px;margin:0"><label>Źródło — kopia z dnia</label>
+        <select id="przZrodlo">
+          ${przywrStan.plik?`<option value="__plik" selected>📄 Plik: ${esc(przywrStan.plik.opis)}</option>`:''}
+          ${zrodla.map(z=>`<option value="${esc(z.id)}" ${!przywrStan.plik && z.id===przywrStan.zrodloId?'selected':''}>${opisZr(z)}</option>`).join('')}
+          ${!zrodla.length && !przywrStan.plik ? '<option value="">— brak kopii w bazie —</option>':''}
+        </select></div>
+      <button class="btn szary maly" id="przPlikBtn">📄 Wczytaj plik kopii zapasowej (.json)</button>
+      <input type="file" id="przPlik" accept="application/json,.json" hidden>
+    </div>
+    <div class="podpis" style="margin:8px 0 14px">Zaznaczone są pozycje, które <b>dziś wyglądają jak dane przykładowe</b> (najpewniej nadpisane).
+      Pozycje zmienione później ręcznie są odznaczone — sprawdź je i zaznacz, jeśli też mają wrócić.
+      Przed przywróceniem zapisuję kopię stanu obecnego — można ją przywrócić tym samym narzędziem.</div>
+
+    ${!zr ? '<div class="pusto">Wybierz źródło.</div>' : `
+    <div class="prz-sekcja">
+      <div class="prz-tyt">Dawki <span class="podpis">${dawkiRoz.length} różnic</span>
+        <span style="flex:1"></span><button class="btn maly szary" data-wsz="d">zaznacz wszystkie</button><button class="btn maly szary" data-nic="d">odznacz</button></div>
+      ${dawkiRoz.length ? `<div class="przewijak"><table class="gt-tabela prz-tab">
+        <thead><tr><th style="width:36px"></th><th>Dawka</th><th class="num">Teraz<br>kg/szt</th><th class="num">Z kopii<br>kg/szt</th><th>Różnice (teraz → kopia)</th></tr></thead>
+        <tbody>${dawkiRoz.map(d=>`<tr>
+          <td>${zaznacz(d.przykl || !d.t, 'd|'+d.id)}</td>
+          <td><b>${esc(d.k.nazwa)}</b>${d.zmNazwa?`<br><span class="podpis">teraz: ${esc(d.t.nazwa)}</span>`:''}
+            ${!d.t?'<br><span class="plakietka mieszanka">usunięta — wróci</span>':''}
+            ${d.przykl?'<br><span class="plakietka auto">jak przykładowa</span>':(d.t?'<br><span class="plakietka">zmieniana później</span>':'')}</td>
+          <td class="num">${fmt(d.sumaT,2)}</td><td class="num"><b>${fmt(d.sumaK,2)}</b></td>
+          <td class="podpis prz-roz">${d.zmiany.map(z=>`${esc(nazwaSur(z.s))}: <span style="color:var(--czerwony)">${z.teraz?fmt(z.teraz,2):'—'}</span> → <b style="color:var(--zielony-ok)">${z.kopia?fmt(z.kopia,2):'—'}</b>`).join(' · ')}
+            ${d.brakSur.length?`<br><b style="color:var(--czerwony)">⚠ W bazie brak surowców: ${d.brakSur.map(s=>esc(nazwaSur(s))).join(', ')}${zr.surowce?' — wrócą z kopii, jeśli zaznaczysz je niżej':''}</b>`:''}</td>
+        </tr>`).join('')}</tbody></table></div>` : '<div class="podpis" style="padding:6px 0">Dawki zgodne z kopią.</div>'}
+    </div>
+
+    <div class="prz-sekcja">
+      <div class="prz-tyt">Grupy technologiczne <span class="podpis">${grupyRoz.length} różnic · ${grupyZr?'z kopii':'z dziennych zapisów żywienia (ostatni wpis ≤ '+dataPL(zr.data)+')'}</span>
+        <span style="flex:1"></span><button class="btn maly szary" data-wsz="g">zaznacz wszystkie</button><button class="btn maly szary" data-nic="g">odznacz</button></div>
+      ${grupyRoz.length ? `<div class="przewijak"><table class="gt-tabela prz-tab">
+        <thead><tr><th>Lok.</th><th>Grupa</th><th style="width:36px">Skład</th><th>Dawki: teraz → kopia</th><th style="width:36px">Sztuk</th><th class="num">Sztuk: teraz → kopia</th><th>Wpis z</th></tr></thead>
+        <tbody>${grupyRoz.map(g=>{
+          const opisD = l => (l||[]).map(x=>`${esc(nazwaDaw(x.dawkaId))} ${x.udzial}%`).join(' + ') || '—';
+          return `<tr>
+            <td>${(g.t||g.k).lokalizacja==='nadarzyn'?'N':'B'}</td>
+            <td><b>${esc(g.k.nazwa||g.t?.nazwa||'?')}</b>${g.t && g.t.nazwa!==g.k.nazwa?`<br><span class="podpis">teraz: ${esc(g.t.nazwa)}</span>`:''}</td>
+            <td>${g.sklInna?zaznacz(g.przyklSkl || !g.t,'gs|'+g.id):''}</td>
+            <td class="podpis">${g.sklInna?`<span style="color:var(--czerwony)">${opisD(g.t?.dawki)}</span> → <b style="color:var(--zielony-ok)">${opisD(g.k.dawki)}</b>`:'bez zmian'}</td>
+            <td>${g.sztInna?zaznacz(g.przyklSzt || !g.t,'gz|'+g.id):''}</td>
+            <td class="num">${g.sztInna?`<span style="color:var(--czerwony)">${g.t?.sztuk??'—'}</span> → <b style="color:var(--zielony-ok)">${g.k.sztuk??'—'}</b>`:'bez zmian'}</td>
+            <td class="podpis">${g.zDnia?dataPL(g.zDnia):'—'}</td></tr>`;
+        }).join('')}</tbody></table></div>
+        <div class="podpis">Liczba sztuk zmienia się normalnie z dnia na dzień — zaznaczona jest tylko tam, gdzie dziś równa się przykładowej.</div>`
+        : '<div class="podpis" style="padding:6px 0">Grupy zgodne z kopią.</div>'}
+    </div>
+
+    ${zr.mieszanki ? `<div class="prz-sekcja">
+      <div class="prz-tyt">Mieszanki (receptury mieszalni) <span class="podpis">${mixRoz.length} różnic</span></div>
+      ${mixRoz.length ? `<div class="przewijak"><table class="gt-tabela prz-tab">
+        <thead><tr><th style="width:36px"></th><th>Mieszanka</th><th>Skład z kopii (%)</th></tr></thead>
+        <tbody>${mixRoz.map(m=>`<tr><td>${zaznacz(m.przykl || !m.t,'m|'+m.id)}</td>
+          <td><b>${esc(m.k.nazwa)}</b>${m.przykl?'<br><span class="plakietka auto">dziś jak przykładowa</span>':''}</td>
+          <td class="podpis">${(m.k.skladniki||[]).map(x=>esc(nazwaSur(x.surowiecId))+' '+fmt(x.procent,1)).join(' · ')}</td></tr>`).join('')}</tbody></table></div>`
+        : '<div class="podpis" style="padding:6px 0">Mieszanki zgodne z kopią.</div>'}
+    </div>` : `<div class="prz-sekcja"><div class="prz-tyt">Mieszanki</div>
+      <div class="podpis">Ta kopia nie zawiera receptur mieszalni${PRZYKLADOWE.mieszanki.some(p=>jakPrzykladowa('mieszanka',p.id,store.mieszanki[p.id]))
+        ? ' — <b>identyczne z przykładowymi są dziś: '+PRZYKLADOWE.mieszanki.filter(p=>jakPrzykladowa('mieszanka',p.id,store.mieszanki[p.id])).map(p=>esc(store.mieszanki[p.id].nazwa)).join(', ')+'</b>. Popraw je ręcznie w Mieszalni albo wczytaj plik kopii zapasowej.':'.'}</div></div>`}
+
+    <div class="prz-sekcja">
+      <div class="prz-tyt">Surowce i ceny <span class="podpis">${surRoz.length} do sprawdzenia</span></div>
+      ${surRoz.length ? `<div class="przewijak"><table class="gt-tabela prz-tab">
+        <thead><tr><th style="width:36px"></th><th>Surowiec</th><th class="num">Cena teraz<br>zł/t</th><th class="num">Data ceny</th><th class="num">Cena z kopii<br>zł/t</th><th class="num">Nowa cena zł/t<br><span style="font-weight:400">(wpisz ręcznie)</span></th><th>Usuń</th></tr></thead>
+        <tbody>${surRoz.map(s=>{
+          const uzyty = uzyteSur.has(s.id), hist = wHistorii.has(s.id);
+          const mozeUsun = s.t && s.przykl && !uzyty;
+          return `<tr>
+            <td>${s.k?zaznacz(s.przykl || !s.t,'s|'+s.id):''}</td>
+            <td><b>${esc(s.k?.nazwa||s.t?.nazwa)}</b>${s.t&&s.k&&s.t.nazwa!==s.k.nazwa?`<br><span class="podpis">teraz: ${esc(s.t.nazwa)}</span>`:''}
+              ${s.przykl?'<br><span class="plakietka auto">jak przykładowy</span>':''}${!s.t?'<br><span class="plakietka mieszanka">usunięty — wróci</span>':''}</td>
+            <td class="num">${s.t?fmt(s.t.cenaTona,2):'—'}</td><td class="num">${s.t?.dataCeny?dataPL(s.t.dataCeny):'—'}</td>
+            <td class="num"><b>${s.k?fmt(s.k.cenaTona,2):'—'}</b></td>
+            <td class="num">${s.t?`<input class="pole num" data-prz-cena="${s.id}" inputmode="decimal" placeholder="—" style="width:90px">`:''}</td>
+            <td>${mozeUsun?`<label class="podpis"><input type="checkbox" data-prz-usun="${s.id}"> nieużywany${hist?' (był w zapisach dziennych)':''}</label>`:(s.przykl&&uzyty?'<span class="podpis">używany</span>':'')}</td></tr>`;
+        }).join('')}</tbody></table></div>
+        <div class="podpis">${zr.surowce?'Zaznaczenie przywraca nazwę i cenę z kopii.':'Ta kopia nie ma cen surowców — wpisz prawdziwe ceny w kolumnie „Nowa cena” (puste = bez zmian) albo wczytaj plik kopii zapasowej.'}
+          „Usuń” dotyczy tylko surowców przykładowych, których nie używa żadna dawka ani mieszanka.</div>`
+        : '<div class="podpis" style="padding:6px 0">Brak surowców do sprawdzenia.</div>'}
+    </div>`}`;
+
+  n._przywr = {zr, dawkiRoz, grupyRoz, mixRoz, surRoz};
+
+  const odrysuj = ()=>rysujPrzywracanie(n, nadp, zrodla);
+  el.querySelector('#przZrodlo').onchange = e=>{
+    if(e.target.value==='__plik') return;
+    przywrStan.zrodloId = e.target.value; przywrStan.plik = null; odrysuj();
+  };
+  el.querySelector('#przPlikBtn').onclick = ()=>el.querySelector('#przPlik').click();
+  el.querySelector('#przPlik').onchange = e=>{
+    const f = e.target.files[0]; if(!f) return;
+    const fr = new FileReader();
+    fr.onload = ()=>{
+      try{
+        const j = JSON.parse(fr.result); const k = j.kolekcje||{};
+        if(!k.dawki){ toast('Plik nie zawiera dawek aplikacji.', true); return; }
+        const data = (j.data||'').slice(0,10);
+        przywrStan.plik = {id:'__plik', data, ts:Date.parse(j.data)||0, kto:'plik',
+          opis:`${f.name} (${dataPL(data)})`, dawki:k.dawki, grupy:k.grupyTech||null, surowce:k.surowce||null, mieszanki:k.mieszanki||null};
+        odrysuj();
+      }catch(err){ toast('Nieprawidłowy plik JSON.', true); }
+    };
+    fr.readAsText(f);
+  };
+  el.querySelectorAll('[data-wsz]').forEach(b=>b.onclick=()=>el.querySelectorAll(`[data-prz^="${b.dataset.wsz}"]`).forEach(c=>c.checked=true));
+  el.querySelectorAll('[data-nic]').forEach(b=>b.onclick=()=>el.querySelectorAll(`[data-prz^="${b.dataset.nic}"]`).forEach(c=>c.checked=false));
+}
+
+async function wykonajPrzywracanie(n){
+  const P = n._przywr; if(!P?.zr){ toast('Wybierz źródło.', true); return false; }
+  const zazn = new Set([...n.querySelectorAll('.prz-ch:checked')].map(c=>c.dataset.prz));
+  const ceny = [...n.querySelectorAll('[data-prz-cena]')].filter(i=>i.value.trim()).map(i=>({id:i.dataset.przCena, cena:liczba(i.value)}));
+  const usun = [...n.querySelectorAll('[data-prz-usun]:checked')].map(c=>c.dataset.przUsun);
+  const ile = zazn.size + ceny.length + usun.length;
+  if(!ile){ toast('Nic nie zaznaczono.', true); return false; }
+  if(!confirm(`Przywrócić ${ile} pozycji z kopii ${dataPL(P.zr.data)}?\n\nStan obecny zostanie wcześniej zapisany jako kopia „Stan sprzed przywracania”.`)) return false;
+
+  // 1. kopia bezpieczeństwa
+  const ts = Date.now();
+  await DB.zapiszCaly('snapshoty', 'przed_'+ts, {typ:'przed przywróceniem', data:dzisiaj(), ts,
+    autor:ROLE[rolaAkt]?.nazwa||'?', dane:klon(store.dawki), grupy:klon(store.grupyTech),
+    surowce:klon(store.surowce), mieszanki:klon(store.mieszanki)});
+  let n1=0;
+  // 2. surowce najpierw (dawki mogą ich potrzebować)
+  for(const s of P.surRoz){
+    if(!zazn.has('s|'+s.id) || !s.k) continue;
+    const {id, ...dane} = s.k;
+    await DB.zapisz('surowce', s.id, {...dane, dataCeny:s.k.dataCeny||dzisiaj()}); n1++;
+  }
+  for(const c of ceny){ await DB.zapisz('surowce', c.id, {cenaTona:Math.round(c.cena*100)/100, dataCeny:dzisiaj()}); n1++; }
+  // 3. mieszanki
+  for(const m of P.mixRoz){
+    if(!zazn.has('m|'+m.id)) continue;
+    await DB.zapisz('mieszanki', m.id, {nazwa:m.k.nazwa, skladniki:m.k.skladniki||[], kosztKg:m.k.kosztKg??null}); n1++;
+  }
+  // 4. dawki — z wpisem do rejestru zmian
+  for(const d of P.dawkiRoz){
+    if(!zazn.has('d|'+d.id)) continue;
+    const pola = {nazwa:d.k.nazwa, skladniki:(d.k.skladniki||[]).map(x=>({surowiecId:x.surowiecId, kg:x.kg}))};
+    ['kolejnosc','suchyTMR','lokalizacja'].forEach(k=>{ if(d.k[k]!==undefined) pola[k]=d.k[k]; });
+    d.zmiany.forEach(z=>zapiszZmiane(d.id, z.s, z.teraz, z.kopia, dzisiaj(), false));
+    await DB.zapisz('dawki', d.id, pola); n1++;
+  }
+  // 5. grupy
+  for(const g of P.grupyRoz){
+    const pola = {};
+    if(zazn.has('gs|'+g.id)){
+      pola.dawki = (g.k.dawki||[]).map(x=>({dawkaId:x.dawkaId, udzial:x.udzial}));
+      if(g.k.nazwa) pola.nazwa = g.k.nazwa;
+      ['kolejnosc','parentId','lokalizacja'].forEach(k=>{ if(g.k[k]!==undefined) pola[k]=g.k[k]; });
+    }
+    if(zazn.has('gz|'+g.id) && g.k.sztuk!=null) pola.sztuk = g.k.sztuk;
+    if(Object.keys(pola).length){ await DB.zapisz('grupyTech', g.id, pola); n1++; }
+  }
+  // 6. usunięcie nieużywanych surowców przykładowych
+  for(const id of usun){ await DB.usun('surowce', id); n1++; }
+  // 7. ceny mieszanek z receptur, wersja dawek od dziś, przeliczenie dzisiejszych wozów
+  try{ przeliczCenyMieszanek(); }catch(e){}
+  try{ await zapiszWersje(dzisiaj()); zapiszSnapshotDnia(); }catch(e){ console.error(e); }
+  for(const lok of ['nadarzyn','boguszyn']){
+    if(pzDok(lok, dzisiaj())) await synchronizujZywienieZPaszowozu(lok, dzisiaj());
+  }
+  toast(`Przywrócono ${n1} pozycji. Kopia stanu sprzed zmian: „Stan sprzed przywracania”.`);
+  render();
+  return true;
 }
 
 function oknoUstawienia(){
