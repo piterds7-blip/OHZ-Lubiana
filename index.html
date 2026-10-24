@@ -367,12 +367,13 @@ input.pole.potw{background:#f0faf3;border-color:#b9dfc6}
 .lk-gora{margin-bottom:10px}
 .lk-tytul{font-size:16px;margin-left:6px}
 .lk-info{background:#e9f5ee;color:#14532d;border-radius:8px;padding:5px 10px;font-size:12.5px;display:inline-flex;gap:8px;align-items:center}
+.mix-przezn{border:2px solid var(--zielony,#14532d);border-radius:8px;padding:4px 10px;font-size:14px;white-space:nowrap}
 .lk-legenda{display:flex;gap:6px;flex-wrap:wrap;padding:0 14px 10px}
 .rc{display:inline-flex;align-items:center;gap:5px;border-radius:20px;padding:3px 9px 3px 4px;font-size:12px;font-weight:600;background:#fff;border:1.5px solid var(--c)}
 .rc i{width:12px;height:12px;border-radius:50%;background:var(--c);display:inline-block}
-.lk-uklad{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:12px;align-items:start}
+.lk-uklad{display:grid;grid-template-columns:minmax(0,1fr) 375px;gap:12px;align-items:start}
 .lk-uklad>.panel{margin:0}
-.lk-tab th,.lk-tab td{white-space:nowrap}
+.lk-tab th,.lk-tab td{white-space:nowrap;padding-left:6px;padding-right:6px}
 .lk-tab tr.lk-grp th{font-size:11.5px;letter-spacing:.4px;padding:5px;text-align:center}
 .lk-tab th.lk-hw,.lk-tab th.lk-w{background:#5b6b62}
 .lk-tab th.lk-hd{border-left:4px solid #fff}
@@ -385,15 +386,15 @@ input.pole.potw{background:#f0faf3;border-color:#b9dfc6}
 .lk-nazwa{display:flex;align-items:center;gap:7px;font-weight:700}
 .lk-rec{display:block;font-size:11px;color:var(--tekst-slaby);font-weight:400;white-space:normal;max-width:230px}
 .lk-kropki{display:inline-flex;gap:2px;flex:none}.lk-kropki i{width:9px;height:24px;border-radius:3px;background:var(--c)}
-.lk-inp{width:76px;font-weight:700;font-size:14px;text-align:right}
+.lk-inp{width:66px;font-weight:700;font-size:14px;text-align:right}
 .lk-inp.lk-szt{width:58px}.lk-inp.lk-dzis{width:86px;border-color:var(--akcent)}
 .lk-nd{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
-.lk-ndsel{font-size:11px;padding:2px 4px;border:1px solid #f0d27a;background:#fff7e0;border-radius:6px;max-width:150px}
+.lk-ndsel{font-size:11px;padding:2px 4px;border:1px solid #f0d27a;background:#fff7e0;border-radius:6px;max-width:118px}
 .lk-ndcel{font-size:11px;border-radius:6px;padding:2px 6px;font-weight:600}
 .lk-ndcel.do{background:#fff1cc;color:#7a5200}.lk-ndcel.wy{background:#f1f1f1;color:#777}
 .lk-hint{display:block;font-size:10.5px;margin-top:2px;color:var(--tekst-slaby)}
 .lk-przel{display:block;margin-top:3px;font-size:11px;background:#fff7e0;border:1px solid #f0d27a;border-radius:6px;padding:2px 6px;color:#7a5200;cursor:pointer;margin-left:auto}
-.lk-tab td.lk-przydz{min-width:190px;max-width:260px;white-space:normal}
+.lk-tab td.lk-przydz{min-width:170px;max-width:260px;white-space:normal}
 .lk-chips{display:flex;flex-wrap:wrap;gap:4px}
 .lk-ch{border:0;border-radius:6px;padding:4px 8px;font-size:12px;font-weight:700;color:#fff;background:var(--c);cursor:pointer}
 .lk-ch.zla{outline:2.5px solid #dc2626;outline-offset:1px}
@@ -416,7 +417,21 @@ td.ok,td.zl,td.cz,.lk-hint.ok,.lk-hint.zl,.lk-hint.cz{font-weight:800}
 .lk-woz-recn{font-size:12px;color:var(--tekst-slaby);margin-bottom:4px}
 .lk-woz-kg{display:flex;justify-content:space-between;font-size:12px}.lk-woz-kg b{font-size:16px}
 .lk-bar{height:7px;background:#eef1ef;border-radius:4px;overflow:hidden;margin:3px 0 5px}.lk-bar i{display:block;height:100%;background:var(--c)}
-.lk-lin{display:flex;justify-content:space-between;width:100%;font-size:12.5px;padding:3px 0;border:0;border-top:1px dashed #e3e9e5;background:none;cursor:pointer;color:inherit;text-align:left}
+.lk-lin{display:flex;justify-content:space-between;align-items:center;gap:6px;width:100%;font-size:12.5px;padding:3px 0;border-top:1px dashed #e3e9e5;color:inherit}
+.lk-lin-n{border:0;background:none;cursor:pointer;color:inherit;font:inherit;text-align:left;padding:2px 0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lk-lin-kg{width:70px;border:1.5px solid #0e6f8e;border-radius:6px;padding:4px 6px;text-align:right;font-weight:700;font-size:14px;background:#fff}
+.lk-addsek{width:100%;margin-top:6px;border:1.5px dashed #b9d3dc;border-radius:6px;padding:5px;font-size:12.5px;font-weight:700;color:#0e6f8e;background:#fff;cursor:pointer}
+.lk-kgkol{min-width:105px}
+tr.rej-dzien td{background:#f2f7f3;font-weight:700}
+.rej-kto{font-size:11.5px;border-radius:12px;padding:2px 8px;font-weight:700;white-space:nowrap}
+.rej-kto.h{background:#e0ecff;color:#1e40af}.rej-kto.n{background:#e7f5ec;color:#14532d}.rej-kto.b{background:#fdf0e3;color:#9a3412}
+.lk-plus{display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:50%;border:1.5px solid #9fc3d0;background:#fff;color:#0e6f8e;font-weight:800;font-size:14px;margin-left:6px;cursor:pointer;vertical-align:middle;line-height:1}
+.lk-hist{border:0;background:none;cursor:pointer;font-size:15px;margin-left:4px;vertical-align:middle;padding:0}
+.lk-dod{display:block;max-width:220px;white-space:normal;margin-top:3px;font-size:11px;background:#efe7ff;color:#5b21b6;border:1px solid #c9b6f5;border-radius:6px;padding:1px 6px;font-weight:700;cursor:pointer}
+.lk-dosyp{font-size:11.5px;background:#f5f0ff;color:#5b21b6;font-weight:700;border-top:1px dashed #c9b6f5;padding:3px 4px;border-radius:4px}
+.lk-suma{display:block;font-size:18px;font-weight:800}
+.lk-cel{display:block;font-size:11px;color:var(--szary,#6b7a71);white-space:nowrap}
+.lk-roz{display:block;font-size:11.5px;font-weight:800;white-space:nowrap}
 .lk-lin.zla{color:var(--czerwony);font-weight:700}
 .lk-pusto{font-size:11.5px;color:var(--tekst-slaby);font-style:italic;padding:4px 0}
 .lk-woz.przyg{opacity:.4}.lk-woz.pasuje{box-shadow:0 0 0 3px #bde3ff}.lk-woz.ma{box-shadow:0 0 0 4px var(--akcent)}
@@ -431,7 +446,7 @@ td.ok,td.zl,td.cz,.lk-hint.ok,.lk-hint.zl,.lk-hint.cz{font-weight:800}
   .lk-tylko-mob{display:inline-block}
   .lk-wozy-siatka{display:flex;overflow-x:auto;gap:8px;padding:8px}
   .lk-woz{min-width:170px;flex:none}
-  .lk-uklad.zwiniete .lk-woz-cialo .lk-lin,.lk-uklad.zwiniete .lk-woz-rec,.lk-uklad.zwiniete .lk-pusto{display:none}
+  .lk-uklad.zwiniete .lk-woz-cialo .lk-lin,.lk-uklad.zwiniete .lk-addsek,.lk-uklad.zwiniete .lk-woz-rec,.lk-uklad.zwiniete .lk-pusto{display:none}
 }
 .baner-przywr{background:#fdecea;color:#7a1d14;border:1px solid #f3b8b0;border-radius:10px;padding:10px 14px;margin:0 0 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .ikonka.dodaj{color:var(--zielen);font-weight:700;font-size:16px;padding:0 6px}
@@ -602,7 +617,7 @@ const firebaseConfig = {
 };
 /* ###############  KONIEC KONFIGURACJI  ##################### */
 
-const WERSJA_APP = '1.4.0 (plan żywienia w zakładce lokalizacji)';
+const WERSJA_APP = '1.5.0 (kg z wozów, dosyp, rejestr zmian)';
 const SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
 
 /* ===================== SHA-256 (czysty JS, bez zależności) ================= */
@@ -2267,6 +2282,7 @@ function drukujHTML(html, tytul, opcje){
       table.karta-zb td{font-size:var(--fs);padding:.06em .3em;font-weight:700;white-space:nowrap;border:1px solid #888}
       table.karta-zb td.pierw small{font-weight:400;font-size:.72em;color:#444}
       table.karta-zb tr.nd td{background:#fff1cc}
+      table.karta-zb tr.dosyp td{background:#f1eaff}
       table.karta-zb td.pusta{background:#e9e9e9 !important}
       table.karta-zb tr.suma td{border-top:3px solid #14532d;background:#dcebe0;font-weight:900}
       table.karta-zb tr.sep td{background:#14532d !important;color:#fff;font-weight:800;font-size:calc(var(--fs)*.85);border-color:#0d3d20}
@@ -2703,6 +2719,7 @@ function renderLokalizacja(w, lok){
   const POJ = pojemnoscWozu();
   const czeka = !trybLokalny && !serwerPotwierdzil.paszowozy && !dok;
 
+  const rejDzis = st.rejestr || [];
   // przydziały: gid -> [{woz, kg, idx}]
   const przydz = {};
   st.wozy.forEach(woz=>(woz.rozdzielenie||[]).forEach((r,idx)=>{
@@ -2736,13 +2753,17 @@ function renderLokalizacja(w, lok){
     const naWozach = lista.reduce((s,x)=>s+x.kg,0);
     const odzysk = ndDo[gr.id] || 0;
     const przypisane = naWozach + odzysk;
-    const planKg = st.plan[gr.id]!=null ? st.plan[gr.id] : (przypisane>0 ? przypisane : null);
-    return {gr, poza:!!gr.pozaPaszowozem, sztW, wczFeed, ndWpis, ndKg, ndZnane, pobr, procPobr,
-      sztD, planSzt, lista, naWozach, odzysk, przypisane, planKg, zDzis:dzisDok[gr.id]};
+    // kg na grupę = suma z wozów (+ przekazane niedojady); cel = sztuki × plan kg/szt z receptury
+    const cel = planSzt*sztD;
+    const dodL = st.dodatki[gr.id] || null;
+    const dosypSzt = dosypKgSzt(dodL);
+    const zmiany = rejDzis.filter(r=>r.klucz===gr.id && ['kg','szt','dod'].includes(r.typ));
+    return {gr, dodL, dosypSzt, dosypKg: wynik.sektory[gr.id]?.dosyp || 0, zmiany, poza:!!gr.pozaPaszowozem, sztW, wczFeed, ndWpis, ndKg, ndZnane, pobr, procPobr,
+      sztD, planSzt, lista, naWozach, odzysk, przypisane, planKg:przypisane, cel, zDzis:dzisDok[gr.id]};
   });
 
   const S = k => wiersze.filter(x=>!x.poza).reduce((s,x)=>s+(x[k]||0),0);
-  const bezWozu = wiersze.filter(x=>!x.poza && x.planKg>0 && x.naWozach+x.odzysk < x.planKg-5);
+  const bezWozu = wiersze.filter(x=>!x.poza && x.cel>0.5 && x.przypisane<=0);
   const ndRazem = st.niedojady.reduce((s,n)=>s+(n.zrodloId?n.zebranoKg:0),0);
   const ndPrzek = st.niedojady.reduce((s,n)=>s+(n.zrodloId&&n.celId?n.zebranoKg:0),0);
   const wyb = lkWybrana[lok];
@@ -2819,27 +2840,29 @@ function renderLokalizacja(w, lok){
               <td><span class="lk-pozatag">karmiona poza paszowozem</span></td>
               ${edycja?`<td class="akcje"><button class="ikonka" data-edgt="${gr.id}" title="Edytuj grupę">✎</button></td>`:''}</tr>`;
           }
-          // status przydziału
-          const roznica = (x.planKg||0) - x.przypisane;
+          // status: suma z wozów vs cel (sztuki × plan kg/szt)
           const zlaRec = x.lista.some(p=>!wozPasujeDoGrupy(p.woz, gr));
-          let status;
-          if(!x.planKg && !x.przypisane) status = `<span class="lk-st podpis">brak planu</span>`;
-          else if(!x.lista.length && !x.odzysk) status = `<span class="lk-st cz">⚠ brak wozu — ${fmt(x.planKg,0)} kg</span>`;
-          else if(Math.abs(roznica)>5) status = `<span class="lk-st cz">⚠ ${roznica>0?'brakuje':'za dużo'} ${fmt(Math.abs(roznica),0)} kg</span>`;
-          else status = `<span class="lk-st ok">✓ ${fmt(x.przypisane,0)} kg${zlaRec?' <span class="cz">· inna receptura!</span>':''}</span>`;
-          const perSzt = x.sztD>0 && x.planKg ? x.planKg/x.sztD : null;
+          const roznica = x.przypisane - x.cel;
+          const perSzt = x.sztD>0 ? x.przypisane/x.sztD : null;
           const procPlan = perSzt!=null && x.planSzt>0 ? perSzt/x.planSzt*100 : null;
-          // podpowiedź przeliczenia przy zmianie obsady
-          const kgSztW = x.sztW>0 && x.wczFeed ? x.wczFeed/x.sztW : null;
-          const przel = (mozeWpis && x.sztD!==x.sztW && x.sztW>0 && kgSztW && x.planKg && Math.abs(x.planKg/x.sztD - kgSztW)/kgSztW > 0.01)
-            ? `<button class="lk-przel" data-przel="${gr.id}" data-kg="${Math.round(kgSztW*x.sztD)}">było ${x.sztW}, jest ${x.sztD} → przelicz na ${fmt(Math.round(kgSztW*x.sztD),0)} kg</button>` : '';
+          let status;
+          if(!x.cel && !x.przypisane) status = `<span class="lk-st podpis">brak planu</span>`;
+          else if(!x.lista.length && !x.odzysk) status = `<span class="lk-st cz">⚠ brak wozu</span>`;
+          else status = zlaRec ? `<span class="lk-st cz">⚠ inna receptura!</span>` : '';
+          const kolS = kolProc(procPlan);
+          const opisRoz = !x.cel ? '' : Math.abs(roznica)<0.5 || kolS==='ok'
+            ? `✓ ${procPlan!=null?fmt(procPlan,0)+'%':''}`
+            : (roznica<0 ? `brakuje ${fmt(-roznica,0)}` : `+${fmt(roznica,0)} kg`)+(procPlan!=null&&x.przypisane>0?' · '+fmt(procPlan,0)+'%':'');
+          const komKg = `<span class="lk-suma">${x.przypisane>0?fmt(x.przypisane,0):'—'}${x.dosypKg>0?` <small style="color:#5b21b6;font-size:12px">+${fmt(x.dosypKg,1)}</small>`:''}</span>
+              ${x.cel>0?`<span class="lk-cel" title="cel = ${x.sztD} szt × ${fmt(x.planSzt,2)} kg/szt">cel ${fmt(x.cel,0)}</span>`:''}
+              ${opisRoz?`<span class="lk-roz ${kolS}">${opisRoz}</span>`:''}
+              ${perSzt!=null&&x.przypisane>0?`<span class="lk-cel">${fmt(perSzt,2)} kg/szt</span>`:''}`;
           return `<tr class="lk-gr ${gr.id===wyb?'wyb':''} ${gr.parentId?'podgrupa':''}" data-g="${gr.id}">
-            <td><div class="lk-nazwa">${pasekKolor(gr)}<div>${esc(gr.nazwa)}<span class="lk-rec">${esc(opisRec(gr))}</span></div></div></td>
+            <td><div class="lk-nazwa">${pasekKolor(gr)}<div>${esc(gr.nazwa)}${mozeWpis?`<button class="lk-plus" data-dodatek="${gr.id}" title="Dosyp surowców do wozu dla tego sektora">+</button>`:''}${x.zmiany.length?`<button class="lk-hist" data-hist="${gr.id}" title="Zmiany dziś: ${x.zmiany.length}">🕘</button>`:''}<span class="lk-rec">${esc(opisRec(gr))}</span>${x.dodL?`<span class="lk-dod" ${mozeWpis?`data-dodatek="${gr.id}"`:''}>+ ${esc(opisDodatku(x.dodL))}</span>`:''}</div></div></td>
             ${wspolne}
-            <td class="num lk-d1">${fmt(x.planSzt,2)}</td>
+            <td class="num lk-d1">${fmt(x.planSzt,2)}${x.dosypSzt>0?`<span class="lk-cel" style="color:#5b21b6">+${fmt(x.dosypSzt,2)} dosyp</span>`:''}</td>
             <td class="num">${komSzt}</td>
-            <td class="num">${mozeWpis?`<input class="pole num lk-inp lk-dzis" data-plan="${gr.id}" value="${x.planKg!=null?Math.round(x.planKg):''}" placeholder="${fmt(x.planSzt*x.sztD,0).replace(/\s/g,'')}" inputmode="decimal">`:(x.planKg!=null?fmt(x.planKg,0):'—')}
-              <span class="lk-hint ${kolProc(procPlan)}">${perSzt!=null?fmt(perSzt,2)+' kg/szt · '+fmt(procPlan,0)+'%':'plan '+fmt(x.planSzt*x.sztD,0)}</span>${przel}</td>
+            <td class="num lk-kgkol">${komKg}</td>
             <td class="lk-przydz"><div class="lk-chips">
               ${x.odzysk>0?`<span class="lk-ndw">♻ ${fmt(x.odzysk,0)} niedojady</span>`:''}
               ${x.lista.map(p=>{
@@ -2852,16 +2875,16 @@ function renderLokalizacja(w, lok){
         </tbody>
       </table></div>
       <div class="lk-stopka">
-        <span>Grupy razem: <b>${fmt(S('planKg'),0)} kg</b></span>
+        <span>Grupy razem: <b>${fmt(S('przypisane'),0)} kg</b> <span class="podpis">(cel ${fmt(S('cel'),0)} kg)</span></span>
         ${ndPrzek?`<span>♻ niedojady przekazane: <b>${fmt(ndPrzek,0)} kg</b></span>`:''}
         <span>Na wozach: <b>${fmt(S('naWozach'),0)} kg</b></span>
-        ${bezWozu.length?`<span class="cz">Bez pełnego przydziału: ${bezWozu.map(x=>esc(x.gr.nazwa)).join(', ')}</span>`:'<span class="ok">✓ wszystkie grupy rozdzielone</span>'}
+        ${bezWozu.length?`<span class="cz">Bez wozu: ${bezWozu.map(x=>esc(x.gr.nazwa)).join(', ')}</span>`:'<span class="ok">✓ wszystkie grupy rozdzielone</span>'}
         <span>Niedojady rano: <b>${fmt(ndRazem,0)} kg</b>${ndRazem?` · przekazane ${fmt(ndPrzek,0)} · wyrzucone ${fmt(ndRazem-ndPrzek,0)}`:''}</span>
       </div>
       ${mozeWpis?`<div style="padding:0 14px 12px"><button class="btn maly ${st.niedojadyPotw?'':'szary'}" id="lkBrakNd">${st.niedojadyPotw?'✓ Pozostałe grupy: brak niedojadów (potwierdzone)':'✓ Pozostałe grupy: brak niedojadów'}</button></div>`:''}
       <div class="podpis" style="padding:0 14px 12px;line-height:1.55">
         <b>Wczoraj:</b> zadano i niedojady zebrane dziś rano dają <b>pobranie</b>. Niedojady można przekazać innej grupie — <b>zastępują</b> część jej TMR (wóz wiezie mniej); nieprzekazane są wyrzucane.
-        <b>Dziś:</b> wpisz kg dla grupy i przypisz wozy. <b>Kolor</b> = receptura: grupa i wóz w tym samym kolorze pasują do siebie; czerwona ramka = wóz z inną recepturą.
+        <b>Dziś:</b> kg wpisujesz na kafelkach wozów — kolumna „kg / grupę” sumuje się sama i porównuje z celem (sztuki × plan kg/szt). <b>Kolor</b> = receptura: grupa i wóz w tym samym kolorze pasują do siebie; czerwona ramka = wóz z inną recepturą.
       </div>
     </div>
 
@@ -2890,15 +2913,22 @@ function renderLokalizacja(w, lok){
                 ${dawkiL.map(d=>`<option value="${d.id}" ${rw.length===1&&rw[0].dawkaId===d.id?'selected':''}>${esc(d.nazwa)}</option>`).join('')}
                 ${rw.length>1?`<option value="" selected>${esc(rw.map(r=>store.dawki[r.dawkaId]?.nazwa).join(' + '))}</option>`:''}
               </select>`:`<div class="lk-woz-recn">${esc(rw.map(r=>store.dawki[r.dawkaId]?.nazwa).join(' + ')||'— brak receptury —')}</div>`}
-              <div class="lk-woz-kg"><span><b>${fmt(masa,0)}</b> kg</span><span>/ ${fmt(POJ,0)}</span></div>
+              <div class="lk-woz-kg"><span><b>${fmt(masa,0)}</b> kg${X.dosypRazem>0?` <small style="color:#5b21b6">+${fmt(X.dosypRazem,1)}</small>`:''}</span><span>/ ${fmt(POJ,0)}</span></div>
               <div class="lk-bar"><i style="width:${Math.min(100,masa/POJ*100)}%"></i></div>
-              ${(woz.rozdzielenie||[]).filter(r=>r.grupaId && r.kg>0).map(r=>{
+              ${(woz.rozdzielenie||[]).filter(r=>r.grupaId && r.kg>0).sort((a,b)=>(X.dosyp[a.grupaId]?1:0)-(X.dosyp[b.grupaId]?1:0)).map(r=>{
                 const g = store.grupyTech[r.grupaId];
                 const zla = g && !wozPasujeDoGrupy(woz, g);
-                return `<button class="lk-lin ${zla?'zla':''}" data-chip="${woz.id}|${r.grupaId}"><span>→ ${esc(g?.nazwa||'?')}${zla?' ⚠':''}</span><b>${fmt(r.kg,0)}</b></button>`;
+                const ds = X.dosyp[r.grupaId];
+                const dsHtml = ds ? `<div class="lk-dosyp">⊕ dosyp: ${Object.entries(ds).map(([sid,kg])=>esc(store.surowce[sid]?.nazwa||'?')+' '+fmt(kg,1)).join(' · ')}</div>` : '';
+                return dsHtml+`<div class="lk-lin ${zla?'zla':''}"><button class="lk-lin-n" data-chip="${woz.id}|${r.grupaId}">→ ${esc(g?.nazwa||'?')}${zla?' ⚠':''}</button>${mozeWpis
+                  ? `<input class="lk-lin-kg" data-wkg="${woz.id}|${r.grupaId}" value="${Math.round(r.kg)}" inputmode="decimal">`
+                  : `<b>${fmt(r.kg,0)}</b>`}</div>`;
               }).join('') || '<div class="lk-pusto">pusty — dotknij grupy, potem tego wozu</div>'}
+              ${mozeWpis?`<select class="lk-addsek" data-wdodaj="${woz.id}"><option value="">+ sektor</option>
+                ${grupy.filter(g=>!g.pozaPaszowozem && !(woz.rozdzielenie||[]).some(r=>r.grupaId===g.id && r.kg>0)).map(g=>`<option value="${g.id}">${esc(g.nazwa)}</option>`).join('')}</select>`:''}
               ${masa>POJ?`<div class="lk-st cz">⚠ ponad pojemność o ${fmt(masa-POJ,0)} kg</div>`:''}
               ${!rw.length&&masa>0?'<div class="lk-st cz">⚠ wybierz recepturę</div>':''}
+              ${Object.keys(X.dosyp).length>1?'<div class="lk-st cz">⚠ dosyp dla 2 sektorów w jednym wozie — rozdziel je na osobne wozy</div>':''}
             </div>
           </div>`;
         }).join('')}
@@ -2932,6 +2962,7 @@ function renderLokalizacja(w, lok){
     w.querySelectorAll('[data-edgt]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); oknoEdGrupa(lok,b.dataset.edgt); });
     const ng = w.querySelector('#btnNowaGrupa'); if(ng) ng.onclick = ()=>oknoEdGrupa(lok);
   }
+  w.querySelectorAll('[data-hist]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); oknoHistoriiGrupy(lok, data, b.dataset.hist); });
   if(!mozeWpis){
     w.querySelectorAll('[data-chip]').forEach(b=>b.disabled=true);
     return;
@@ -2966,22 +2997,53 @@ function renderLokalizacja(w, lok){
   w.querySelectorAll('[data-szt]').forEach(el=>{
     el.onchange = async ()=>{
       const gid = el.dataset.szt, v = Math.max(0, parseInt(el.value)||0);
+      const bylo = wiersze.find(q=>q.gr.id===gid)?.sztD;
       if(dzis) await DB.zapisz('grupyTech', gid, {sztuk:v});
       await zapiszDzien(lok, data, gid, {sztuk:v});
-      if(pzDok(lok,data)) await synchronizujZywienieZPaszowozu(lok, data);
+      if(pzDok(lok,data) && bylo!==v) await E(s=>{ s._log=[{typ:'szt', klucz:gid, nazwa:store.grupyTech[gid]?.nazwa||'?', bylo, jest:v}]; });
+      else if(pzDok(lok,data)) await synchronizujZywienieZPaszowozu(lok, data);
     };
   });
-  w.querySelectorAll('[data-przel]').forEach(b=>{
-    b.onclick = e=>{ e.stopPropagation(); const gid=b.dataset.przel, kg=+b.dataset.kg; E(s=>{ s.plan[gid]=kg; }); };
+  // kg sektora wpisywane na kafelku wozu (0 = usuń przydział)
+  w.querySelectorAll('[data-wkg]').forEach(el=>{
+    el.onclick = e=>e.stopPropagation();
+    el.onchange = ()=>{
+      const [wid,gid] = el.dataset.wkg.split('|'); const v = Math.max(0, Math.round(liczba(el.value)));
+      E(s=>{ const wz=s.wozy.find(q=>q.id===wid); if(!wz) return false;
+        const i = wz.rozdzielenie.findIndex(r=>r.grupaId===gid);
+        wz.rozdzielenie = wz.rozdzielenie.filter(r=>r.grupaId!==gid);
+        if(v>0) wz.rozdzielenie.splice(i<0?wz.rozdzielenie.length:i, 0, {grupaId:gid, kg:v}); });
+    };
   });
-  // plan kg na grupę
-  w.querySelectorAll('[data-plan]').forEach(el=>{
-    el.onchange = ()=>{ const gid=el.dataset.plan, v=el.value.trim(); E(s=>{ if(v==='') delete s.plan[gid]; else s.plan[gid]=Math.max(0,liczba(v)); }); };
+  w.querySelectorAll('[data-dodatek]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); oknoDodatku(lok, data, b.dataset.dodatek); });
+  w.querySelectorAll('[data-wdodaj]').forEach(el=>{
+    el.onclick = e=>e.stopPropagation();
+    el.onchange = ()=>{ if(el.value) dodajGrupeDoWozu(el.dataset.wdodaj, el.value); };
   });
   // grupy poza paszowozem — zadane wpisywane ręcznie, jak dawniej
   w.querySelectorAll('[data-zadreczne]').forEach(el=>{
     el.onchange = ()=>{ const v=el.value.trim(); zapiszDzien(lok, data, el.dataset.zadreczne, {zadaneKg: v===''?null:Math.max(0,liczba(v))}); };
   });
+
+  // dopisz grupę do wozu: brakujące kg do celu, w granicach pojemności
+  function dodajGrupeDoWozu(wozId, gid){
+    const x = wiersze.find(q=>q.gr.id===gid);
+    const woz = st.wozy.find(q=>q.id===wozId);
+    if(!x || !woz) return;
+    if((woz.rozdzielenie||[]).some(r=>r.grupaId===gid && r.kg>0)){ oknoPrzydzialu(lok, data, woz.id, gid); return; }
+    const brak = Math.max(0, x.cel - x.przypisane);
+    const wolne = Math.max(0, POJ - masaWozu(woz));
+    const kg = Math.round(Math.min(brak, wolne));
+    if(brak<=0.5){ oknoPrzydzialu(lok, data, woz.id, gid); return; }
+    if(kg<=0){ toast('Wóz jest pełny — wybierz inny albo zmień ilości.', true); return; }
+    if(kg<brak-0.5) toast(`Wóz pomieści jeszcze ${fmt(kg,0)} kg — brakujące ${fmt(brak-kg,0)} kg przypisz do innego wozu.`);
+    E(s=>{
+      const wz = s.wozy.find(q=>q.id===woz.id); if(!wz) return false;
+      if(!recWozu(wz).length && (x.gr.dawki||[]).length===1) wz.receptury=[{dawkaId:x.gr.dawki[0].dawkaId, udzial:100}];
+      wz.rozdzielenie = (wz.rozdzielenie||[]).filter(r=>r.grupaId);
+      wz.rozdzielenie.push({grupaId:gid, kg});
+    });
+  }
 
   // wozy
   w.querySelector('#lkDodajWoz').onclick = ()=>E(s=>{
@@ -3012,24 +3074,7 @@ function renderLokalizacja(w, lok){
       if(e.target.closest('input,select,button')) return;
       const gid = lkWybrana[lok];
       if(!gid){ toast('Najpierw dotknij grupy po lewej.'); return; }
-      const x = wiersze.find(q=>q.gr.id===gid);
-      const woz = st.wozy.find(q=>q.id===k.dataset.woz);
-      if(!x || !woz) return;
-      if((woz.rozdzielenie||[]).some(r=>r.grupaId===gid && r.kg>0)){ oknoPrzydzialu(lok, data, woz.id, gid); return; }
-      const brak = Math.max(0, (x.planKg||x.planSzt*x.sztD) - x.przypisane);
-      const wolne = Math.max(0, POJ - masaWozu(woz));
-      let kg = Math.round(Math.min(brak, wolne));
-      if(brak<=0){ oknoPrzydzialu(lok, data, woz.id, gid); return; }
-      if(kg<=0){ toast('Wóz jest pełny — wybierz inny albo zmień ilości.', true); return; }
-      if(kg<brak) toast(`Wóz pomieści jeszcze ${fmt(kg,0)} kg — brakujące ${fmt(brak-kg,0)} kg przypisz do innego wozu.`);
-      const planBrak = x.planKg==null;
-      E(s=>{
-        const wz = s.wozy.find(q=>q.id===woz.id); if(!wz) return false;
-        if(!recWozu(wz).length && (x.gr.dawki||[]).length===1) wz.receptury=[{dawkaId:x.gr.dawki[0].dawkaId, udzial:100}];
-        wz.rozdzielenie = (wz.rozdzielenie||[]).filter(r=>r.grupaId);
-        wz.rozdzielenie.push({grupaId:gid, kg});
-        if(planBrak) s.plan[gid] = Math.round(x.planSzt*x.sztD);
-      });
+      dodajGrupeDoWozu(k.dataset.woz, gid);
     };
   });
   w.querySelectorAll('[data-chip]').forEach(b=>{
@@ -3052,6 +3097,64 @@ function zmniejszWozyDoPlanu(s, gid){
   }
   if(s.plan[gid]==null) s.plan[gid] = plan;
 }
+
+/* Okienko: dosyp surowców do wozu dla sektora (kg na sztukę × sztuki) */
+function oknoDodatku(lok, data, gid){
+  const st = normalizujPz(pzDok(lok,data));
+  const gr = store.grupyTech[gid]; if(!gr) return;
+  const szt = sztDnia(lok, data, gid);
+  let L = klon(st.dodatki[gid] || []);
+  if(!L.length) L.push({surowiecId:'', kgSzt:0});
+  const surList = Object.values(store.surowce).sort((a,b)=>(a.nazwa||'').localeCompare(b.nazwa||'','pl'));
+  const wozy = st.wozy.filter(w=>(w.rozdzielenie||[]).some(r=>r.grupaId===gid && r.kg>0));
+  const inne = wozy.map(w=>(w.rozdzielenie||[]).filter(r=>r.grupaId!==gid && r.kg>0).map(r=>store.grupyTech[r.grupaId]?.nazwa||'?')).flat();
+  const wiersz = (x,i)=>`<tr>
+      <td><select class="pole" data-dsur="${i}" style="min-width:190px"><option value="">— surowiec —</option>${surList.map(sr=>`<option value="${sr.id}" ${sr.id===x.surowiecId?'selected':''}>${esc(sr.nazwa)}</option>`).join('')}</select></td>
+      <td><input class="pole num" data-dkg="${i}" value="${x.kgSzt?String(x.kgSzt).replace('.',','):''}" inputmode="decimal" style="width:80px;text-align:right;font-weight:700"></td>
+      <td class="num">× ${szt}</td><td class="num"><b data-dwyn="${i}">${fmt(x.kgSzt*szt,1)}</b></td>
+      <td><button class="ikonka usun" data-dusun="${i}">✕</button></td></tr>`;
+  const tresc = ()=>`<table class="gt-tabela" style="width:100%"><thead><tr><th>Surowiec</th><th class="num">kg / szt</th><th class="num">szt</th><th class="num">kg do wozu</th><th></th></tr></thead>
+      <tbody>${L.map(wiersz).join('')}
+      <tr class="suma"><td>Razem</td><td class="num">${fmt(dosypKgSzt(L),2)}</td><td></td><td class="num">${fmt(dosypKgSzt(L)*szt,1)}</td><td></td></tr></tbody></table>
+      <button class="btn maly szary" id="dDodaj" style="margin-top:8px">+ surowiec</button>
+      <div class="podpis" style="margin-top:10px;line-height:1.5">${wozy.length
+        ? `Dosyp do wozu ${wozy.map(w=>'<b>„'+esc(w.nazwa)+'”</b>').join(', ')}${inne.length?' po wysypaniu: <b>'+esc(inne.join(', '))+'</b>':''}. ${wozy.length>1?'Grupa jedzie kilkoma wozami — dosyp dzieli się proporcjonalnie do kg. ':''}`
+        : '<b style="color:var(--czerwony)">Grupa nie ma jeszcze wozu</b> — dosyp policzy się po przypisaniu wozu. '}
+        Ilość przelicza się sama przy zmianie sztuk. Dosyp kopiuje się na kolejne dni razem z planem.</div>`;
+  modal({tytul:`Dosyp do wozu — ${gr.nazwa} (${szt} szt)`, szer:'640px', tresc:`<div id="dTresc">${tresc()}</div>`,
+    przyciski:[
+      ...(st.dodatki[gid]?[{tekst:'Usuń dosyp', klasa:'czerw', akcja:()=>pzEdytuj(lok,data,s=>{ delete s.dodatki[gid]; })}]:[]),
+      {tekst:'Anuluj'},
+      {tekst:'Zapisz', klasa:'', akcja:()=>{
+        const ok = L.filter(x=>x.surowiecId && x.kgSzt>0).map(x=>({surowiecId:x.surowiecId, kgSzt:zaokr(x.kgSzt,3)}));
+        if(L.some(x=>x.kgSzt>0 && !x.surowiecId)){ toast('Wybierz surowiec.', true); return false; }
+        return pzEdytuj(lok,data,s=>{ if(ok.length) s.dodatki[gid]=ok; else delete s.dodatki[gid]; });
+      }}
+    ]});
+  const odsw = ()=>{ const t=document.getElementById('dTresc'); if(t){ t.innerHTML=tresc(); podp(); } };
+  const podp = ()=>{
+    const n = document.getElementById('dTresc'); if(!n) return;
+    n.querySelectorAll('[data-dsur]').forEach(el=>el.onchange=()=>{ L[+el.dataset.dsur].surowiecId=el.value; });
+    n.querySelectorAll('[data-dkg]').forEach(el=>el.onchange=()=>{ L[+el.dataset.dkg].kgSzt=Math.max(0,liczba(el.value)); odsw(); });
+    n.querySelectorAll('[data-dusun]').forEach(el=>el.onclick=()=>{ L.splice(+el.dataset.dusun,1); odsw(); });
+    n.querySelector('#dDodaj').onclick=()=>{ L.push({surowiecId:'', kgSzt:0}); odsw(); };
+  };
+  podp();
+}
+
+/* Okienko: dzisiejsze zmiany sektora z rejestru */
+function oknoHistoriiGrupy(lok, data, gid){
+  const lista = rejestrDnia(lok, data).filter(r=>r.klucz===gid).sort((a,b)=>b.ts-a.ts);
+  modal({tytul:`${store.grupyTech[gid]?.nazwa||'?'} — zmiany ${dataPL(data)}`,
+    tresc: lista.length ? `<table class="gt-tabela" style="width:100%"><thead><tr><th>Godz.</th><th>Kto</th><th>Co</th><th class="num">Było</th><th class="num">Jest</th></tr></thead><tbody>
+      ${lista.map(r=>`<tr><td>${godzina(r.ts)}</td><td>${esc(r.kto)}</td><td>${REJ_TYPY[r.typ]||r.typ}</td><td class="num">${wartRej(r,'bylo')}</td><td class="num"><b>${wartRej(r,'jest')}</b></td></tr>`).join('')}
+      </tbody></table>` : '<div class="pusto">Brak zmian.</div>',
+    przyciski:[{tekst:'Zamknij'}]});
+}
+const REJ_TYPY = {kg:'kg TMR', szt:'sztuki', rec:'receptura wozu', woz:'wóz', dod:'dosyp', nd:'niedojady', kopia:'kopia planu'};
+function godzina(ts){ const g=new Date(ts); return String(g.getHours()).padStart(2,'0')+':'+String(g.getMinutes()).padStart(2,'0'); }
+function wartRej(r, pole){ const v = r[pole]; return typeof v==='number' ? fmt(v,0) : esc(String(v??'—')); }
+function zmianaRej(r){ return (typeof r.bylo==='number' && typeof r.jest==='number') ? r.jest-r.bylo : null; }
 
 /* Okienko: zmień kg przydziału grupy w wozie albo usuń przydział */
 function oknoPrzydzialu(lok, data, wozId, gid){
@@ -3321,7 +3424,13 @@ function normalizujPz(dok){
   });
   const plan = {};
   Object.entries(dok.plan||{}).forEach(([g,kg])=>{ if(kg!=null && !isNaN(kg)) plan[g]=Number(kg); });
-  return {wozy, niedojady, niedojadyPotw:!!dok.niedojadyPotw, autoKopia:dok.autoKopia||null, plan, ndPerGrupa:!!dok.ndPerGrupa};
+  const dodatki = {};
+  Object.entries(dok.dodatki||{}).forEach(([g,l])=>{
+    const L = (Array.isArray(l)?l:[]).map(x=>({surowiecId:x.surowiecId||'', kgSzt:Math.max(0, Number(x.kgSzt)||0)})).filter(x=>x.surowiecId && x.kgSzt>0);
+    if(L.length) dodatki[g] = L;
+  });
+  const rejestr = Array.isArray(dok.rejestr) ? dok.rejestr.filter(Boolean).map(x=>({...x})) : [];
+  return {wozy, niedojady, niedojadyPotw:!!dok.niedojadyPotw, autoKopia:dok.autoKopia||null, plan, ndPerGrupa:!!dok.ndPerGrupa, dodatki, rejestr};
 }
 
 /* zebraneId → wóz, do którego trafił */
@@ -3334,6 +3443,10 @@ function przypisaniaNd(st){
 /* Przeliczenie całego dnia: per wóz i per sektor. Jedno miejsce — korzystają z niego
    ekran, karty załadunku i synchronizacja do raportów. */
 function obliczPaszowoz(lok, data, st){
+  // TMR grupy we wszystkich wozach — do proporcjonalnego podziału dosypu
+  const tmrGrupy = {};
+  st.wozy.forEach(w=>(w.rozdzielenie||[]).forEach(r=>{ if(r.grupaId && r.kg>0) tmrGrupy[r.grupaId]=(tmrGrupy[r.grupaId]||0)+r.kg; }));
+  const dod = st.dodatki || {};
   const wozy = st.wozy.map(woz=>{
     const recWsz = woz.receptury;
     const rec = recWsz.filter(r=>r.dawkaId && store.dawki[r.dawkaId] && (r.udzial||0)>0);
@@ -3369,9 +3482,18 @@ function obliczPaszowoz(lok, data, st){
     const odchylka = kontrola>0 ? kontrola-masa : 0;
     if(kontrola>0 && Math.abs(odchylka)>Math.max(20, masa*0.02))
       ostrz.push(`Waga z wozu ${fmt(kontrola,0)} kg — o ${fmt(Math.abs(odchylka),0)} kg ${odchylka>0?'więcej':'mniej'} niż suma rozdzielenia.`);
+    // dosyp: {grupaId: {surowiecId: kg}} — dosypywany po wysypaniu pozostałych sektorów
+    const dosyp = {}; let dosypRazem = 0;
+    (woz.rozdzielenie||[]).forEach(r=>{
+      if(!r.grupaId || !(r.kg>0) || !dod[r.grupaId]) return;
+      const szt = sztDnia(lok, data, r.grupaId), f = r.kg/(tmrGrupy[r.grupaId]||r.kg);
+      const mp = {}; dod[r.grupaId].forEach(x=>{ const kg = x.kgSzt*szt*f; if(kg>0) mp[x.surowiecId]=(mp[x.surowiecId]||0)+kg; });
+      if(Object.keys(mp).length){ dosyp[r.grupaId] = mp; dosypRazem += Object.values(mp).reduce((a,b)=>a+b,0); }
+    });
+    if(Object.keys(dosyp).length>1) ostrz.push('Dosyp dla więcej niż jednego sektora w jednym wozie — dosyp nie rozdzieli się dokładnie. Rozdziel te sektory na osobne wozy.');
     const liczony = masa>0 && (rec.length>0 || swiezy<=0.5);
     const stan = !liczony ? 'brak' : (bledy.length||ostrz.length) ? 'zle' : 'ok';
-    return {woz, rec, sumaUdzWsz, sumaUdz, masa, nd, ndWpisane, swiezy, udz, sklSwiezy, sklNd, zrodla,
+    return {woz, dosyp, dosypRazem, rec, sumaUdzWsz, sumaUdz, masa, nd, ndWpisane, swiezy, udz, sklSwiezy, sklNd, zrodla,
       kosztSwiezy, naDawke, opisRec, bledy, ostrz, kontrola, odchylka, liczony, stan};
   });
 
@@ -3392,8 +3514,14 @@ function obliczPaszowoz(lok, data, st){
       a.koszt += W.kosztSwiezy*f;
       mapaDodaj(a.zrodla, W.zrodla, f);
       mapaDodaj(a.naDawke, W.naDawke, f);
+      const ds = W.dosyp[rz.grupaId];
+      if(ds){
+        const dk = Object.values(ds).reduce((x,y)=>x+y,0);
+        a.kg += dk; a.swiezy += dk; a.dosyp = (a.dosyp||0) + dk;
+        mapaDodaj(a.sklSwieze, ds); mapaDodaj(a.sklTotal, ds); a.koszt += kosztMapy(ds);
+      }
       a.wklady.push({wozId:W.woz.id, wozNazwa:W.woz.nazwa,
-        dawkaNazwa:(W.opisRec||'')+(W.nd>0?' + ♻':''), kg:zaokr(rz.kg,2)});
+        dawkaNazwa:(W.opisRec||'')+(W.nd>0?' + ♻':'')+(ds?' + dosyp':''), kg:zaokr(rz.kg+(ds?Object.values(ds).reduce((x,y)=>x+y,0):0),2)});
     });
   });
   // Niedojady przekazane innej grupie (bez wozu) — zastępują część jej TMR, nie kosztują drugi raz
@@ -3435,7 +3563,7 @@ async function synchronizujZywienieZPaszowozu(lok, data, st){
       ...poprz,
       sztuk,
       nazwaGrupy: gr?.nazwa || poprz.nazwaGrupy || '?',
-      dawkaWyliczonaKgSzt: zamroz ? poprz.dawkaWyliczonaKgSzt : zaokr(o?.kgSzt||0,3),
+      dawkaWyliczonaKgSzt: zamroz ? poprz.dawkaWyliczonaKgSzt : zaokr((o?.kgSzt||0) + dosypKgSzt(st.dodatki?.[gid]),3),
       udzialy: (zamroz && poprz.udzialy) ? poprz.udzialy : (gr?.dawki||[]).map(d=>({dawkaId:d.dawkaId, udzial:d.udzial})),
       zadaneKg: zaokr(a.kg,2),
       niedojadyDodaneKg: zaokr(a.odzysk,2),
@@ -3448,6 +3576,7 @@ async function synchronizujZywienieZPaszowozu(lok, data, st){
       zPaszowozu: true,
       wklady: a.wklady
     };
+    if(a.dosyp) nowy.dosypKg = zaokr(a.dosyp,2); else delete nowy.dosypKg;
     grupy[gid] = bezMeta(nowy)===bezMeta(poprz) ? poprz : {...nowy, autor, ts:Date.now()};
   }
   // Sieroty: wpisy z Paszowozu, których nie ma już w żadnym wozie
@@ -3455,7 +3584,7 @@ async function synchronizujZywienieZPaszowozu(lok, data, st){
     if(sektory[gid]) continue;
     const g = grupy[gid];
     if(!g || !(g.zPaszowozu || g.wklady)) continue;
-    const {zadaneKg, niedojadyDodaneKg, niedojadyZrodla, skladniki, skladnikiSwieze, kosztKgTMR,
+    const {zadaneKg, niedojadyDodaneKg, niedojadyZrodla, skladniki, skladnikiSwieze, kosztKgTMR, dosypKg,
            udzialyFakt, zPaszowozu, wklady, ...reszta} = g;
     if(reszta.niedojadyKg==null && !store.grupyTech[gid]) delete grupy[gid];
     else if(reszta.niedojadyKg==null && store.grupyTech[gid]) delete grupy[gid];   // wraca do planu
@@ -3498,8 +3627,10 @@ async function zapiszPaszowoz(lok, data, st){
     wozy: st.wozy, niedojady: st.niedojady,
     niedojadyPotw: !!st.niedojadyPotw,
     autoKopia: st.autoKopia || null,
-    plan: st.plan || {},
+    plan: planZSumy(st),             // kg na grupę = suma z wozów + przekazane niedojady
     ndPerGrupa: true,                 // niedojady wpisywane per grupa (puste pole = nie wiadomo)
+    dodatki: st.dodatki || {},        // dosyp do wozu dla sektora: {grupaId:[{surowiecId,kgSzt}]}
+    rejestr: (st.rejestr || []).slice(-300),
     autor: ROLE[rolaAkt]?.nazwa||'?', ts: Date.now()
   };
   await DB.zapiszCaly('paszowozy', idPz(lok,data), dok);
@@ -3517,11 +3648,14 @@ async function pzEdytuj(lok, data, fn){
     pzAutoProby.add(idPz(lok,data));
     for(let i=1;i<=7;i++){
       const zr = dataMinus(data,i), prev = pzDok(lok, zr);
-      if(prev?.wozy?.length){ dok = {wozy:kopiujWozy(prev.wozy), plan:planZDokumentu(prev), autoKopia:zr}; break; }
+      if(prev?.wozy?.length){ dok = {wozy:kopiujWozy(prev.wozy), plan:planZDokumentu(prev), dodatki:klon(prev.dodatki||{}), autoKopia:zr}; break; }
     }
   }
   const st = normalizujPz(dok);
+  const przed = opisStanuPz(st, lok, data);
   if(fn(st)===false) return;
+  dopiszRejestr(st, przed, opisStanuPz(st, lok, data));
+  delete st._log; delete st._kopia;
   await zapiszPaszowoz(lok, data, st);
 }
 
@@ -3530,6 +3664,72 @@ function nowyWoz(nr){
           nazwa:'Wóz '+nr, receptury:[{dawkaId:'', udzial:100}], rozdzielenie:[{grupaId:'', kg:0}],
           niedojady:[], wagaKontrolna:null};
 }
+/* Plan dnia liczony z przydziałów (od wersji 1.5 kg na grupę nie wpisuje się osobno) */
+function planZSumy(st){
+  const suma = {};
+  st.wozy.forEach(w=>(w.rozdzielenie||[]).forEach(r=>{ if(r.grupaId && r.kg>0) suma[r.grupaId]=(suma[r.grupaId]||0)+r.kg; }));
+  st.niedojady.forEach(n=>{ if(n.celId && n.zrodloId && n.zebranoKg>0) suma[n.celId]=(suma[n.celId]||0)+n.zebranoKg; });
+  Object.keys(suma).forEach(g=>suma[g]=Math.round(suma[g]));
+  return suma;
+}
+/* ---------- Rejestr zmian planu ----------
+   Zapisywany w dokumencie dnia (paszowozy/lok_data). Każda edycja przez pzEdytuj porównuje
+   stan przed i po; zmiany tej samej osoby na tym samym sektorze w ciągu 15 min łączą się w jeden wpis.
+   Automatyczne kopiowanie planu z poprzedniego dnia nie jest zmianą. */
+const REJ_OKNO = 15*60*1000;
+function opisDodatku(L){ return (L||[]).map(x=>`${store.surowce[x.surowiecId]?.nazwa||'?'} ${fmt(x.kgSzt,2)}`).join(' · ') + ((L||[]).length?' kg/szt':''); }
+function opisStanuPz(st, lok, data){
+  const m = {};
+  const nz = id => store.grupyTech[id]?.nazwa || '?';
+  Object.entries(planZSumy(st)).forEach(([g,kg])=>{ m['kg|'+g] = {typ:'kg', klucz:g, nazwa:nz(g), w:kg}; });
+  st.wozy.forEach(w=>{
+    m['woz|'+w.id] = {typ:'woz', klucz:w.id, nazwa:w.nazwa, w:'jest'};
+    const r = recWozu(w).map(x=>store.dawki[x.dawkaId]?.nazwa||'?').join(' + ');
+    m['rec|'+w.id] = {typ:'rec', klucz:w.id, nazwa:'wóz „'+w.nazwa+'”', w:r||'—'};
+  });
+  Object.entries(st.dodatki||{}).forEach(([g,L])=>{ m['dod|'+g] = {typ:'dod', klucz:g, nazwa:nz(g), w:opisDodatku(L)}; });
+  st.niedojady.forEach(n=>{ if(n.zrodloId) m['nd|'+n.zrodloId] = {typ:'nd', klucz:n.zrodloId, nazwa:nz(n.zrodloId),
+    w:fmt(n.zebranoKg,0)+' kg'+(n.zebranoKg>0?(n.celId?' → '+nz(n.celId):' wyrzucone'):'')}; });
+  return m;
+}
+function dopiszRejestr(st, przed, po){
+  const kto = ROLE[rolaAkt]?.nazwa || '?', teraz = Date.now();
+  st.rejestr = st.rejestr || [];
+  const wpisy = [];
+  if(st._kopia){
+    wpisy.push({typ:'kopia', klucz:'*', nazwa:'cały plan', bylo:'—', jest:'skopiowano z '+dataPL(st._kopia)});
+  } else {
+    const klucze = new Set([...Object.keys(przed), ...Object.keys(po)]);
+    klucze.forEach(k=>{
+      const a = przed[k], b = po[k];
+      const typ = (a||b).typ;
+      const pusty = typ==='kg' ? 0 : '—';
+      let va = a ? a.w : pusty, vb = b ? b.w : pusty;
+      if(typ==='woz'){ va = a?'jest':'—'; vb = b?'jest':'—'; }
+      if(va===vb) return;
+      if(typ==='woz') wpisy.push({typ, klucz:(a||b).klucz, nazwa:'wóz „'+(b||a).nazwa+'”', bylo:a?'jest':'—', jest:b?'dodany':'usunięty'});
+      else if(typ==='rec' && (!a || !b)) return;      // receptura nowego/usuniętego wozu — wystarczy wpis o wozie
+      else wpisy.push({typ, klucz:(a||b).klucz, nazwa:(b||a).nazwa, bylo:va, jest:vb});
+    });
+  }
+  (st._log||[]).forEach(x=>wpisy.push(x));
+  wpisy.forEach(x=>{
+    const klucz = x.typ+'|'+x.klucz;
+    const ost = [...st.rejestr].reverse().find(r=>r.typ+'|'+r.klucz===klucz);
+    if(ost && ost.kto===kto && teraz-ost.ts < REJ_OKNO && x.typ!=='kopia' && x.typ!=='woz'){
+      ost.jest = x.jest; ost.ts = teraz; ost.nazwa = x.nazwa;
+      if(ost.bylo===ost.jest) st.rejestr = st.rejestr.filter(r=>r!==ost);
+    } else st.rejestr.push({...x, kto, ts:teraz});
+  });
+}
+/* Wpisy rejestru ze wszystkich dni (do raportu i ikonek przy grupach) */
+function rejestrDnia(lok, data){ return normalizujPz(pzDok(lok,data)).rejestr; }
+
+/* ---------- Dosyp do wozu dla sektora ----------
+   kg = kg/szt × sztuki sektora danego dnia; gdy sektor jedzie kilkoma wozami — proporcjonalnie do kg. */
+function sztDnia(lok, data, gid){ return dokDnia(lok,data)?.grupy?.[gid]?.sztuk ?? store.grupyTech[gid]?.sztuk ?? 0; }
+function dosypKgSzt(L){ return (L||[]).reduce((s,x)=>s+x.kgSzt,0); }
+
 /* Plan kg na grupę z dokumentu dnia; starsze dni bez planu — suma z wozów i przekazanych niedojadów */
 function planZDokumentu(dok){
   const st = normalizujPz(dok);
@@ -3559,7 +3759,7 @@ function pzAutoDuplikacja(lok){
     const zr = dataMinus(data,i);
     const prev = pzDok(lok, zr);
     if(prev?.wozy?.length){
-      const st = {wozy:kopiujWozy(prev.wozy), niedojady:[], niedojadyPotw:false, autoKopia:zr, plan:planZDokumentu(prev)};
+      const st = {wozy:kopiujWozy(prev.wozy), niedojady:[], niedojadyPotw:false, autoKopia:zr, plan:planZDokumentu(prev), dodatki:klon(prev.dodatki||{}), rejestr:[]};
       setTimeout(async()=>{
         if(pzDok(lok,data)) return;          // ktoś zdążył zapisać
         await zapiszPaszowoz(lok, data, st);
@@ -3594,10 +3794,14 @@ function kartaZaladunku(W){
     return `<tr><td>${esc(store.surowce[sid]?.nazwa||'?')}</td>
       <td class="num">${fmt((W.udz[sid]||0)*100,1)}%</td><td class="num">${fmt(kg,0)}</td><td class="num">${fmt(narast,0)}</td></tr>`;
   }).join('');
-  const rozdz = (woz.rozdzielenie||[]).filter(r=>r.grupaId && r.kg>0).map(r=>{
+  const ds = W.dosyp || {};
+  const rozdz = (woz.rozdzielenie||[]).filter(r=>r.grupaId && r.kg>0)
+    .sort((a,b)=>(ds[a.grupaId]?1:0)-(ds[b.grupaId]?1:0)).map(r=>{
     const gr = store.grupyTech[r.grupaId];
-    return `<tr><td>${esc(gr?.nazwa||'?')}</td><td class="num">${gr?.sztuk||0}</td>
-      <td class="num">${fmt(r.kg,0)}</td><td class="num">${gr?.sztuk>0?fmt(r.kg/gr.sztuk,2):'—'}</td></tr>`;
+    const d = ds[r.grupaId], dk = d ? Object.values(d).reduce((a,b)=>a+b,0) : 0;
+    const dRow = d ? `<tr style="background:#f1eaff"><td colspan="4">⊕ DOSYP DO WOZU: ${Object.entries(d).map(([sid,kg])=>esc(store.surowce[sid]?.nazwa||'?')+' — <b>'+fmt(kg,1)+' kg</b>').join(' · ')} · wymieszaj</td></tr>` : '';
+    return `${dRow}<tr><td>${esc(gr?.nazwa||'?')}</td><td class="num">${gr?.sztuk||0}</td>
+      <td class="num">${fmt(r.kg+dk,dk?1:0)}</td><td class="num">${gr?.sztuk>0?fmt((r.kg+dk)/gr.sztuk,2):'—'}</td></tr>`;
   }).join('');
   return `
     <div style="margin-bottom:12px;line-height:1.5">
@@ -3614,7 +3818,7 @@ function kartaZaladunku(W){
     <table>
       <thead><tr><th>Sektor</th><th>Sztuk</th><th>kg</th><th>kg/szt</th></tr></thead>
       <tbody>${rozdz || '<tr><td colspan="4">Brak rozdzielenia</td></tr>'}
-        <tr><td>RAZEM</td><td class="num"></td><td class="num">${fmt(W.masa,0)}</td><td class="num"></td></tr>
+        <tr><td>RAZEM</td><td class="num"></td><td class="num">${fmt(W.masa+(W.dosypRazem||0),W.dosypRazem?1:0)}</td><td class="num"></td></tr>
       </tbody>
     </table>`;
 }
@@ -3641,6 +3845,13 @@ function zbiorczaKartaZaladunku(lista, lok, data, st){
     `${esc(store.grupyTech[n.zrodloId]?.nazwa||'?')} ${fmt(n.zebranoKg,0)} kg ${n.celId?'→ '+esc(store.grupyTech[n.celId]?.nazwa||'?'):'→ wyrzucić'}`).join(' · ');
   const zDnia = dokDnia(lok, data)?.grupy || {};
   const puste = '<td class="pusta"></td><td class="pusta"></td>';
+  // dosyp: osobne wiersze — dosypać po wysypaniu pozostałych sektorów wozu
+  const dosypy = [];
+  lista.forEach(W=>Object.entries(W.dosyp||{}).forEach(([gid,mp])=>Object.keys(mp).forEach(sid=>{
+    if(!dosypy.some(d=>d.gid===gid && d.sid===sid)) dosypy.push({gid, sid}); })));
+  const dosypWiersze = dosypy.map(d=>`<tr class="dosyp"><td class="pierw">⊕ ${esc(store.surowce[d.sid]?.nazwa||'?')} <small>dosyp → ${esc(store.grupyTech[d.gid]?.nazwa||'?')}, na końcu</small></td>
+      ${lista.map(W=>{ const kg = W.dosyp?.[d.gid]?.[d.sid]||0; return `<td>${kg>0?fmt(kg,1):''}</td>`; }).join('')}
+      <td><b>${fmt(lista.reduce((s,W)=>s+(W.dosyp?.[d.gid]?.[d.sid]||0),0),1)}</b></td>${puste}</tr>`).join('');
   return `<table class="karta-zb">
     <thead><tr><th class="pierw">${dataPL(data)}</th>${nag}<th><b>RAZEM</b></th><th>kg/szt</th><th>% planu</th></tr></thead>
     <tbody>
@@ -3649,6 +3860,7 @@ function zbiorczaKartaZaladunku(lista, lok, data, st){
         ${lista.map(W=>`<td>${liczba0(W.sklSwiezy[sid]||0)}</td>`).join('')}
         <td><b>${fmt(suma(W=>W.sklSwiezy[sid]||0),0)}</b></td>${puste}</tr>`).join('')}
       <tr class="suma"><td class="pierw">RAZEM DO WOZU</td>${lista.map(W=>`<td>${fmt(W.masa,0)}</td>`).join('')}<td>${fmt(suma(W=>W.masa),0)}</td>${puste}</tr>
+      ${dosypWiersze}
       <tr class="sep"><td class="pierw" colspan="${lista.length+4}">ROZWIEŹĆ NA SEKTORY ↓</td></tr>
       ${sektory.map(gid=>{
         const gr = store.grupyTech[gid], z = zDnia[gid];
@@ -3657,12 +3869,13 @@ function zbiorczaKartaZaladunku(lista, lok, data, st){
         const kol = lista.map(W=>(W.woz.rozdzielenie||[]).filter(x=>x.grupaId===gid).reduce((s,x)=>s+(x.kg||0),0));
         const raz = kol.reduce((a,b)=>a+b,0);
         const nd = ndDo[gid]||0;
-        const perSzt = szt>0 ? (raz+nd)/szt : 0;
+        const dk = lista.reduce((s,W)=>s+Object.values(W.dosyp?.[gid]||{}).reduce((a,b)=>a+b,0),0);
+        const perSzt = szt>0 ? (raz+nd+dk)/szt : 0;
         const proc = plan>0 && szt>0 ? perSzt/plan*100 : null;
         const kolor = proc==null ? '#000' : Math.abs(proc-100)<=3 ? '#15803d' : Math.abs(proc-100)<=10 ? '#a16207' : '#b91c1c';
         return `<tr><td class="pierw">${esc(gr?.nazwa||z?.nazwaGrupy||'?')} <small>${szt} szt</small></td>
           ${kol.map(kg=>`<td>${kg>0?fmt(kg,0):''}</td>`).join('')}
-          <td><b>${fmt(raz,0)}</b>${nd?`<small> +♻${fmt(nd,0)}</small>`:''}</td><td><b>${szt>0?fmt(perSzt,2):'—'}</b></td>
+          <td><b>${fmt(raz,0)}</b>${nd?`<small> +♻${fmt(nd,0)}</small>`:''}${dk?`<small> +⊕${fmt(dk,1)}</small>`:''}</td><td><b>${szt>0?fmt(perSzt,2):'—'}</b></td>
           <td style="color:${kolor};font-weight:900">${proc==null?'—':fmt(proc,0)+'%'+(Math.abs(proc-100)>10?' ⚠':'')}</td></tr>`;
       }).join('')}
       <tr class="suma"><td class="pierw">RAZEM</td>${lista.map(W=>`<td>${fmt(W.masa,0)}</td>`).join('')}<td>${fmt(suma(W=>W.masa),0)}</td><td></td><td></td></tr>
@@ -4153,7 +4366,7 @@ function oknoDuplikujPz(lok, data, st){
         const src = pzDok(lok, zrod);
         if(!src?.wozy?.length){ toast('Brak wozów za '+dataPL(zrod), true); return false; }
         const kopia = kopiujWozy(src.wozy);
-        await pzEdytuj(lok, data, s=>{ s.wozy = kopia; s.autoKopia = null; s.plan = planZDokumentu(src); });
+        await pzEdytuj(lok, data, s=>{ s.wozy = kopia; s.autoKopia = null; s.plan = planZDokumentu(src); s.dodatki = klon(src.dodatki||{}); s._kopia = zrod; });
         toast(`Skopiowano ${kopia.length} ${kopia.length===1?'wóz':'wozów'} z ${dataPL(zrod)}.`);
       }}
     ]
@@ -4289,22 +4502,27 @@ function renderMixProdukcja(el,mieszanki){
     const mixId=document.getElementById('mpMix').value;
     const partiaKg=liczba(document.getElementById('mpKg').value);
     const m=store.mieszanki[mixId]; if(!m||!partiaKg)return;
-    let wM=0;
-    const w=(m.skladniki||[]).map(sk=>{const sur=store.surowce[sk.surowiecId];const kg=Math.round(sk.procent/100*partiaKg*10)/10;wM+=kg;
-      return `<tr><td>${esc(sur?.nazwa||'?')}</td><td class="num">${fmt(sk.procent,1)}%</td><td class="num">${fmt(kg,1)}</td><td class="num wwozie">${fmt(wM,1)}</td></tr>`;}).join('');
+    const lokP=document.getElementById('mpLok').value;
+    const przezn=lokP==='obie'?'OBIE LOKALIZACJE':nazwaLokalizacji(lokP).toUpperCase();
+    const dataP=document.getElementById('mpData').value||dzisiaj();
+    let wM=0, sP=0;
+    const sk=(m.skladniki||[]).map(sk=>{const sur=store.surowce[sk.surowiecId];const kg=Math.round(sk.procent/100*partiaKg*10)/10;wM+=kg;sP+=sk.procent||0;
+      return {nazwa:sur?.nazwa||'?',proc:sk.procent,kg,nar:wM};});
+    const w=sk.map(x=>`<tr><td>${esc(x.nazwa)}</td><td class="num">${fmt(x.proc,1)}%</td><td class="num">${fmt(x.kg,1)}</td><td class="num wwozie">${fmt(x.nar,1)}</td></tr>`).join('');
+    const razem=`<tr class="suma"><td>RAZEM</td><td class="num">${fmt(sP,1)}%</td><td class="num">${fmt(wM,1)}</td><td class="num">${fmt(wM,1)}</td></tr>`;
     const koszt=kosztMieszanki(m)*partiaKg;
     document.getElementById('mpKarta').innerHTML=`<div class="gt-det">
-      <h4>Karta za\u0142adunku: ${esc(m.nazwa)} \u2014 ${fmt(partiaKg,0)} kg</h4>
-      <table><thead><tr><th>Sk\u0142adnik</th><th class="num">%</th><th class="num">kg</th><th class="num">W mieszalniku</th></tr></thead><tbody>${w}</tbody></table>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
+        <h4 style="margin:0">Karta za\u0142adunku: ${esc(m.nazwa)} \u2014 ${fmt(partiaKg,0)} kg <span class="podpis">· produkcja ${dataPL(dataP)}</span></h4>
+        <span class="mix-przezn">Przeznaczenie: <b>${esc(przezn)}</b></span>
+      </div>
+      <table><thead><tr><th>Sk\u0142adnik</th><th class="num">%</th><th class="num">kg</th><th class="num">W mieszalniku</th></tr></thead><tbody>${w}${razem}</tbody></table>
       <div style="margin-top:8px"><b>Koszt partii: ${fmt(koszt,2)} z\u0142</b> \u00b7 ${fmt(koszt/partiaKg,4)} z\u0142/kg</div>
       <button class="btn" id="mpZapisz" style="margin-top:10px">\ud83d\udcbe Zapisz parti\u0119 do historii</button>
-      <button class="btn szary maly" id="mpDruk" style="margin-top:10px;margin-left:8px">\u2913 Eksport / druk</button>
+      <button class="btn szary maly" id="mpDruk" style="margin-top:10px;margin-left:8px">\ud83d\udda8 Drukuj kart\u0119</button>
     </div>`;
-    document.getElementById('mpDruk').onclick=()=>{
-      const tab=document.querySelector('#mpKarta table');
-      if(!tab){ toast('Najpierw oblicz kart\u0119.',true); return; }
-      eksportDruk(document.getElementById('mpKarta'), 'Karta za\u0142adunku: '+m.nazwa+' \u2014 '+fmt(partiaKg,0)+' kg');
-    };
+    document.getElementById('mpDruk').onclick=()=>drukujHTML(kartaMieszalniHTML(m,partiaKg,przezn,dataP,sk,sP,koszt),
+      'Karta za\u0142adunku mieszalni', {duzy:true, poziom:false});
     document.getElementById('mpZapisz').onclick=async()=>{
       const kosztKg=koszt/partiaKg;
       await DB.zapisz('produkcja',null,{data:document.getElementById('mpData').value,mieszankaId:mixId,kg:partiaKg,koszt:Math.round(koszt*100)/100,kosztKg:Math.round(kosztKg*10000)/10000,lokalizacja:document.getElementById('mpLok').value,uzytkownik:ROLE[rolaAkt]?.nazwa||'?',ts:Date.now()});
@@ -4315,6 +4533,25 @@ function renderMixProdukcja(el,mieszanki){
       mixZakladka='historia';renderMieszalnia(document.getElementById('widok'));
     };
   };
+}
+
+/* Wydruk karty mieszalni dla operatora: A4 pion, duża czcionka, wyraźne przeznaczenie,
+   ostatni wiersz RAZEM (bez niego styl wydruku pogrubiał ostatni surowiec jak sumę). */
+function kartaMieszalniHTML(m, partiaKg, przezn, dataP, sk, sP, koszt){
+  return `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin:4px 0 12px">
+      <div><div style="font-size:26px;font-weight:900">${esc(m.nazwa)} \u2014 ${fmt(partiaKg,0)} kg</div>
+        <div style="font-size:15px;margin-top:4px">Data produkcji: <b>${dataPL(dataP)}</b></div></div>
+      <div style="text-align:center"><div style="font-size:12px;letter-spacing:1px">PRZEZNACZENIE</div>
+        <div style="border:4px solid #14532d;border-radius:8px;padding:6px 16px;font-size:26px;font-weight:900;color:#14532d;white-space:nowrap">${esc(przezn)}</div></div>
+    </div>
+    <table>
+      <thead><tr><th>Lp.</th><th style="text-align:left">Sk\u0142adnik</th><th>%</th><th>kg</th><th>W mieszalniku (narastaj\u0105co)</th><th>\u2713</th></tr></thead>
+      <tbody>${sk.map((x,i)=>`<tr><td>${i+1}</td><td style="text-align:left">${esc(x.nazwa)}</td><td>${fmt(x.proc,1)}%</td><td>${fmt(x.kg,1)}</td><td>${fmt(x.nar,1)}</td><td style="text-align:center;font-size:1.3em">\u2610</td></tr>`).join('')}
+        <tr class="suma"><td></td><td style="text-align:left">RAZEM</td><td>${fmt(sP,1)}%</td><td>${fmt(partiaKg>0?sk.reduce((s,x)=>s+x.kg,0):0,1)}</td><td>${fmt(sk.length?sk[sk.length-1].nar:0,1)}</td><td></td></tr>
+      </tbody>
+    </table>
+    <div>Koszt partii: <b>${fmt(koszt,2)} z\u0142</b> \u00b7 ${fmt(partiaKg>0?koszt/partiaKg:0,4)} z\u0142/kg</div>
+    <div style="margin-top:34px;display:flex;gap:60px">Wykona\u0142: ..................................... &nbsp;&nbsp; Godzina: ...............</div>`;
 }
 
 function renderMixHistoria(el,produkcje){
@@ -4452,6 +4689,7 @@ function renderRaporty(w){
   const podz = [
     {id:'kalendarz',txt:'\ud83d\udcc5 Kalendarz'},
     {id:'zmiany',   txt:'Zmiany dawek'},
+    {id:'rejestr',  txt:'Rejestr zmian planu'},
     {id:'wersje',   txt:'Historia dawek'},
     {id:'historia', txt:'Historia \u017cywienia'},
     {id:'miesiac',  txt:'Zestawienie miesi\u0119czne'},
@@ -4462,7 +4700,7 @@ function renderRaporty(w){
   w.innerHTML = `
   <div class="panel">
     <div class="panel-tyt">Raporty<span style="flex:1"></span>
-      ${!zalezyOdLokalizacji(rapZakladka) ? '<span class="podpis">dane wsp\u00f3lne dla obu lokalizacji</span>'
+      ${rapZakladka==='rejestr' ? '' : !zalezyOdLokalizacji(rapZakladka) ? '<span class="podpis">dane wsp\u00f3lne dla obu lokalizacji</span>'
         : (loki.length>1?`<select id="rapLokSel" style="padding:6px 10px;border:1.5px solid var(--linia);border-radius:8px">
         ${loki.map(l=>`<option value="${l}" ${l===rapLok?'selected':''}>${l==='nadarzyn'?'Nadarzyn':'Boguszyny'}</option>`).join('')}
       </select>`:`<span class="plakietka">${rapLok==='nadarzyn'?'Nadarzyn':'Boguszyny'}</span>`)}
@@ -4484,6 +4722,7 @@ function renderRaporty(w){
   else if(rapZakladka==='miesiac') rapMiesiacWidok(t);
   else if(rapZakladka==='zuzycie') rapZuzycie(t);
   else if(rapZakladka==='wersje') rapSnapshoty(t);
+  else if(rapZakladka==='rejestr') rapRejestr(t);
   else rapProdukcja(t);
 }
 
@@ -4778,6 +5017,62 @@ function macierzDawekHTML(dawkiObj, opcje){
       </tbody>
     </table>
   </div>`;
+}
+
+/* Rejestr zmian planu żywienia: kto, kiedy, który sektor, było → jest */
+let rejFiltr = null;
+function rapRejestr(el){
+  const loki = lokDostepne();
+  if(!rejFiltr) rejFiltr = {od:dataMinus(dzisiaj(),6), do:dzisiaj(), lok:'', kto:'', sektor:'', typ:'kgszt'};
+  const F = rejFiltr;
+  const wszystkie = [];
+  Object.values(store.paszowozy).forEach(d=>{
+    if(!d || !loki.includes(d.lokalizacja) || !d.data || d.data<F.od || d.data>F.do) return;
+    (d.rejestr||[]).forEach(r=>wszystkie.push({...r, lok:d.lokalizacja, dzien:d.data}));
+  });
+  const osoby = [...new Set(wszystkie.map(r=>r.kto))].sort();
+  const sektory = [...new Set(wszystkie.filter(r=>r.typ!=='rec'&&r.typ!=='woz'&&r.typ!=='kopia').map(r=>r.nazwa))].sort((a,b)=>a.localeCompare(b,'pl'));
+  const lista = wszystkie.filter(r=>(!F.lok||r.lok===F.lok) && (!F.kto||r.kto===F.kto) && (!F.sektor||r.nazwa===F.sektor)
+      && (F.typ!=='kgszt' || r.typ==='kg' || r.typ==='szt'))
+    .sort((a,b)=>b.dzien.localeCompare(a.dzien) || b.ts-a.ts);
+  const dni = {};
+  lista.forEach(r=>(dni[r.dzien] ||= []).push(r));
+  const DNI_TYG = ['Niedziela','Poniedziałek','Wtorek','Środa','Czwartek','Piątek','Sobota'];
+  const sumaLok = rr => loki.map(l=>{
+    const z = rr.filter(r=>r.lok===l && r.typ==='kg').reduce((s,r)=>s+(zmianaRej(r)||0),0);
+    return rr.some(r=>r.lok===l && r.typ==='kg') ? `${nazwaLokalizacji(l)} <span class="${z>0?'ok':z<0?'cz':''}">${z>0?'+':''}${fmt(z,0)} kg</span>` : '';
+  }).filter(Boolean).join(' · ');
+  const kolKto = k => /hodowca|twórca/i.test(k) ? 'h' : /boguszyn/i.test(k) ? 'b' : 'n';
+  el.innerHTML = `
+  <div class="pasek" style="flex-wrap:wrap;gap:8px">
+    Od <input type="date" id="rjOd" value="${F.od}" max="${dzisiaj()}"> do <input type="date" id="rjDo" value="${F.do}" max="${dzisiaj()}">
+    ${loki.length>1?`<select id="rjLok"><option value="">Wszystkie lokalizacje</option>${loki.map(l=>`<option value="${l}" ${F.lok===l?'selected':''}>${nazwaLokalizacji(l)}</option>`).join('')}</select>`:''}
+    <select id="rjKto"><option value="">Wszyscy</option>${osoby.map(o=>`<option ${F.kto===o?'selected':''}>${esc(o)}</option>`).join('')}</select>
+    <select id="rjSek"><option value="">Wszystkie sektory</option>${sektory.map(o=>`<option ${F.sektor===o?'selected':''}>${esc(o)}</option>`).join('')}</select>
+    <select id="rjTyp"><option value="kgszt" ${F.typ==='kgszt'?'selected':''}>Tylko kg TMR i sztuki</option><option value="wsz" ${F.typ==='wsz'?'selected':''}>Wszystkie zmiany</option></select>
+    <span style="flex:1"></span>
+    ${lista.length?przyciskEksportu('#tabRejPlanu','rejestr_zmian_planu','Rejestr zmian planu '+dataPL(F.od)+' – '+dataPL(F.do)):''}
+  </div>
+  <div class="podpis" style="padding:6px 14px 10px">Zmiany ilości wpisane ręcznie w zakładkach Nadarzyn / Boguszyny. Kolejne poprawki tej samej osoby przy jednym sektorze w ciągu 15 minut łączą się w jeden wpis. Poranne kopiowanie planu z wczoraj nie jest zmianą. Rejestr działa od wersji 1.5.0.</div>
+  ${lista.length?`<div class="przewijak"><table class="gt-tabela" id="tabRejPlanu">
+    <thead><tr><th>Kiedy</th><th>Kto</th><th>Lokalizacja</th><th>Sektor</th><th>Co</th><th class="num">Było</th><th class="num">Jest</th><th class="num">Zmiana</th></tr></thead>
+    <tbody>${Object.keys(dni).sort((a,b)=>b.localeCompare(a)).map(d=>{
+      const rr = dni[d];
+      return `<tr class="rej-dzien"><td colspan="8">${DNI_TYG[new Date(d+'T12:00:00').getDay()]} ${dataPL(d)} — ${rr.length} ${rr.length===1?'zmiana':rr.length<5?'zmiany':'zmian'}${sumaLok(rr)?' · '+sumaLok(rr):''}</td></tr>`
+        + rr.map(r=>{ const z = zmianaRej(r);
+          return `<tr><td style="white-space:nowrap">${dataPL(d).slice(0,5)} ${godzina(r.ts)}</td>
+          <td><span class="rej-kto ${kolKto(r.kto)}">${esc(r.kto)}</span></td><td>${nazwaLokalizacji(r.lok)}</td>
+          <td><b>${esc(r.nazwa)}</b></td><td>${REJ_TYPY[r.typ]||r.typ}</td>
+          <td class="num">${wartRej(r,'bylo')}</td><td class="num"><b>${wartRej(r,'jest')}</b></td>
+          <td class="num ${z>0?'ok':z<0?'cz':''}" style="font-weight:800">${z==null?'':(z>0?'+':'')+fmt(z,0)}</td></tr>`; }).join('');
+    }).join('')}</tbody></table></div>`:'<div class="pusto">Brak zmian w wybranym okresie.</div>'}`;
+  const ust = (k,v)=>{ F[k]=v; rapRejestr(el); };
+  el.querySelector('#rjOd').onchange = e=>e.target.value && ust('od', e.target.value);
+  el.querySelector('#rjDo').onchange = e=>e.target.value && ust('do', e.target.value);
+  const l = el.querySelector('#rjLok'); if(l) l.onchange = e=>ust('lok', e.target.value);
+  el.querySelector('#rjKto').onchange = e=>ust('kto', e.target.value);
+  el.querySelector('#rjSek').onchange = e=>ust('sektor', e.target.value);
+  el.querySelector('#rjTyp').onchange = e=>ust('typ', e.target.value);
 }
 
 function rapZmiany(el){
