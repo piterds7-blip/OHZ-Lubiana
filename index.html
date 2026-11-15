@@ -546,6 +546,56 @@ tr.rej-dzien td{background:#f2f7f3;font-weight:700}
   .kal-dzien{min-height:44px;padding:2px 4px}
   .kal-nr{font-size:12px}
 }
+
+/* ---------- LOGOWANIE: konta osób ---------- */
+.karta-log label{display:block;text-align:left;font-size:12.5px;font-weight:600;color:var(--tekst-slaby);margin:10px 0 4px}
+.karta-log input.zwykly{text-align:left;letter-spacing:0}
+.karta-log .link{background:none;color:var(--zielen);font-weight:600;font-size:13.5px;padding:8px;margin-top:14px;text-decoration:underline}
+.karta-log .info{font-size:12.5px;color:var(--tekst-slaby);text-align:left;margin:4px 0 0;line-height:1.5}
+.haslo-pole{position:relative}
+.haslo-pole input{padding-right:58px !important}
+.haslo-pole .pokaz{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:auto !important;margin:0 !important;
+  padding:6px 8px !important;background:none !important;color:var(--tekst-slaby) !important;font-size:12.5px !important;font-weight:600}
+
+/* ---------- ZAKŁADKA DOSTĘP (wzór: GR Formela) ---------- */
+.dostep{max-width:1400px;margin:0 auto}
+.dostep .naglowek{background:#fff;border:1px solid var(--linia);border-radius:14px;padding:18px 20px;margin-bottom:14px}
+.dostep .naglowek h2{margin:0 0 6px;font-size:21px}
+.dostep .naglowek p{margin:0;color:var(--tekst-slaby);font-size:13.5px}
+.osoby{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-bottom:14px}
+.osoba{background:#fff;border:1px solid var(--linia);border-radius:14px;padding:16px 16px 14px;display:flex;flex-direction:column;gap:12px}
+.osoba.zablok{background:#fafafa}
+.osoba.zablok .os-imie,.osoba.zablok .chipy{opacity:.55}
+.os-gora{display:flex;gap:12px;align-items:center}
+.awatar{width:46px;height:46px;border-radius:50%;background:var(--zielen-bardzo-jasna);color:var(--zielen);font-weight:700;font-size:19px;
+  display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.os-imie{font-weight:700;font-size:17px;line-height:1.2}
+.os-pod{color:var(--tekst-slaby);font-size:13.5px}
+.os-opis{color:var(--tekst-slaby);font-size:13px;margin:0}
+.chipy{display:flex;flex-wrap:wrap;gap:7px}
+.chip{display:inline-flex;align-items:center;min-height:36px;border:1.5px solid var(--linia);background:#fff;color:var(--tekst-slaby);border-radius:22px;padding:7px 13px;
+  font-weight:600;font-size:13.5px;line-height:1.2;appearance:none;-webkit-appearance:none;cursor:pointer;max-width:100%}
+.chip-sel{position:relative;display:inline-flex;align-items:center}
+.chip-sel select{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px}
+.chip.pod{border-color:var(--zielen-jasna);background:var(--zielen-bardzo-jasna);color:var(--zielen)}
+.chip.wpis{border-color:var(--zielen-jasna);background:#cfe6d7;color:var(--zielen)}
+.chip.pel{border-color:var(--zielen);background:var(--zielen);color:#fff}
+.chip:disabled{cursor:default}
+.legenda{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;font-size:12.5px;color:var(--tekst-slaby)}
+.legenda .chip{padding:3px 9px;font-size:12px;cursor:default}
+.os-przyciski{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto}
+.btn-ob{border:1.5px solid var(--linia);background:#fff;color:var(--tekst);border-radius:8px;padding:9px 14px;font-weight:600;font-size:14px}
+.btn-ob.czerw{color:var(--czerwony);border-color:#e9b7b3}
+.btn-ob:active{background:#f3f5f4}
+.plakietka.blok{background:#fdecea;color:var(--czerwony)}
+.dodaj-osobe{background:#fff;border:1px solid var(--linia);border-radius:14px;padding:18px 20px}
+.dodaj-osobe h2{margin:0 0 12px;font-size:21px}
+.dodaj-osobe .pola{display:flex;flex-wrap:wrap;gap:12px}
+.dodaj-osobe .pola>div{flex:1 1 210px;max-width:320px}
+.dodaj-osobe label{display:block;font-size:12.5px;font-weight:600;color:var(--tekst-slaby);margin-bottom:5px}
+.dodaj-osobe input,.dodaj-osobe select.zw{width:100%;padding:10px 12px;border:1.5px solid var(--linia);border-radius:8px;background:#fff}
+#nowaWersja{position:fixed;inset:0;z-index:150;background:rgba(15,25,20,.6);display:flex;align-items:center;justify-content:center;padding:20px}
+#nowaWersja .modal{max-width:420px;text-align:center}
 </style>
 </head>
 <body>
@@ -565,9 +615,44 @@ tr.rej-dzien td{background:#f2f7f3;font-weight:700}
     <img src="ikona-512.png" alt="">
     <h2>OHZ Lubiana</h2>
     <p class="pod">Zarządzanie żywieniem — Nadarzyn i Boguszyny</p>
-    <input type="password" id="haslo" placeholder="Hasło" autocomplete="current-password" inputmode="text">
-    <button id="btnZaloguj">Zaloguj</button>
+    <form id="formLog" autocomplete="on" onsubmit="return false">
+      <label for="login">Login</label>
+      <input class="zwykly" id="login" placeholder="np. adam" autocomplete="username" autocapitalize="none" spellcheck="false">
+      <label for="haslo">Hasło</label>
+      <div class="haslo-pole">
+        <input class="zwykly" type="password" id="haslo" placeholder="Hasło" autocomplete="current-password">
+        <button type="button" class="pokaz" data-pokaz="haslo">pokaż</button>
+      </div>
+      <button id="btnZaloguj" type="submit">Zaloguj</button>
+    </form>
     <div id="blad-log"></div>
+    <p class="info">Nie pamiętasz hasła? Poproś Twórcę o nowe — ustawi je w zakładce „Dostęp”.</p>
+    <button type="button" class="link" id="btnPierwszy" hidden>Pierwsze uruchomienie — załóż konto Twórcy</button>
+  </div>
+</div>
+
+<!-- ================= PIERWSZE URUCHOMIENIE ================= -->
+<div id="pierwszy" hidden style="position:fixed;inset:0;z-index:91;background:var(--tlo);display:flex;align-items:center;justify-content:center;padding:20px">
+  <div class="karta-log">
+    <img src="ikona-512.png" alt="">
+    <h2>Konto Twórcy</h2>
+    <p class="pod">Jednorazowo: załóż konto osoby, która zarządza dostępem.<br>Potem dodasz pozostałe osoby w zakładce „Dostęp”.</p>
+    <form id="formPierwszy" onsubmit="return false">
+      <label for="p1Imie">Imię</label>
+      <input class="zwykly" id="p1Imie" placeholder="np. Piotr" autocomplete="name">
+      <label for="p1Login">Login (do logowania)</label>
+      <input class="zwykly" id="p1Login" placeholder="np. piotr" autocomplete="username" autocapitalize="none" spellcheck="false">
+      <label for="p1Haslo">Hasło (min. 8 znaków)</label>
+      <div class="haslo-pole">
+        <input class="zwykly" type="password" id="p1Haslo" autocomplete="new-password">
+        <button type="button" class="pokaz" data-pokaz="p1Haslo">pokaż</button>
+      </div>
+      <label for="p1Haslo2">Powtórz hasło</label>
+      <input class="zwykly" type="password" id="p1Haslo2" autocomplete="new-password">
+      <button id="btnP1" type="submit">Załóż konto i zaloguj</button>
+    </form>
+    <div id="blad-p1" style="color:var(--czerwony);font-size:13px;margin-top:10px;min-height:18px"></div>
+    <button type="button" class="link" id="btnP1Wroc">← Wróć do logowania</button>
   </div>
 </div>
 
@@ -617,97 +702,61 @@ const firebaseConfig = {
 };
 /* ###############  KONIEC KONFIGURACJI  ##################### */
 
-const WERSJA_APP = '1.5.0 (kg z wozów, dosyp, rejestr zmian)';
+const WERSJA_APP = '1.6.0 (konta osób, zakładka Dostęp)';
 const SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
 
-/* ===================== SHA-256 (czysty JS, bez zależności) ================= */
-const SHA_K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
-0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
-0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
-0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
-0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
-0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
-0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
-0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
-const rotr=(x,n)=>(x>>>n)|(x<<(32-n));
-function sha256(txt){
-  const dane=new TextEncoder().encode(txt);
-  const bity=dane.length*8;
-  const buf=new Uint8Array(((((dane.length+8)>>6)+1)<<6));
-  buf.set(dane); buf[dane.length]=0x80;
-  const dv=new DataView(buf.buffer);
-  dv.setUint32(buf.length-8, Math.floor(bity/4294967296), false);
-  dv.setUint32(buf.length-4, bity>>>0, false);
-  let H=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
-  const w=new Uint32Array(64);
-  for(let i=0;i<buf.length;i+=64){
-    for(let t=0;t<16;t++) w[t]=dv.getUint32(i+t*4,false);
-    for(let t=16;t<64;t++){
-      const s0=rotr(w[t-15],7)^rotr(w[t-15],18)^(w[t-15]>>>3);
-      const s1=rotr(w[t-2],17)^rotr(w[t-2],19)^(w[t-2]>>>10);
-      w[t]=(w[t-16]+s0+w[t-7]+s1)>>>0;
-    }
-    let [a,b,c,d,e,f,g,h]=H;
-    for(let t=0;t<64;t++){
-      const S1=rotr(e,6)^rotr(e,11)^rotr(e,25);
-      const ch=(e&f)^((~e)&g);
-      const t1=(h+S1+ch+SHA_K[t]+w[t])>>>0;
-      const S0=rotr(a,2)^rotr(a,13)^rotr(a,22);
-      const maj=(a&b)^(a&c)^(b&c);
-      const t2=(S0+maj)>>>0;
-      h=g;g=f;f=e;e=(d+t1)>>>0;d=c;c=b;b=a;a=(t1+t2)>>>0;
-    }
-    H=[(H[0]+a)>>>0,(H[1]+b)>>>0,(H[2]+c)>>>0,(H[3]+d)>>>0,(H[4]+e)>>>0,(H[5]+f)>>>0,(H[6]+g)>>>0,(H[7]+h)>>>0];
-  }
-  return H.map(x=>x.toString(16).padStart(8,'0')).join('');
+/* ===================== KONTA I UPRAWNIENIA =================================
+   Każda osoba ma własne konto Firebase (login + hasło). Profil osoby leży w
+   kolekcji `uzytkownicy/{uid}`: imię, login, czy jest Twórcą, czy jest
+   zablokowana i do których zakładek ma dostęp. Reguły Firestore wpuszczają do
+   danych tylko aktywne profile — ekran logowania nie jest już jedyną ochroną.
+   poziomy zakładek: 'pelny' | 'podglad' | 'wpis' (tylko kg zadane + niedojady) */
+
+// Szablony — podpowiedź przy dodawaniu osoby (dawne role). Po dodaniu można je dowolnie zmienić.
+const SZABLONY = {
+  hodowca:     {nazwa:'Główny hodowca',
+                zakl:{surowce:'pelny',dawki:'pelny',nadarzyn:'pelny',boguszyn:'pelny',mieszalnia:'pelny',raporty:'podglad',paszowozN:'podglad',paszowozB:'podglad',ustawienia:'pelny'}},
+  zootechnikN: {nazwa:'Zootechnik Nadarzyn',
+                zakl:{surowce:'podglad',dawki:'podglad',nadarzyn:'pelny',raporty:'podglad',paszowozN:'podglad'}},
+  zootechnikB: {nazwa:'Zootechnik Boguszyny',
+                zakl:{surowce:'podglad',dawki:'podglad',boguszyn:'pelny',raporty:'podglad',paszowozB:'podglad'}},
+  operatorN:   {nazwa:'Operator Nadarzyn',   zakl:{nadarzyn:'wpis',raporty:'podglad'}},
+  operatorB:   {nazwa:'Operator Boguszyny',  zakl:{boguszyn:'wpis',raporty:'podglad'}},
+  mieszalnia:  {nazwa:'Mieszalnia',          zakl:{surowce:'podglad',mieszalnia:'pelny',raporty:'podglad'}},
+  podglad:     {nazwa:'Tylko podgląd',       zakl:{surowce:'podglad',dawki:'podglad',nadarzyn:'podglad',boguszyn:'podglad',raporty:'podglad'}}
+};
+
+/* Uprawnienia pokazywane na kartach w zakładce Dostęp.
+   typ 'wl' = widzi / nie widzi; 'pz' = nie widzi / podgląd / zmienia; 'pwz' = jak 'pz' + „tylko wpis kg” */
+const UPRAWNIENIA = [
+  {id:'surowce',    etykieta:'Surowce',     typ:'pz'},
+  {id:'dawki',      etykieta:'Dawki',       typ:'pz'},
+  {id:'nadarzyn',   etykieta:'Nadarzyn',    typ:'pwz'},
+  {id:'boguszyn',   etykieta:'Boguszyny',   typ:'pwz'},
+  {id:'paszowozN',  etykieta:'Paszowóz N',  typ:'wl'},
+  {id:'paszowozB',  etykieta:'Paszowóz B',  typ:'wl'},
+  {id:'mieszalnia', etykieta:'Mieszalnia',  typ:'pz'},
+  {id:'raporty',    etykieta:'Raporty',     typ:'wl'},
+  {id:'ustawienia', etykieta:'Ustawienia',  typ:'wl', wartoscWl:'pelny'}
+];
+
+let uzytkAkt = null;     // profil zalogowanej osoby: {uid, imie, login, tworca, aktywny, zakl:{}}
+function jestTworca(){ return !!uzytkAkt?.tworca; }
+function nazwaAkt(){ return uzytkAkt?.imie || '?'; }
+/* Czy profil daje prawo do jakiejkolwiek zmiany danych (sprawdzają to też reguły bazy) */
+function profilEdytuje(zakl){ return Object.values(zakl||{}).some(v=>v==='pelny'||v==='wpis'); }
+
+/* Login z imienia: małe litery, bez polskich znaków, spacje → myślnik */
+function loginZ(txt){
+  const mapa={'ą':'a','ć':'c','ę':'e','ł':'l','ń':'n','ó':'o','ś':'s','ź':'z','ż':'z'};
+  return String(txt||'').toLowerCase().trim().replace(/[ąćęłńóśźż]/g,c=>mapa[c])
+    .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,30);
 }
-
-/* ===================== ROLE I UPRAWNIENIA ================================= */
-/* poziomy: 'pelny' | 'podglad' | 'wpis' (tylko kg zadane + niedojady) */
-const ROLE_BAZOWE = {
-  tworca:      {nazwa:'Twórca',                lokalizacje:['nadarzyn','boguszyn'], hasla:true,
-                zakl:{surowce:'pelny',dawki:'pelny',nadarzyn:'pelny',boguszyn:'pelny',mieszalnia:'pelny',raporty:'pelny',paszowozN:'pelny',paszowozB:'pelny'}},
-  hodowca:     {nazwa:'Główny hodowca',        lokalizacje:['nadarzyn','boguszyn'], hasla:false,
-                zakl:{surowce:'pelny',dawki:'pelny',nadarzyn:'pelny',boguszyn:'pelny',mieszalnia:'pelny',raporty:'pelny',paszowozN:'pelny',paszowozB:'pelny'}},
-  zootechnikN: {nazwa:'Zootechnik Nadarzyn',   lokalizacje:['nadarzyn'], hasla:false,
-                zakl:{surowce:'podglad',dawki:'podglad',nadarzyn:'pelny',raporty:'pelny',paszowozN:'pelny'}},
-  zootechnikB: {nazwa:'Zootechnik Boguszyny',   lokalizacje:['boguszyn'], hasla:false,
-                zakl:{surowce:'podglad',dawki:'podglad',boguszyn:'pelny',raporty:'pelny',paszowozB:'pelny'}},
-  operatorN:   {nazwa:'Operator Nadarzyn',     lokalizacje:['nadarzyn'], hasla:false,
-                zakl:{nadarzyn:'wpis',raporty:'podglad'}},
-  operatorB:   {nazwa:'Operator Boguszyny',     lokalizacje:['boguszyn'], hasla:false,
-                zakl:{boguszyn:'wpis',raporty:'podglad'}},
-  mieszalnia:  {nazwa:'Mieszalnia',            lokalizacje:['nadarzyn','boguszyn'], hasla:false,
-                zakl:{surowce:'podglad',mieszalnia:'pelny',raporty:'podglad'}}
-};
-
-/* ROLE = ROLE_BAZOWE + nadpisania z config/uprawnienia
-   Twórca zawsze ma pełny dostęp — inaczej ktoś mógłby odciąć się od aplikacji. */
-const ROLE = new Proxy({}, {
-  get(_, rola){
-    const bazowa = ROLE_BAZOWE[rola];
-    if(!bazowa) return undefined;
-    if(rola==='tworca') return bazowa;   // Twórca — nietykalny
-    const nadpis = store.config?.uprawnienia?.[rola];
-    if(!nadpis) return bazowa;
-    // Puste wartości ('' albo brak) traktujemy jako "brak dostępu do zakładki"
-    const zakl = {};
-    for(const [z,poz] of Object.entries(nadpis)){
-      if(poz && poz!=='brak') zakl[z] = poz;
-    }
-    return {...bazowa, zakl};
-  },
-  ownKeys(){ return Object.keys(ROLE_BAZOWE); },
-  getOwnPropertyDescriptor(){ return {enumerable:true, configurable:true}; }
-});
-
-/* hasła startowe — do zmiany w Ustawieniach przez Twórcę */
-const HASLA_STARTOWE = {
-  tworca:'lubiana-t', hodowca:'lubiana-h',
-  zootechnikN:'nadarzyn-z', zootechnikB:'boguszyn-z',
-  operatorN:'nadarzyn-o',  operatorB:'boguszyn-o',
-  mieszalnia:'mieszalnia-m'
-};
+/* Konto Firebase wymaga adresu e-mail — tworzymy techniczny, nikt na niego nic nie wysyła.
+   Losowa końcówka pozwala nadać nowe hasło (nowe konto) bez narzędzi administratora. */
+function emailTechniczny(login){
+  return `${login}.${Math.random().toString(36).slice(2,8)}@${firebaseConfig.authDomain}`;
+}
 
 const ZAKLADKI = [
   {id:'surowce',    etykieta:'Surowce'},
@@ -717,8 +766,15 @@ const ZAKLADKI = [
   {id:'paszowozN',  etykieta:'🚛 Paszowóz N'},
   {id:'paszowozB',  etykieta:'🚛 Paszowóz B'},
   {id:'mieszalnia', etykieta:'Mieszalnia'},
-  {id:'raporty',    etykieta:'Raporty'}
+  {id:'raporty',    etykieta:'Raporty'},
+  {id:'dostep',     etykieta:'👥 Dostęp'}      // tylko Twórca
 ];
+
+/* Wersja kodu — liczba całkowita, zwiększana przy każdej aktualizacji, która zmienia sposób
+   zapisu danych. Urządzenie ze starszym kodem dostaje komunikat „odśwież” i NIE zapisuje
+   niczego, dopóki się nie odświeży — stary kod nie nadpisze danych zapisanych już nowym. */
+const WERSJA_KODU = 2;
+let przestarzala = false;
 
 const KATEGORIE_START = ['Pasze objętościowe','Zboża','Śruty i białkowe','Produkty uboczne','Mineralne i dodatki','Mieszanka własna'];
 
@@ -747,13 +803,44 @@ function nowyId(){
 const KOL_KOPII = ['dawki','grupyTech','surowce','mieszanki'];
 let kopiaTimer = null;
 function zaplanujKopieDnia(kolekcja){
-  if(!rolaAkt || !KOL_KOPII.includes(kolekcja)) return;
+  if(!uzytkAkt || !KOL_KOPII.includes(kolekcja)) return;
   clearTimeout(kopiaTimer);
   kopiaTimer = setTimeout(()=>{ try{ zapiszSnapshotDnia(); }catch(e){ console.error(e); } }, 4000);
 }
 
+/* Stary kod po aktualizacji nie może niczego zapisać (patrz WERSJA_KODU) */
+function zapisZablokowany(){
+  if(!przestarzala) return false;
+  pokazNowaWersja();
+  return true;
+}
+
 const DB = {
+  /* Scalenie z zachowaniem pozostałych wpisów w mapach (np. jedna grupa w dniu żywienia).
+     Wysyła na serwer TYLKO to, co się zmieniło — nieaktualna kopia innych grup z tego
+     urządzenia nie nadpisze nowszych wpisów zrobionych na innym urządzeniu. */
+  async scal(kolekcja, id, dane){
+    if(zapisZablokowany()) return id;
+    zaplanujKopieDnia(kolekcja);
+    const stary = store[kolekcja][id] || {};
+    const nowy = {...stary, id};
+    for(const [k,v] of Object.entries(dane)){
+      const jestMapa = x => x && typeof x==='object' && !Array.isArray(x);
+      nowy[k] = (jestMapa(v) && jestMapa(stary[k])) ? {...stary[k], ...v} : v;
+    }
+    store[kolekcja][id] = nowy;
+    powiadom(kolekcja);
+    zapiszCache(kolekcja);
+    if(trybLokalny){ zapiszLokal(kolekcja); return id; }
+    stanSync('zapis');
+    try{
+      await FS.setDoc(FS.doc(FS.db, kolekcja, id), dane, {merge:true});
+      stanSync('ok');
+    }catch(e){ bladZapisu(e); }
+    return id;
+  },
   async zapisz(kolekcja, id, dane){
+    if(zapisZablokowany()) return id;
     zaplanujKopieDnia(kolekcja);
     id = id || nowyId();
     store[kolekcja][id] = {...(store[kolekcja][id]||{}), ...dane, id};
@@ -764,12 +851,13 @@ const DB = {
     try{
       await FS.setDoc(FS.doc(FS.db, kolekcja, id), dane, {merge:true});
       stanSync('ok');
-    }catch(e){ console.error(e); stanSync('blad'); toast('Błąd zapisu: '+e.message, true); }
+    }catch(e){ bladZapisu(e); }
     return id;
   },
   /* Zapis CAŁEGO dokumentu (bez scalania). Firestore przy merge:true scala zagnieżdżone
      mapy, więc usunięta grupa/wóz zostawałby na serwerze — tu dokument jest zastępowany. */
   async zapiszCaly(kolekcja, id, dane){
+    if(zapisZablokowany()) return id;
     zaplanujKopieDnia(kolekcja);
     store[kolekcja][id] = {...dane, id};
     powiadom(kolekcja);
@@ -779,10 +867,11 @@ const DB = {
     try{
       await FS.setDoc(FS.doc(FS.db, kolekcja, id), dane);
       stanSync('ok');
-    }catch(e){ console.error(e); stanSync('blad'); toast('Błąd zapisu: '+e.message, true); }
+    }catch(e){ bladZapisu(e); }
     return id;
   },
   async usun(kolekcja, id){
+    if(zapisZablokowany()) return;
     zaplanujKopieDnia(kolekcja);
     delete store[kolekcja][id];
     powiadom(kolekcja);
@@ -790,9 +879,17 @@ const DB = {
     if(trybLokalny){ zapiszLokal(kolekcja); return; }
     stanSync('zapis');
     try{ await FS.deleteDoc(FS.doc(FS.db, kolekcja, id)); stanSync('ok'); }
-    catch(e){ console.error(e); stanSync('blad'); toast('Błąd usuwania: '+e.message, true); }
+    catch(e){ bladZapisu(e, 'Błąd usuwania'); }
   }
 };
+
+/* Zrozumiały komunikat zamiast technicznego „Missing or insufficient permissions” */
+function bladZapisu(e, co='Błąd zapisu'){
+  console.error(e); stanSync('blad');
+  if(e?.code==='permission-denied')
+    toast('Nie masz uprawnień do tej zmiany — zapytaj Twórcę (zakładka „Dostęp”).', true);
+  else toast(co+': '+(e?.message||e), true);
+}
 
 function zapiszCache(kolekcja){
   try{ localStorage.setItem(CACHE_KEY(kolekcja), JSON.stringify(store[kolekcja])); }catch(e){}
@@ -857,7 +954,7 @@ function potwierdz(tytul, tekst, naTak, tekstTak='Usuń'){
 }
 
 /* ===================== START APLIKACJI ==================================== */
-let rolaAkt = null;
+let rolaAkt = null;      // uid zalogowanej osoby; null = nikt nie jest zalogowany
 let zakladkaAkt = null;
 
 const splashStan = document.getElementById('splashStan');
@@ -867,44 +964,68 @@ function bladSplash(t){
   document.getElementById('splashSpin').hidden=true;
   splashBlad.hidden=false; splashBlad.textContent=t;
 }
+function pokazSplash(t){
+  document.getElementById('splash').hidden=false;
+  document.getElementById('splashSpin').hidden=false;
+  splashBlad.hidden=true;
+  stanSplash(t);
+}
+function ukryjSplash(){ document.getElementById('splash').hidden = true; }
+
+let AUTH = null;               // {auth, m: moduł firebase-auth, appM: moduł firebase-app}
+let nasluchKolekcji = [];      // funkcje odpinające nasłuch kolekcji
+let nasluchProfilu = null;     // odpięcie nasłuchu własnego profilu
 
 (async function start(){
-  KOLEKCJE.forEach(czytajCache);
+  // Stara sesja „rola z hasła wspólnego” nie ma już znaczenia — sprzątamy ją
+  try{ localStorage.removeItem('ohz_sesja'); }catch(e){}
 
   const brakKonfig = Object.values(firebaseConfig).some(v => !v || v==='WSTAW_TUTAJ');
   if(brakKonfig){
+    // Tryb pokazowy bez Firebase: dane tylko w tej przeglądarce, bez kont
     trybLokalny = true;
     KOLEKCJE.forEach(czytajLokal);
     stanSplash('Tryb lokalny — brak konfiguracji Firebase.');
     document.getElementById('banerLokalny').hidden=false;
-  }else{
-    try{
-      stanSplash('Łączenie z Firebase…');
-      await polaczFirebase();
-      stanSplash('Wczytywanie konfiguracji…');
-      await preloadConfig();       // <<< hasła MUSZĄ być tu, PRZED formularzem logowania
-    }catch(e){
-      console.error(e);
-      bladSplash('Nie udało się połączyć z Firebase:\n'+(e.message||e)+
-        '\n\nSprawdź firebaseConfig, reguły Firestore i włączone logowanie anonimowe.'+
-        '\nAplikacja może działać dalej na danych z pamięci podręcznej — odśwież, gdy naprawisz połączenie.');
-      await new Promise(r=>setTimeout(r,2500));
-    }
+    uzytkAkt = {uid:'lokalny', imie:'Tryb lokalny', login:'', tworca:true, aktywny:true, zakl:{}};
+    rolaAkt = 'lokalny';
+    await zasiej();
+    ukryjSplash();
+    zaloguj();
+    rejestrujSW();
+    return;
   }
 
-  await zasiej();
-  zastosujZaplanowane().catch(e=>console.error('Zaplanowane zmiany:', e));   // w tle, po danych z serwera
-  stanSplash('Gotowe');
-  document.getElementById('splash').hidden = true;
+  try{
+    stanSplash('Łączenie z Firebase…');
+    await polaczFirebase();
+  }catch(e){
+    console.error(e);
+    bladSplash('Nie udało się uruchomić połączenia z bazą:\n'+(e.message||e)+
+      '\n\nSprawdź internet i odśwież stronę. Pierwsze uruchomienie na urządzeniu wymaga internetu.');
+    rejestrujSW();
+    return;
+  }
 
-  const zapamietana = wczytajSesje();
-  if(zapamietana){ zaloguj(zapamietana, true); }
-  else document.getElementById('logowanie').hidden = false;
+  // Firebase pamięta zalogowaną osobę na tym urządzeniu (także bez internetu)
+  const user = await new Promise(r=>{
+    const off = AUTH.m.onAuthStateChanged(AUTH.auth, u=>{ off(); r(u); });
+  });
+  if(user && !user.isAnonymous){
+    await wejdz(user);
+  }else{
+    if(user?.isAnonymous) await AUTH.m.signOut(AUTH.auth).catch(()=>{});
+    ukryjSplash();
+    pokazLogowanie();
+  }
+  rejestrujSW();
+})();
 
+function rejestrujSW(){
   if('serviceWorker' in navigator){
     navigator.serviceWorker.register('./sw.js').catch(()=>{});
   }
-})();
+}
 
 /* ---------- Firebase ---------- */
 async function polaczFirebase(){
@@ -923,15 +1044,18 @@ async function polaczFirebase(){
   }catch(e){ db = fsM.getFirestore(app); }
 
   FS = {db, ...fsM};
+  AUTH = {auth: authM.getAuth(app), m: authM, appM};
+  if(window.__EMULATOR__){   // tylko testy lokalne — w normalnej pracy nieużywane
+    fsM.connectFirestoreEmulator(db, '127.0.0.1', window.__EMULATOR__.firestore);
+    authM.connectAuthEmulator(AUTH.auth, 'http://127.0.0.1:'+window.__EMULATOR__.auth, {disableWarnings:true});
+  }
+}
 
-  // Logowanie anonimowe — reguły Firestore mogą wymagać request.auth != null
-  const auth = authM.getAuth(app);
-  try{ await authM.signInAnonymously(auth); }
-  catch(e){ console.warn('Anonimowe logowanie nieudane:', e.message); }
-
-  // Nasłuch na wszystkie kolekcje
+/* Nasłuch wszystkich kolekcji — dopiero PO zalogowaniu (reguły bazy i tak nie wpuszczą wcześniej) */
+function startNasluchu(){
+  nasluchKolekcji.forEach(f=>f()); nasluchKolekcji = [];
   KOLEKCJE.forEach(kol=>{
-    FS.onSnapshot(FS.collection(FS.db, kol), {includeMetadataChanges:true},
+    const off = FS.onSnapshot(FS.collection(FS.db, kol), {includeMetadataChanges:true},
       snap=>{
         const bylPotw = !!serwerPotwierdzil[kol];
         if(!snap.metadata.fromCache) serwerPotwierdzil[kol] = true;
@@ -950,18 +1074,113 @@ async function polaczFirebase(){
       },
       err=>{ console.error('onSnapshot '+kol, err); pierwszySnapshot[kol]=true; stanSync('blad'); }
     );
+    nasluchKolekcji.push(off);
   });
 }
 
-/* Preload konfiguracji (hasła!) zanim pokaże się formularz logowania.
-   To był błąd poprzedniej aplikacji: hasła ładowały się dopiero po zalogowaniu,
-   więc zmiana hasła nie propagowała się na inne urządzenia. */
-async function preloadConfig(){
+async function czekajNaPierwszy(kol, ms){
   const start = Date.now();
-  while(!pierwszySnapshot.config && Date.now()-start < 8000){
-    await new Promise(r=>setTimeout(r,80));
+  while(!pierwszySnapshot[kol] && Date.now()-start < ms) await new Promise(r=>setTimeout(r,80));
+  if(!pierwszySnapshot[kol]) console.warn(kol+' nie dotarło w '+ms/1000+' s — działam na pamięci podręcznej.');
+}
+
+/* Profil zalogowanej osoby — pierwszy odczyt + nasłuch zmian (blokada działa od razu
+   także na urządzeniach, na których ktoś jest już zalogowany). */
+function czytajProfil(uid){
+  return new Promise(resolve=>{
+    let gotowe = false;
+    const zakoncz = v=>{ if(!gotowe){ gotowe=true; resolve(v); } };
+    const timer = setTimeout(()=>zakoncz({brakSieci:true}), 12000);
+    nasluchProfilu?.();
+    nasluchProfilu = FS.onSnapshot(FS.doc(FS.db,'uzytkownicy',uid), {includeMetadataChanges:true}, snap=>{
+      // pusty wynik z pamięci urządzenia nic nie znaczy — czekamy na serwer
+      if(!snap.exists() && snap.metadata.fromCache) return;
+      const p = snap.exists() ? snap.data() : null;
+      if(!gotowe){ clearTimeout(timer); zakoncz(p); return; }
+      zmianaProfilu(p);
+    }, err=>{
+      clearTimeout(timer);
+      if(!gotowe){ zakoncz(null); return; }
+      if(err.code==='permission-denied') zmianaProfilu(null);
+    });
+  });
+}
+
+function zmianaProfilu(p){
+  if(!uzytkAkt || trybLokalny) return;
+  if(!p || p.aktywny!==true){
+    wyloguj('Twoje konto zostało zablokowane albo dostało nowe hasło. Zaloguj się ponownie lub skontaktuj się z Twórcą.', true);
+    return;
   }
-  if(!pierwszySnapshot.config) console.warn('Konfiguracja nie dotarła w 8 s — działam na pamięci podręcznej.');
+  uzytkAkt = {...p, uid:uzytkAkt.uid};
+  document.getElementById('hRola').textContent = podpisOsoby();
+  const podpis = ZAKLADKI.map(z=>z.id+':'+(poziom(z.id)||'')).join('|');
+  if(podpis!==podpisZakladek){ podpisZakladek = podpis; zbudujTaby(); }
+}
+
+/* Wejście do aplikacji po zalogowaniu (albo gdy urządzenie pamięta zalogowaną osobę) */
+async function wejdz(user){
+  pokazSplash('Sprawdzanie konta…');
+  const profil = await czytajProfil(user.uid);
+  if(profil?.brakSieci){
+    bladSplash('Brak połączenia z internetem, a to urządzenie nie ma jeszcze zapisanych danych konta.\nPołącz się z internetem i odśwież stronę.');
+    return;
+  }
+  if(!profil || profil.aktywny!==true){
+    await wyloguj(profil ? 'To konto jest zablokowane. Skontaktuj się z Twórcą.'
+                         : 'To konto nie ma dostępu do aplikacji. Skontaktuj się z Twórcą.', true);
+    return;
+  }
+  uzytkAkt = {...profil, uid:user.uid};
+  rolaAkt = user.uid;
+  KOLEKCJE.forEach(czytajCache);
+  stanSplash('Wczytywanie danych…');
+  startNasluchu();
+  await czekajNaPierwszy('config', 8000);
+  sprawdzWersje();
+  if(jestTworca()){ sprzatnijStareHasla(); startNasluchuOsob(); }
+  if(jestTworca()) await zasiej();
+  if(jestTworca() || uzytkAkt.edycja)
+    zastosujZaplanowane().catch(e=>console.error('Zaplanowane zmiany:', e));   // w tle, po danych z serwera
+  ukryjSplash();
+  zaloguj();
+}
+
+/* Stary dokument ze wspólnymi hasłami (także zapisanymi jawnie) — usuwamy po przejściu na konta */
+function sprzatnijStareHasla(){
+  if(trybLokalny) return;
+  setTimeout(async()=>{
+    if(!(await czekajNaSerwer(['config'], 15000))) return;
+    if(store.config.passwords){ await DB.usun('config','passwords'); console.info('Usunięto stare hasła wspólne.'); }
+  }, 0);
+}
+
+/* ---------- Aktualizacje: stary kod nie zapisuje po wejściu nowej wersji ---------- */
+function sprawdzWersje(){
+  if(trybLokalny || !uzytkAkt) return;
+  const w = Number(store.config.app?.wersjaKodu) || 0;
+  if(w > WERSJA_KODU){ przestarzala = true; pokazNowaWersja(); return; }
+  if(w < WERSJA_KODU && (jestTworca() || uzytkAkt.edycja) && serwerPotwierdzil.config)
+    DB.zapisz('config','app',{wersjaKodu:WERSJA_KODU, ts:Date.now()});
+}
+function pokazNowaWersja(){
+  if(document.getElementById('nowaWersja')) return;
+  const d = document.createElement('div');
+  d.id = 'nowaWersja';
+  d.innerHTML = `<div class="modal"><h3>Jest nowa wersja aplikacji</h3>
+    <div class="tresc">Na innym urządzeniu uruchomiono nowszą wersję.<br>
+    Żeby żadne dane się nie pomieszały, ta karta niczego nie zapisze, dopóki jej nie odświeżysz.<br><br>
+    <b>Zapisane dane są bezpieczne.</b></div>
+    <div class="stopka" style="justify-content:center"><button class="btn" id="btnNowaWersja">⟳ Odśwież teraz</button></div></div>`;
+  document.body.appendChild(d);
+  d.querySelector('#btnNowaWersja').onclick = async()=>{
+    try{
+      const reg = await navigator.serviceWorker?.getRegistration();
+      await reg?.update();
+      reg?.waiting?.postMessage('skipWaiting');
+    }catch(e){}
+    location.reload();
+  };
 }
 
 /* Dane przykładowe (startowe). Trzymane osobno, żeby narzędzie przywracania
@@ -1167,12 +1386,6 @@ async function zasiej(){
       wersja:WERSJA_APP
     });
   }
-  if(!store.config.passwords){
-    const hasla={}, jawne={};
-    for(const [k,v] of Object.entries(HASLA_STARTOWE)){ hasla[k]=sha256(v); jawne[k]=v; }
-    await DB.zapisz('config','passwords',{hasla, jawne, zmienione:dzisiaj()});
-    console.info('Zasiano hasła startowe:', HASLA_STARTOWE);
-  }
   // Dane przykładowe — tylko gdy baza jest pusta
   const pusto = k => Object.keys(store[k]).length===0;
   if(pusto('surowce') && pusto('dawki') && pusto('mieszanki') && pusto('grupyTech')) await zasiejPrzykladowe();
@@ -1188,6 +1401,7 @@ async function zasiejPrzykladowe(){
   const S = PRZYKLADOWE.surowce;
   for(let i=0; i<S.length; i++){
     const s=S[i];
+    if(store.surowce[s.id]) continue;      // nigdy nie nadpisujemy istniejącego wpisu
     await DB.zapisz('surowce', s.id, {
       nazwa:s.nazwa, kategoria:s.kategoria, cenaTona:s.cenaTona,
       dataCeny:d, kolejnosc:i+1, zMieszalni:false, mieszankaId:null, lokalizacja:null
@@ -1207,11 +1421,11 @@ async function zasiejPrzykladowe(){
     const kosztTona = m.skladniki.reduce((sum,sk)=> sum + (sk.procent/100)*(cenySur[sk.surowiecId]||0), 0);
     const kosztKg = kosztTona / 1000;
 
-    await DB.zapisz('mieszanki', m.id, {
+    if(!store.mieszanki[m.id]) await DB.zapisz('mieszanki', m.id, {
       nazwa:m.nazwa, skladniki:m.skladniki, kosztKg:Math.round(kosztKg*10000)/10000
     });
     // Dodaj mieszankę jako surowiec
-    await DB.zapisz('surowce', m.surId, {
+    if(!store.surowce[m.surId]) await DB.zapisz('surowce', m.surId, {
       nazwa:m.nazwa, kategoria:'Mieszanka własna', cenaTona:Math.round(kosztTona*100)/100,
       dataCeny:d, kolejnosc:S.length+i+1, zMieszalni:true, mieszankaId:m.id, lokalizacja:null
     });
@@ -1221,6 +1435,7 @@ async function zasiejPrzykladowe(){
   const D = PRZYKLADOWE.dawki;
 
   for(const daw of D){
+    if(store.dawki[daw.id]) continue;
     await DB.zapisz('dawki', daw.id, {
       nazwa:daw.nazwa, suchyTMR:daw.suchyTMR,
       skladniki:daw.skladniki, kolejnosc:daw.kolejnosc
@@ -1236,6 +1451,7 @@ async function zasiejPrzykladowe(){
 async function zasiejGrupy(){
   const GT = PRZYKLADOWE.grupy;
   for(const g of GT){
+    if(store.grupyTech[g.id]) continue;
     await DB.zapisz('grupyTech', g.id, {
       lokalizacja:g.lok, nazwa:g.nazwa, sztuk:g.sztuk,
       parentId:g.parentId||null, dawki:g.dawki, kolejnosc:g.kol
@@ -1245,56 +1461,167 @@ async function zasiejGrupy(){
 }
 
 /* ===================== LOGOWANIE ========================================== */
+const inpLogin = document.getElementById('login');
 const inpHaslo = document.getElementById('haslo');
 const bladLog  = document.getElementById('blad-log');
-document.getElementById('btnZaloguj').onclick = probujZalogowac;
-inpHaslo.onkeydown = e=>{ if(e.key==='Enter') probujZalogowac(); };
+document.getElementById('formLog').onsubmit = e=>{ e.preventDefault(); probujZalogowac(); return false; };
+document.querySelectorAll('[data-pokaz]').forEach(b=> b.onclick = ()=>{
+  const i = document.getElementById(b.dataset.pokaz);
+  i.type = i.type==='password' ? 'text' : 'password';
+  b.textContent = i.type==='password' ? 'pokaż' : 'ukryj';
+});
 
-function probujZalogowac(){
-  const h = inpHaslo.value.trim();
-  if(!h){ bladLog.textContent='Podaj hasło.'; return; }
-  const hasla = store.config.passwords?.hasla || {};
-  const hash = sha256(h);
-  const rola = Object.keys(hasla).find(r => hasla[r]===hash);
-  if(!rola || !ROLE[rola]){ bladLog.textContent='Nieprawidłowe hasło.'; inpHaslo.value=''; return; }
-  bladLog.textContent=''; inpHaslo.value='';
-  zaloguj(rola);
+function komunikatBledu(e){
+  const k = e?.code || '';
+  if(/invalid-credential|wrong-password|user-not-found|invalid-email|brak-loginu/.test(k)) return 'Nieprawidłowy login lub hasło.';
+  if(/too-many-requests/.test(k)) return 'Za dużo nieudanych prób. Odczekaj kilka minut.';
+  if(/network|unavailable|offline/.test(k) || !navigator.onLine) return 'Brak połączenia z internetem — logowanie wymaga internetu.';
+  if(/weak-password/.test(k)) return 'Hasło jest za słabe — użyj co najmniej 6 znaków.';
+  if(/email-already-in-use/.test(k)) return 'Takie konto już istnieje.';
+  if(/permission-denied/.test(k)) return 'Brak uprawnień (sprawdź, czy reguły bazy są opublikowane).';
+  return 'Nie udało się: '+(e?.message||e);
 }
 
-function zapiszSesje(rola){
-  try{ localStorage.setItem('ohz_sesja', JSON.stringify({rola, ts:Date.now()})); }catch(e){}
-}
-function wczytajSesje(){
+async function pokazLogowanie(komunikat){
+  document.getElementById('app').hidden = true;
+  document.getElementById('pierwszy').hidden = true;
+  document.getElementById('logowanie').hidden = false;
+  let k = komunikat;
+  try{ k = k || sessionStorage.getItem('ohz_komunikat'); sessionStorage.removeItem('ohz_komunikat'); }catch(e){}
+  bladLog.textContent = k || '';
+  setTimeout(()=>inpLogin.focus(), 50);
+  // „Pierwsze uruchomienie” pokazujemy tylko, gdy nikt jeszcze nie założył konta Twórcy
+  const btn = document.getElementById('btnPierwszy');
+  btn.hidden = true;
   try{
-    const s=JSON.parse(localStorage.getItem('ohz_sesja')||'null');
-    if(!s || !ROLE[s.rola]) return null;
-    if(Date.now()-s.ts > 30*24*3600*1000) return null;   // sesja ważna 30 dni
-    return s.rola;
-  }catch(e){ return null; }
+    const snap = await FS.getDoc(FS.doc(FS.db,'publiczne','start'));
+    btn.hidden = snap.exists();
+  }catch(e){
+    btn.hidden = e?.code!=='permission-denied';   // stare reguły bazy — pozwól spróbować
+  }
 }
 
-function zaloguj(rola){
-  rolaAkt = rola;
-  zapiszSesje(rola);
+async function probujZalogowac(){
+  const login = loginZ(inpLogin.value);
+  const h = inpHaslo.value;
+  if(!login || !h){ bladLog.textContent='Wpisz login i hasło.'; return; }
+  const btn = document.getElementById('btnZaloguj');
+  btn.disabled = true; btn.textContent = 'Logowanie…';
+  bladLog.textContent = '';
+  try{
+    const snap = await FS.getDoc(FS.doc(FS.db,'loginy',login));
+    if(!snap.exists()) throw {code:'brak-loginu'};
+    const cred = await AUTH.m.signInWithEmailAndPassword(AUTH.auth, snap.data().email, h);
+    inpHaslo.value = '';
+    document.getElementById('logowanie').hidden = true;
+    await wejdz(cred.user);
+  }catch(e){
+    console.warn(e);
+    bladLog.textContent = komunikatBledu(e);
+    inpHaslo.value = '';
+  }finally{
+    btn.disabled = false; btn.textContent = 'Zaloguj';
+  }
+}
+
+/* ---------- Pierwsze uruchomienie: konto Twórcy ---------- */
+document.getElementById('btnPierwszy').onclick = ()=>{
   document.getElementById('logowanie').hidden = true;
+  document.getElementById('pierwszy').hidden = false;
+  document.getElementById('p1Imie').focus();
+};
+document.getElementById('btnP1Wroc').onclick = ()=> pokazLogowanie();
+document.getElementById('p1Imie').oninput = e=>{
+  const l = document.getElementById('p1Login');
+  if(!l.dataset.reczny) l.value = loginZ(e.target.value);
+};
+document.getElementById('p1Login').oninput = e=>{ e.target.dataset.reczny = '1'; };
+document.getElementById('formPierwszy').onsubmit = e=>{ e.preventDefault(); zalozPierwszegoTworce(); return false; };
+
+async function zalozPierwszegoTworce(){
+  const blad = document.getElementById('blad-p1');
+  const imie = document.getElementById('p1Imie').value.trim();
+  const login = loginZ(document.getElementById('p1Login').value || imie);
+  const h1 = document.getElementById('p1Haslo').value, h2 = document.getElementById('p1Haslo2').value;
+  if(!imie){ blad.textContent='Wpisz imię.'; return; }
+  if(!login){ blad.textContent='Wpisz login (litery i cyfry).'; return; }
+  if(h1.length<8){ blad.textContent='Hasło Twórcy musi mieć co najmniej 8 znaków.'; return; }
+  if(h1!==h2){ blad.textContent='Hasła nie są takie same.'; return; }
+  const btn = document.getElementById('btnP1');
+  btn.disabled = true; btn.textContent = 'Zakładanie…'; blad.textContent = '';
+  let cred = null;
+  try{
+    const email = emailTechniczny(login);
+    cred = await AUTH.m.createUserWithEmailAndPassword(AUTH.auth, email, h1);
+    const uid = cred.user.uid;
+    const b = FS.writeBatch(FS.db);
+    b.set(FS.doc(FS.db,'publiczne','start'), {uid, ts:Date.now()});
+    b.set(FS.doc(FS.db,'uzytkownicy',uid), {imie, login, email, tworca:true, aktywny:true, edycja:true, zakl:{},
+      utworzono:Date.now(), utworzyl:imie});
+    b.set(FS.doc(FS.db,'loginy',login), {email, uid});
+    await b.commit();
+    ['p1Haslo','p1Haslo2'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('pierwszy').hidden = true;
+    await wejdz(cred.user);
+  }catch(e){
+    console.warn(e);
+    if(cred){ try{ await cred.user.delete(); }catch(x){} }
+    blad.textContent = e?.code==='permission-denied'
+      ? 'Konto Twórcy już istnieje — wróć i zaloguj się.' : komunikatBledu(e);
+  }finally{
+    btn.disabled = false; btn.textContent = 'Załóż konto i zaloguj';
+  }
+}
+
+function podpisOsoby(){
+  return (uzytkAkt?.imie||'—') + (jestTworca() && !trybLokalny ? ' · Twórca' : '');
+}
+
+function zaloguj(){
+  document.getElementById('logowanie').hidden = true;
+  document.getElementById('pierwszy').hidden = true;
   document.getElementById('app').hidden = false;
   document.getElementById('hNazwa').textContent = store.config.settings?.nazwaGospodarstwa || 'OHZ Lubiana';
-  document.getElementById('hRola').textContent  = ROLE[rola].nazwa;
+  document.getElementById('hRola').textContent  = podpisOsoby();
   zbudujTaby();
   stanSync(stanBiezacy);
   przypomnienieBackupu();
 }
 
-function wyloguj(){
-  try{ localStorage.removeItem('ohz_sesja'); }catch(e){}
-  rolaAkt=null; zakladkaAkt=null;
-  document.getElementById('app').hidden = true;
-  document.getElementById('logowanie').hidden = false;
-  inpHaslo.value=''; bladLog.textContent='';
+/* Czy na urządzeniu są zmiany jeszcze niewysłane na serwer (np. brak zasięgu w oborze) */
+async function saNiewyslane(){
+  if(trybLokalny || !FS) return false;
+  const t = new Promise(r=>setTimeout(()=>r('czeka'), 1500));
+  return (await Promise.race([FS.waitForPendingWrites(FS.db).then(()=>'ok').catch(()=>'ok'), t])) === 'czeka';
+}
+
+/* Wylogowanie: odpina nasłuch, usuwa z urządzenia kopię danych i przeładowuje stronę.
+   wymuszone = konto zablokowane / nowe hasło — wtedy nie pytamy. */
+async function wyloguj(komunikat, wymuszone=false){
+  if(!wymuszone && await saNiewyslane()){
+    modal({tytul:'Zmiany czekają na wysłanie',
+      tresc:'<p style="margin-top:0">Na tym urządzeniu są zmiany, które jeszcze nie dotarły na serwer (brak internetu?).</p><p>Wylogowanie teraz by je skasowało. Poczekaj, aż ikona chmurki pokaże <b>☁✓</b>, i spróbuj ponownie.</p>',
+      przyciski:[{tekst:'Rozumiem'}]});
+    return;
+  }
+  nasluchKolekcji.forEach(f=>f()); nasluchKolekcji = [];
+  nasluchProfilu?.(); nasluchProfilu = null;
+  uzytkAkt = null; rolaAkt = null; zakladkaAkt = null;
+  KOLEKCJE.forEach(k=>{ try{ localStorage.removeItem(CACHE_KEY(k)); }catch(e){} });
+  try{ if(komunikat) sessionStorage.setItem('ohz_komunikat', komunikat); }catch(e){}
+  if(trybLokalny){ location.reload(); return; }
+  try{ await AUTH.m.signOut(AUTH.auth); }catch(e){}
+  try{ await FS.terminate(FS.db); await FS.clearIndexedDbPersistence(FS.db); }catch(e){ console.warn(e); }
+  location.reload();
 }
 
 /* ===================== NAWIGACJA ========================================== */
-function poziom(zakl){ return ROLE[rolaAkt]?.zakl[zakl] || null; }
+function poziom(zakl){
+  if(!uzytkAkt) return null;
+  if(zakl==='dostep') return (jestTworca() && !trybLokalny) ? 'pelny' : null;
+  if(jestTworca()) return 'pelny';
+  return uzytkAkt.zakl?.[zakl] || null;
+}
 function mozeEdytowac(zakl){ return poziom(zakl)==='pelny'; }
 
 let podpisZakladek = '';
@@ -1305,7 +1632,7 @@ function zbudujTaby(){
   nav.innerHTML = dostepne.map(z=>`<button data-z="${z.id}">${esc(z.etykieta)}</button>`).join('');
   nav.querySelectorAll('button').forEach(b=> b.onclick=()=>przejdz(b.dataset.z));
   if(!dostepne.length){
-    document.getElementById('widok').innerHTML='<div class="panel"><div class="pusto">Ta rola nie ma dostępu do żadnej zakładki.</div></div>';
+    document.getElementById('widok').innerHTML='<div class="panel"><div class="pusto">Twoje konto nie ma jeszcze dostępu do żadnej zakładki.<br>Poproś Twórcę o włączenie zakładek w „Dostęp”.</div></div>';
     return;
   }
   przejdz(dostepne.some(z=>z.id===zakladkaAkt) ? zakladkaAkt : dostepne[0].id);
@@ -1356,6 +1683,7 @@ function renderWidok(w){
   if(zakladkaAkt==='paszowozB'){ renderPaszowoz(w,'boguszyn'); return; }
   if(zakladkaAkt==='mieszalnia'){ renderMieszalnia(w); return; }
   if(zakladkaAkt==='raporty'){ renderRaporty(w); return; }
+  if(zakladkaAkt==='dostep'){ renderDostep(w); return; }
   w.innerHTML = `<div class="panel">
       <div class="panel-tyt">${esc(ZAKLADKI.find(z=>z.id===zakladkaAkt)?.etykieta||'')}</div>
       <div class="pusto">Moduł w przygotowaniu — zbudujemy go w kolejnym kroku.</div>
@@ -1663,22 +1991,46 @@ function klonGrup(){
 /* Zapis migawki obowiązującej od podanego dnia (dla zmian wchodzących od razu) */
 async function zapiszWersje(odData){
   await DB.zapisz('wersjeDawek', idWersji(odData), {
-    odData, ts:Date.now(), rola:ROLE[rolaAkt]?.nazwa||'?',
+    odData, ts:Date.now(), rola:nazwaAkt(),
     zaplanowana:false, dawki:klonDawek(), grupy:klonGrup()
   });
 }
 
-/* Zmiana wchodząca w przyszłości — trafia do wersji zaplanowanej, nie rusza bieżących dawek */
+/* Zmiana wchodząca w przyszłości — trafia do wersji zaplanowanej, nie rusza bieżących dawek.
+   Zapamiętujemy, KTÓRE dawki i grupy zmieniono (pole `zmienione`), żeby w dniu wejścia
+   w życie nie cofnąć zmian zrobionych w międzyczasie w innych dawkach. */
 async function zapiszDoZaplanowanej(odData, mutator){
   const id = idWersji(odData);
   const ist = store.wersjeDawek[id];
-  const baza = (ist?.zaplanowana && ist.dawki) ? {dawki:{...ist.dawki}, grupy:{...(ist.grupy||klonGrup())}}
+  const baza = (ist?.zaplanowana && ist.dawki) ? {dawki:klon(ist.dawki), grupy:klon(ist.grupy||klonGrup())}
                                                : {dawki:klonDawek(), grupy:klonGrup()};
+  const przed = klon(baza);
   mutator(baza);
+  const zm = {dawki:[...(ist?.zaplanowana ? ist.zmienione?.dawki||[] : [])],
+              grupy:[...(ist?.zaplanowana ? ist.zmienione?.grupy||[] : [])]};
+  for(const k of ['dawki','grupy']){
+    const ids = new Set([...Object.keys(przed[k]||{}), ...Object.keys(baza[k]||{})]);
+    ids.forEach(i=>{ if(JSON.stringify(przed[k]?.[i])!==JSON.stringify(baza[k]?.[i]) && !zm[k].includes(i)) zm[k].push(i); });
+  }
   await DB.zapisz('wersjeDawek', id, {
-    odData, ts:Date.now(), rola:ROLE[rolaAkt]?.nazwa||'?',
-    zaplanowana:true, dawki:baza.dawki, grupy:baza.grupy
+    odData, ts:Date.now(), rola:nazwaAkt(),
+    zaplanowana:true, dawki:baza.dawki, grupy:baza.grupy, zmienione:zm
   });
+}
+
+/* Które dawki/grupy zmienia zaplanowana wersja. Starsze wersje (sprzed tej poprawki) nie mają
+   pola `zmienione` — porównujemy je wtedy z ostatnią wersją obowiązującą w dniu planowania. */
+function zmianyWersji(w){
+  if(w.zmienione) return {dawki:new Set(w.zmienione.dawki||[]), grupy:new Set(w.zmienione.grupy||[])};
+  const dzienPlanu = w.ts ? new Date(w.ts).toISOString().slice(0,10) : (w.odData||'');
+  const bazy = wersjeWgDaty().filter(v=>!v.zaplanowana && v.id!==w.id && (v.odData||'')<=dzienPlanu);
+  const baza = bazy[bazy.length-1];
+  if(!baza) return null;                         // brak punktu odniesienia — stare zachowanie
+  const roz = (a,b)=> new Set(Object.keys(a||{}).filter(i=>{
+    const x=a[i], y=(b||{})[i];
+    return JSON.stringify(x?.skladniki ?? x?.dawki) !== JSON.stringify(y?.skladniki ?? y?.dawki) || x?.nazwa!==y?.nazwa;
+  }));
+  return {dawki:roz(w.dawki, baza.dawki), grupy:roz(w.grupy, baza.grupy)};
 }
 
 /* Wejście w życie zaplanowanych zmian — wywoływane przy starcie aplikacji */
@@ -1692,15 +2044,20 @@ async function zastosujZaplanowane(){
     .sort((a,b)=>(a.odData||'').localeCompare(b.odData||''));
   if(!doZast.length) return;
   for(const w of doZast){
+    const zm = zmianyWersji(w);
     for(const [id,d] of Object.entries(w.dawki||{})){
+      if(zm && !zm.dawki.has(id)) continue;      // tej dawki plan nie zmieniał — zostaje aktualna
       if(store.dawki[id]) await DB.zapisz('dawki', id, {skladniki:d.skladniki, nazwa:d.nazwa});
     }
     for(const [id,g] of Object.entries(w.grupy||{})){
+      if(zm && !zm.grupy.has(id)) continue;
       if(store.grupyTech[id]) await DB.zapisz('grupyTech', id, {dawki:g.dawki});
     }
     await DB.zapisz('wersjeDawek', w.id, {zaplanowana:false, zastosowanaTs:Date.now()});
     console.info('Zastosowano zaplanowaną zmianę dawek z', w.odData);
   }
+  // Migawka „od dziś” z faktycznym stanem po zastosowaniu — raporty historyczne widzą prawdę
+  await zapiszWersje(dzis);
   toast(`Weszły w życie zaplanowane zmiany dawek (${doZast.length}).`);
 }
 
@@ -1834,7 +2191,7 @@ function zapiszZmiane(dawkaId, surowiecId, stara, nowa, odData, zaplanowana){
     ts, data: dzisiaj(),
     odData: odData || dzisiaj(),
     zaplanowana: !!zaplanowana,
-    rola: ROLE[rolaAkt]?.nazwa || '?',
+    rola: nazwaAkt(),
     dawkaId, dawkaNazwa: store.dawki[dawkaId]?.nazwa || '?',
     surowiecId, surowiecNazwa: store.surowce[surowiecId]?.nazwa || '?',
     stara: Math.round(stara*1000)/1000,
@@ -1846,11 +2203,14 @@ function zapiszZmiane(dawkaId, surowiecId, stara, nowa, odData, zaplanowana){
    Na koniec dnia w bazie leży stan końcowy — bez zależności od tego,
    czy ktoś ma otwartą aplikację o północy. */
 function zapiszSnapshotDnia(){
+  // Kopia dnia z niepełnych danych (urządzenie jeszcze bez potwierdzenia z serwera)
+  // nadpisałaby dobrą kopię — wtedy jej nie robimy.
+  if(!trybLokalny && !['dawki','grupyTech','surowce','mieszanki'].every(k=>serwerPotwierdzil[k])) return;
   const d = dzisiaj();
   // pełny stan: dawki + grupy + surowce + mieszanki — żeby dało się odtworzyć wszystko
   DB.zapiszCaly('snapshoty', 'snap_'+d, {
     typ:'dawki', data:d, ts:Date.now(),
-    autor: ROLE[rolaAkt]?.nazwa || '?',
+    autor: nazwaAkt(),
     dane: klon(store.dawki), grupy: klon(store.grupyTech),
     surowce: klon(store.surowce), mieszanki: klon(store.mieszanki)
   });
@@ -2322,7 +2682,7 @@ function drukujHTML(html, tytul, opcje){
       ${css1}
     </style></head><body>
     <h1>${esc(tytul)}</h1>
-    <div class="meta">${esc(st)} · wydruk ${dataPL(dzisiaj())} ${new Date().toTimeString().slice(0,5)} · ${esc(ROLE[rolaAkt]?.nazwa||'')}</div>
+    <div class="meta">${esc(st)} · wydruk ${dataPL(dzisiaj())} ${new Date().toTimeString().slice(0,5)} · ${esc(nazwaAkt())}</div>
     ${jedna ? '<div id="strona">'+html+'</div>'+skrypt1 : html}
     </body></html>`;
   const okno = window.open('', '_blank', 'width=1200,height=800');
@@ -3544,7 +3904,7 @@ function bezMeta(o){ if(!o) return o; const {ts, autor, ...r} = o; return JSON.s
 async function synchronizujZywienieZPaszowozu(lok, data, st){
   st = st || normalizujPz(pzDok(lok,data));
   const {sektory} = obliczPaszowoz(lok, data, st);
-  const autor = ROLE[rolaAkt]?.nazwa||'?';
+  const autor = nazwaAkt();
   const dzis = data===dzisiaj();
 
   // ---- dzień bieżący: co trafiło do sektorów ----
@@ -3622,7 +3982,24 @@ async function synchronizujZywienieZPaszowozu(lok, data, st){
 }
 
 async function zapiszPaszowoz(lok, data, st){
-  const dok = {
+  const dok = dokPaszowozu(lok, data, st);
+  await DB.zapiszCaly('paszowozy', idPz(lok,data), dok);
+  await synchronizujZywienieZPaszowozu(lok, data, normalizujPz(dok));
+}
+
+/* Stan dnia do edycji. Pierwszy zapis dnia zaczyna od wozów i planu z ostatniego dnia. */
+function stanDoEdycji(lok, data, dok){
+  if(!dok && data===dzisiaj()){
+    pzAutoProby.add(idPz(lok,data));
+    for(let i=1;i<=7;i++){
+      const zr = dataMinus(data,i), prev = pzDok(lok, zr);
+      if(prev?.wozy?.length){ dok = {wozy:kopiujWozy(prev.wozy), plan:planZDokumentu(prev), dodatki:klon(prev.dodatki||{}), autoKopia:zr}; break; }
+    }
+  }
+  return normalizujPz(klon(dok));
+}
+function dokPaszowozu(lok, data, st){
+  return {
     lokalizacja:lok, data,
     wozy: st.wozy, niedojady: st.niedojady,
     niedojadyPotw: !!st.niedojadyPotw,
@@ -3631,32 +4008,57 @@ async function zapiszPaszowoz(lok, data, st){
     ndPerGrupa: true,                 // niedojady wpisywane per grupa (puste pole = nie wiadomo)
     dodatki: st.dodatki || {},        // dosyp do wozu dla sektora: {grupaId:[{surowiecId,kgSzt}]}
     rejestr: (st.rejestr || []).slice(-300),
-    autor: ROLE[rolaAkt]?.nazwa||'?', ts: Date.now()
+    autor: nazwaAkt(), ts: Date.now()
   };
-  await DB.zapiszCaly('paszowozy', idPz(lok,data), dok);
-  await synchronizujZywienieZPaszowozu(lok, data, normalizujPz(dok));
 }
 
-/* Każda edycja: świeży stan z magazynu → zmiana → zapis całości.
-   Dzięki temu żadna akcja nie gubi niedojadów ani wozów zmienionych w międzyczasie. */
+/* Każda edycja: najnowszy stan → zmiana → zapis całości.
+   Z internetem zmiana idzie w transakcji: Firestore czyta stan z SERWERA i nakłada na niego
+   zmianę — dwa tablety edytujące ten sam dzień nie kasują sobie nawzajem wpisów.
+   Bez internetu: jak dawniej, na stanie z urządzenia (zapis wyśle się po odzyskaniu zasięgu). */
 async function pzEdytuj(lok, data, fn){
+  if(zapisZablokowany()) return;
   // Bez potwierdzonych danych z serwera nie zapisujemy — pełny zapis dnia mógłby nadpisać nowszy stan
   if(!trybLokalny && !serwerPotwierdzil.paszowozy){ toast('Czekam na dane z serwera — spróbuj za chwilę.', true); return; }
-  let dok = pzDok(lok,data);
-  if(!dok && data===dzisiaj()){
-    // pierwszy zapis dnia: zaczynamy od wozów i planu z ostatniego dnia (jak autoduplikacja)
-    pzAutoProby.add(idPz(lok,data));
-    for(let i=1;i<=7;i++){
-      const zr = dataMinus(data,i), prev = pzDok(lok, zr);
-      if(prev?.wozy?.length){ dok = {wozy:kopiujWozy(prev.wozy), plan:planZDokumentu(prev), dodatki:klon(prev.dodatki||{}), autoKopia:zr}; break; }
+  const zastosuj = dok=>{
+    const st = stanDoEdycji(lok, data, dok);
+    const przed = opisStanuPz(st, lok, data);
+    if(fn(st)===false) return null;
+    dopiszRejestr(st, przed, opisStanuPz(st, lok, data));
+    delete st._log; delete st._kopia;
+    return dokPaszowozu(lok, data, st);
+  };
+
+  if(!trybLokalny && navigator.onLine){
+    const ref = FS.doc(FS.db, 'paszowozy', idPz(lok,data));
+    let wynik = null;
+    stanSync('zapis');
+    try{
+      wynik = await FS.runTransaction(FS.db, async tx=>{
+        const snap = await tx.get(ref);
+        const dok = zastosuj(snap.exists() ? snap.data() : null);
+        if(dok) tx.set(ref, dok);
+        return dok;
+      });
+      stanSync('ok');
+    }catch(e){
+      if(e?.code==='permission-denied'){ bladZapisu(e); return; }
+      // zerwane połączenie w trakcie — zapisujemy jak offline (poniżej)
+      console.warn('Transakcja nieudana, zapis na stanie z urządzenia:', e);
+      wynik = undefined;
+    }
+    if(wynik===null) return;                       // fn zrezygnowała ze zmiany
+    if(wynik){
+      store.paszowozy[idPz(lok,data)] = {...wynik, id:idPz(lok,data)};
+      zapiszCache('paszowozy'); powiadom('paszowozy');
+      await synchronizujZywienieZPaszowozu(lok, data, normalizujPz(wynik));
+      return;
     }
   }
-  const st = normalizujPz(dok);
-  const przed = opisStanuPz(st, lok, data);
-  if(fn(st)===false) return;
-  dopiszRejestr(st, przed, opisStanuPz(st, lok, data));
-  delete st._log; delete st._kopia;
-  await zapiszPaszowoz(lok, data, st);
+  const dok = zastosuj(pzDok(lok,data));
+  if(!dok) return;
+  await DB.zapiszCaly('paszowozy', idPz(lok,data), dok);
+  await synchronizujZywienieZPaszowozu(lok, data, normalizujPz(dok));
 }
 
 function nowyWoz(nr){
@@ -3693,7 +4095,7 @@ function opisStanuPz(st, lok, data){
   return m;
 }
 function dopiszRejestr(st, przed, po){
-  const kto = ROLE[rolaAkt]?.nazwa || '?', teraz = Date.now();
+  const kto = nazwaAkt(), teraz = Date.now();
   st.rejestr = st.rejestr || [];
   const wpisy = [];
   if(st._kopia){
@@ -3762,7 +4164,29 @@ function pzAutoDuplikacja(lok){
       const st = {wozy:kopiujWozy(prev.wozy), niedojady:[], niedojadyPotw:false, autoKopia:zr, plan:planZDokumentu(prev), dodatki:klon(prev.dodatki||{}), rejestr:[]};
       setTimeout(async()=>{
         if(pzDok(lok,data)) return;          // ktoś zdążył zapisać
-        await zapiszPaszowoz(lok, data, st);
+        if(zapisZablokowany()) return;
+        if(!trybLokalny && navigator.onLine){
+          // Kopia tylko wtedy, gdy dnia NAPRAWDĘ nie ma na serwerze (dwa tablety naraz)
+          const ref = FS.doc(FS.db, 'paszowozy', idPz(lok,data));
+          const dok = dokPaszowozu(lok, data, st);
+          try{
+            const zrobione = await FS.runTransaction(FS.db, async tx=>{
+              if((await tx.get(ref)).exists()) return false;
+              tx.set(ref, dok); return true;
+            });
+            if(!zrobione) return;
+            store.paszowozy[idPz(lok,data)] = {...dok, id:idPz(lok,data)};
+            zapiszCache('paszowozy'); powiadom('paszowozy');
+            await synchronizujZywienieZPaszowozu(lok, data, normalizujPz(dok));
+          }catch(e){ console.warn('Autokopia planu:', e); pzAutoProby.delete(klucz); return; }
+        }else if(trybLokalny){
+          await zapiszPaszowoz(lok, data, st);
+        }else{
+          // Bez internetu nie kopiujemy automatycznie — taka kopia mogłaby po powrocie zasięgu
+          // nadpisać plan ułożony w tym czasie na innym tablecie. Spróbujemy po odzyskaniu sieci.
+          pzAutoProby.delete(klucz);
+          return;
+        }
         toast(`Skopiowano wozy z ${dataPL(zr)} — sprawdź receptury i ilości.`);
       }, 0);
       return;
@@ -4525,7 +4949,7 @@ function renderMixProdukcja(el,mieszanki){
       'Karta za\u0142adunku mieszalni', {duzy:true, poziom:false});
     document.getElementById('mpZapisz').onclick=async()=>{
       const kosztKg=koszt/partiaKg;
-      await DB.zapisz('produkcja',null,{data:document.getElementById('mpData').value,mieszankaId:mixId,kg:partiaKg,koszt:Math.round(koszt*100)/100,kosztKg:Math.round(kosztKg*10000)/10000,lokalizacja:document.getElementById('mpLok').value,uzytkownik:ROLE[rolaAkt]?.nazwa||'?',ts:Date.now()});
+      await DB.zapisz('produkcja',null,{data:document.getElementById('mpData').value,mieszankaId:mixId,kg:partiaKg,koszt:Math.round(koszt*100)/100,kosztKg:Math.round(kosztKg*10000)/10000,lokalizacja:document.getElementById('mpLok').value,uzytkownik:nazwaAkt(),ts:Date.now()});
       const surMix=Object.values(store.surowce).find(s=>s.mieszankaId===mixId||(s.zMieszalni&&s.nazwa===m.nazwa));
       if(surMix) await DB.zapisz('surowce',surMix.id,{cenaTona:Math.round(kosztKg*1000*100)/100,dataCeny:dzisiaj()});
       await DB.zapisz('mieszanki',mixId,{kosztKg:Math.round(kosztKg*10000)/10000});
@@ -4618,11 +5042,12 @@ let rapOdDo = null;
 function zalezyOdLokalizacji(pz){
   return ['kalendarz','historia','miesiac','zuzycie'].includes(pz);
 }
+/* Lokalizacje osoby: te, których zakładkę (lub paszowóz) widzi. Kto nie ma żadnej
+   (np. mieszalnia), widzi w raportach obie. */
 function lokDostepne(){
-  return (ROLE[rolaAkt]?.lokalizacje||[]).filter(l=>l==='nadarzyn'||l==='boguszyn');
-}
-function mozeWpisDnia(lok){
-  return (ROLE[rolaAkt]?.lokalizacje||[]).includes(lok) && rolaAkt!=='mieszalnia';
+  if(jestTworca()) return ['nadarzyn','boguszyn'];
+  const l = ['nadarzyn','boguszyn'].filter(x=>poziom(x) || poziom(x==='nadarzyn'?'paszowozN':'paszowozB'));
+  return l.length ? l : ['nadarzyn','boguszyn'];
 }
 function idDnia(lok,data){ return lok+'_'+data; }
 function dokDnia(lok,data){ return store.zywienie[idDnia(lok,data)] || null; }
@@ -4656,8 +5081,10 @@ async function zapiszDzien(lok, data, grupaId, pola){
   }
   // Liczba sztuk MUSI być zapisana — bez niej raporty liczą zadane = dawka × 0 i wiersz znika
   if(gr && poprz.sztuk==null && pola.sztuk==null) baza.sztuk = gr.sztuk||0;
-  grupy[grupaId] = {...poprz, ...baza, ...pola, autor:ROLE[rolaAkt]?.nazwa||'?', ts:Date.now()};
-  await DB.zapisz('zywienie', id, {lokalizacja:lok, data, grupy});
+  const wpis = {...poprz, ...baza, ...pola, autor:nazwaAkt(), ts:Date.now()};
+  // Wysyłamy TYLKO tę jedną grupę — wpisy innych grup (np. zrobione w tej chwili na innym
+  // tablecie) zostają nietknięte, nawet jeśli to urządzenie ma ich starszą wersję.
+  await DB.scal('zywienie', id, {lokalizacja:lok, data, grupy:{[grupaId]:wpis}});
 }
 
 function odchylenieKolor(proc){
@@ -5207,7 +5634,7 @@ function rapSnapshoty(el){
   <div style="padding:12px 14px;border-bottom:1px solid var(--linia);display:flex;gap:10px;align-items:center;flex-wrap:wrap">
     <span class="podpis">Kopia dawek zapisuje się automatycznie po każdej zmianie (jedna na dzień — stan z końca dnia). Kliknij wiersz, żeby zobaczyć pełną tabelę.</span>
     <span style="flex:1"></span>
-    ${rolaAkt==='tworca'?'<button class="btn maly" id="btnPrzywroc">⟲ Przywróć dane z kopii…</button>':''}
+    ${jestTworca()?'<button class="btn maly" id="btnPrzywroc">⟲ Przywróć dane z kopii…</button>':''}
     ${s.length?przyciskEksportu('#tabSnapshoty','historia_dawek','Historia dawek — zapisane wersje'):''}
   </div>
   ${s.length ? `<div class="przewijak"><table class="gt-tabela" id="tabSnapshoty">
@@ -5310,7 +5737,7 @@ let przywrStan = null;   // {zrodloId, plik, doDnia}
 
 /* Czerwony baner dla Twórcy, gdy wykryto nadpisanie danymi przykładowymi */
 function banerPrzywracania(){
-  if(rolaAkt!=='tworca') return '';
+  if(!jestTworca()) return '';
   const n = wykryjNadpisanie(); if(!n) return '';
   // po wykonanym przywróceniu baner już nie straszy (narzędzie zostaje w Raporty → Historia dawek)
   if(Object.values(store.snapshoty).some(s=>s.typ==='przed przywróceniem' && (s.data||'')>=n.data)) return '';
@@ -5321,7 +5748,7 @@ function banerPrzywracania(){
 window.__przywroc = ()=>oknoPrzywracania();
 
 function oknoPrzywracania(){
-  if(rolaAkt!=='tworca'){ toast('Narzędzie dostępne tylko dla Twórcy.', true); return; }
+  if(!jestTworca()){ toast('Narzędzie dostępne tylko dla Twórcy.', true); return; }
   const nadp = wykryjNadpisanie();
   const zrodla = zrodlaPrzywracania();
   const domDzien = nadp ? dataMinus(nadp.data,1) : dzisiaj();
@@ -5532,7 +5959,7 @@ async function wykonajPrzywracanie(n){
   // 1. kopia bezpieczeństwa
   const ts = Date.now();
   await DB.zapiszCaly('snapshoty', 'przed_'+ts, {typ:'przed przywróceniem', data:dzisiaj(), ts,
-    autor:ROLE[rolaAkt]?.nazwa||'?', dane:klon(store.dawki), grupy:klon(store.grupyTech),
+    autor:nazwaAkt(), dane:klon(store.dawki), grupy:klon(store.grupyTech),
     surowce:klon(store.surowce), mieszanki:klon(store.mieszanki)});
   let n1=0;
   // 2. surowce najpierw (dawki mogą ich potrzebować)
@@ -5581,8 +6008,7 @@ async function wykonajPrzywracanie(n){
 
 function oknoUstawienia(){
   const st = store.config.settings || {};
-  const mozeHasla = ROLE[rolaAkt]?.hasla;
-  const mozeEd = ['tworca','hodowca'].includes(rolaAkt);
+  const mozeEd = jestTworca() || poziom('ustawienia')==='pelny';
   modal({
     tytul:'Ustawienia',
     szer:'620px',
@@ -5601,63 +6027,8 @@ function oknoUstawienia(){
         <textarea id="uKat" rows="6" style="width:100%;padding:10px 12px;border:1.5px solid var(--linia);border-radius:8px" ${mozeEd?'':'disabled'}>${esc(kategorie().join('\n'))}</textarea>
         <div class="hint">Zmiana nazwy kategorii nie przepisuje jej automatycznie w istniejących surowcach.</div>
       </div>
-      ${mozeHasla ? `
-      <hr style="border:none;border-top:1px solid var(--linia);margin:18px 0">
-      <div style="font-weight:600;margin-bottom:10px">Hasła ról</div>
-      <div class="podpis" style="margin-bottom:10px">Hasła widoczne poniżej to aktualnie obowiązujące. Zmiana działa od razu na wszystkich urządzeniach.
-      <br>Logowanie porównuje skrót SHA-256, ale hasło jest też zapisane jawnie w bazie, żeby dało się je tutaj odczytać —
-      kto ma dostęp do konsoli Firebase, ten je zobaczy.</div>
-      ${Object.keys(ROLE).map(r=>{
-        const dt = store.config.passwords?.zmienioneRole?.[r];
-        const akt = store.config.passwords?.jawne?.[r];
-        return `
-        <div class="pole-grupa">
-          <label>${esc(ROLE[r].nazwa)}</label>
-          <input data-haslo="${r}" type="text" value="${esc(akt||'')}"
-                 placeholder="${akt?'':'hasło nieznane — wpisz nowe'}" autocomplete="off" spellcheck="false">
-          <div class="hint">${akt
-            ? (dt ? 'Zmienione '+dataPL(dt) : 'Hasło startowe')
-            : '<b style="color:var(--zolty)">Hasło ustawiono przed aktualizacją — nie da się go odczytać. Wpisz nowe, żeby było widoczne.</b>'}</div>
-        </div>`;}).join('')}
-      ` : ''}
-      ${rolaAkt==='tworca' ? `
-      <hr style="border:none;border-top:1px solid var(--linia);margin:18px 0">
-      <div style="font-weight:600;margin-bottom:10px">Uprawnienia ról</div>
-      <div class="podpis" style="margin-bottom:12px">
-        Wiersze = role, kolumny = zakładki. Zmień komórkę, żeby dać rolę dostęp do zakładki.
-        Poziomy: <b>—</b> brak (zakładka niewidoczna), <b>podgląd</b> tylko odczyt,
-        <b>wpis</b> może wpisywać dane, <b>pełny</b> edycja wszystkiego.<br>
-        <b style="color:var(--zielen)">Twórca jest zawsze pełny</b> — nie da się mu odebrać dostępu, żeby nie zablokować sobie aplikacji.
-      </div>
-      <div style="overflow-x:auto;margin-bottom:6px">
-      <table class="upr-tab">
-        <thead><tr>
-          <th style="text-align:left">Rola</th>
-          ${ZAKLADKI.map(z=>`<th title="${esc(z.etykieta)}">${esc(z.etykieta.replace('🚛 ',''))}</th>`).join('')}
-        </tr></thead>
-        <tbody>
-          ${Object.keys(ROLE_BAZOWE).map(r=>{
-            const bazowe = ROLE_BAZOWE[r];
-            const nadpis = store.config?.uprawnienia?.[r] || {};
-            const tworca = r==='tworca';
-            return `<tr>
-              <td style="text-align:left;font-weight:600">${esc(bazowe.nazwa)}${tworca?' <span class="podpis">(nietykalny)</span>':''}</td>
-              ${ZAKLADKI.map(z=>{
-                const aktualny = tworca ? 'pelny' : (nadpis[z.id] ?? bazowe.zakl[z.id] ?? '');
-                return `<td><select data-upr-rola="${r}" data-upr-zakl="${z.id}" ${tworca?'disabled':''}>
-                  <option value="" ${!aktualny?'selected':''}>—</option>
-                  <option value="podglad" ${aktualny==='podglad'?'selected':''}>podgląd</option>
-                  <option value="wpis" ${aktualny==='wpis'?'selected':''}>wpis</option>
-                  <option value="pelny" ${aktualny==='pelny'?'selected':''}>pełny</option>
-                </select></td>`;
-              }).join('')}
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
-      </div>
-      <div class="podpis">Zmiana zapisuje się z pozostałymi ustawieniami po kliknięciu <b>Zapisz</b>. Odświeżenie na urządzeniach ról następuje automatycznie.</div>
-      ` : ''}
+      ${mozeEd ? '' : '<div class="podpis" style="margin-bottom:10px">Ustawienia może zmieniać Twórca albo osoba z włączonym uprawnieniem „Ustawienia”.</div>'}
+      ${jestTworca() && !trybLokalny ? '<div class="podpis" style="margin-bottom:10px">Osoby, hasła i dostęp do zakładek — w zakładce <b>👥 Dostęp</b>.</div>' : ''}
       <div class="podpis">Wersja: ${esc(WERSJA_APP)} · Tryb: ${trybLokalny?'lokalny':'Firestore'}</div>`,
     przyciski:[
       {tekst:'Zamknij'},
@@ -5669,49 +6040,288 @@ function oknoUstawienia(){
           kategorie: n.querySelector('#uKat').value.split('\n').map(x=>x.trim()).filter(Boolean),
           pojemnoscWozu: Math.max(0, parseInt(n.querySelector('#uPoj')?.value)||6600)
         };
-        let noweHasla = null, noweDaty = null, noweJawne = null;
-        if(mozeHasla){
-          const hasla = {...(store.config.passwords?.hasla||{})};
-          const jawne = {...(store.config.passwords?.jawne||{})};
-          const daty  = {...(store.config.passwords?.zmienioneRole||{})};
-          let zmiany=0, puste=[];
-          n.querySelectorAll('[data-haslo]').forEach(inp=>{
-            const r = inp.dataset.haslo;
-            const v = inp.value.trim();
-            if(!v){ if(jawne[r]) puste.push(ROLE[r].nazwa); return; }   // puste = zostaw stare
-            if(v === jawne[r]) return;                                  // bez zmiany
-            hasla[r]=sha256(v); jawne[r]=v; daty[r]=dzisiaj(); zmiany++;
-          });
-          if(puste.length){ toast('Puste pole nie kasuje hasła: '+puste.join(', ')); }
-          if(zmiany){ noweHasla=hasla; noweJawne=jawne; noweDaty=daty; }
-        }
-        // Uprawnienia — tylko Twórca może zmieniać (widok jest ukryty dla innych ról)
-        let noweUprawnienia = null;
-        if(rolaAkt==='tworca'){
-          const upr = {};
-          n.querySelectorAll('[data-upr-rola]').forEach(sel=>{
-            const r = sel.dataset.uprRola, z = sel.dataset.uprZakl, v = sel.value;
-            if(r==='tworca') return;   // pomijamy — Twórca nietykalny
-            (upr[r] ||= {})[z] = v || 'brak';
-          });
-          // zapisujemy tylko faktyczną zmianę — inaczej „zamrażalibyśmy” domyślne uprawnienia
-          const biezace = {};
-          Object.keys(upr).forEach(r=>{ biezace[r]={}; Object.keys(upr[r]).forEach(z=>{ biezace[r][z]=ROLE[r]?.zakl?.[z]||'brak'; }); });
-          if(JSON.stringify(biezace)!==JSON.stringify(upr)) noweUprawnienia = upr;
-        }
         // Teraz bezpiecznie zapisujemy — inputy już nie są potrzebne
         await DB.zapisz('config','settings',dane);
-        if(noweHasla) await DB.zapisz('config','passwords',
-          {hasla:noweHasla, jawne:noweJawne, zmienioneRole:noweDaty, zmienione:dzisiaj()});
-        if(noweUprawnienia) await DB.zapisz('config','uprawnienia', noweUprawnienia);
         document.getElementById('hNazwa').textContent = dane.nazwaGospodarstwa;
-        zbudujTaby(); render();
-        toast(noweHasla || noweUprawnienia
-          ? 'Zapisano ustawienia' + (noweHasla?', hasła':'') + (noweUprawnienia?' i uprawnienia':'') + '.'
-          : 'Zapisano ustawienia.');
+        render();
+        toast('Zapisano ustawienia.');
       }}]:[])
     ]
   });
+}
+
+/* ===================== ZAKŁADKA: DOSTĘP (tylko Twórca) =====================
+   Wzór: GR Formela. Każda osoba = karta. Zmiany działają od razu, także na
+   urządzeniach, na których ktoś jest już zalogowany. */
+let osoby = {};                 // uid -> profil
+let osobyWczytane = false;
+let dodajStan = {imie:'', login:'', loginReczny:false, haslo:'', kto:'operatorN', zakl:klon(SZABLONY.operatorN.zakl)};
+
+function startNasluchuOsob(){
+  if(trybLokalny || !jestTworca()) return;
+  const off = FS.onSnapshot(FS.collection(FS.db,'uzytkownicy'), snap=>{
+    const n = {}; snap.forEach(d=> n[d.id] = {...d.data(), id:d.id});
+    osoby = n; osobyWczytane = true;
+    if(zakladkaAkt==='dostep') render();
+  }, err=>{ console.error('uzytkownicy', err); });
+  nasluchKolekcji.push(off);
+}
+
+function chipUpr(u, wartosc, atrybuty){
+  if(u.typ==='wl'){
+    return `<button type="button" class="chip ${wartosc?'pel':''}" ${atrybuty} title="Dotknij, aby ${wartosc?'ukryć':'pokazać'} zakładkę">${wartosc?'✓ ':''}${esc(u.etykieta)}</button>`;
+  }
+  const kl = wartosc==='pelny' ? 'pel' : wartosc==='wpis' ? 'wpis' : wartosc ? 'pod' : '';
+  const znak = wartosc==='pelny' ? '✓ ' : wartosc==='wpis' ? '✎ ' : wartosc ? '👁 ' : '';
+  const opcje = [['', 'Nie widzi zakładki'], ['podglad', '👁 Tylko podgląd'],
+    ...(u.typ==='pwz' ? [['wpis', '✎ Tylko wpis kg i niedojadów']] : []),
+    ['pelny', '✓ Może zmieniać']];
+  // Na pigułce krótko (jak w GR Formela); pełny opis w liście po dotknięciu
+  return `<label class="chip chip-sel ${kl}" title="${esc(u.etykieta)} — dotknij, aby zmienić">${znak}${esc(u.etykieta)}
+    <select ${atrybuty} aria-label="${esc(u.etykieta)}"><optgroup label="${esc(u.etykieta)}">${opcje.map(([v,t])=>
+    `<option value="${v}" ${(wartosc||'')===v?'selected':''}>${esc(t)}</option>`).join('')}</optgroup></select></label>`;
+}
+
+function opisDostepu(zakl){
+  const n = UPRAWNIENIA.filter(u=>zakl?.[u.id]).length;
+  return n ? '' : '<p class="os-opis" style="color:var(--czerwony)">Nie widzi żadnej zakładki — włącz przynajmniej jedną.</p>';
+}
+
+function kartaOsoby(o){
+  const ja = o.id===uzytkAkt?.uid;
+  const zabl = o.aktywny!==true;
+  const pod = o.tworca ? ('twórca' + (ja ? ' · to Ty' : '')) : (o.szablon && SZABLONY[o.szablon] ? SZABLONY[o.szablon].nazwa.toLowerCase() : 'osoba');
+  return `<div class="osoba ${zabl?'zablok':''}" data-osoba="${esc(o.id)}">
+    <div class="os-gora">
+      <div class="awatar">${esc((o.imie||'?').trim().charAt(0).toUpperCase())}</div>
+      <div style="min-width:0">
+        <div class="os-imie">${esc(o.imie||'?')} ${zabl?'<span class="plakietka blok">zablokowany</span>':''}</div>
+        <div class="os-pod">${esc(pod)} · login: <b>${esc(o.login||'—')}</b></div>
+      </div>
+    </div>
+    ${o.tworca
+      ? '<p class="os-opis">Twórca widzi wszystkie zakładki i zarządza dostępem.</p>'
+      : `<div class="chipy">${UPRAWNIENIA.map(u=>chipUpr(u, o.zakl?.[u.id], `data-upr="${u.id}" data-uid="${esc(o.id)}"`)).join('')}</div>${opisDostepu(o.zakl)}`}
+    <div class="os-przyciski">
+      ${ja ? '<button class="btn-ob" data-akcja="mojeHaslo">Zmień moje hasło</button>'
+           : `<button class="btn-ob ${zabl?'':'czerw'}" data-akcja="blokuj" data-uid="${esc(o.id)}">${zabl?'Odblokuj':'Zablokuj'}</button>
+              <button class="btn-ob" data-akcja="haslo" data-uid="${esc(o.id)}">Nowe hasło</button>
+              <button class="btn-ob czerw" data-akcja="usun" data-uid="${esc(o.id)}">Usuń</button>`}
+    </div>
+  </div>`;
+}
+
+function renderDostep(w){
+  if(!jestTworca() || trybLokalny){ w.innerHTML = '<div class="panel"><div class="pusto">Tylko Twórca zarządza dostępem.</div></div>'; return; }
+  const lista = Object.values(osoby).sort((a,b)=>
+    (b.id===uzytkAkt.uid) - (a.id===uzytkAkt.uid) || (!!b.tworca - !!a.tworca) || String(a.imie).localeCompare(String(b.imie),'pl'));
+  const D = dodajStan;
+  w.innerHTML = `<div class="dostep">
+    <div class="naglowek">
+      <h2>Dostęp do aplikacji</h2>
+      <p>Każda osoba ma własny login i hasło. Ustaw, które zakładki widzi i czy może w nich coś zmieniać.
+      Zmiany działają od razu, także na tabletach i telefonach, na których ktoś jest już zalogowany.</p>
+      <div class="legenda" style="margin-top:10px">
+        <span class="chip">nie widzi</span><span class="chip pod">👁 podgląd</span>
+        <span class="chip wpis">✎ tylko wpis kg i niedojadów</span><span class="chip pel">✓ zmienia</span>
+        <span>— dotknij pigułkę, żeby zmienić.</span>
+      </div>
+    </div>
+    <div class="osoby">${osobyWczytane ? lista.map(kartaOsoby).join('') : '<div class="podpis">Wczytywanie…</div>'}</div>
+    <div class="dodaj-osobe">
+      <h2>Dodaj osobę</h2>
+      <div class="pola">
+        <div><label>Imię lub nazwa</label><input id="dImie" placeholder="np. Adam, Marek – dojarz" value="${esc(D.imie)}" autocomplete="off"></div>
+        <div><label>Login (do logowania)</label><input id="dLogin" placeholder="np. adam" value="${esc(D.login)}" autocomplete="off" autocapitalize="none" spellcheck="false"></div>
+        <div><label>Hasło (min. 6 znaków)</label><input id="dHaslo" type="text" value="${esc(D.haslo)}" autocomplete="new-password" spellcheck="false"></div>
+        <div><label>Kto to jest</label><select class="zw" id="dKto">
+          ${Object.entries(SZABLONY).map(([k,s])=>`<option value="${k}" ${D.kto===k?'selected':''}>${esc(s.nazwa)}</option>`).join('')}
+          <option value="tworca" ${D.kto==='tworca'?'selected':''}>Twórca (wszystko + zarządza dostępem)</option>
+        </select></div>
+      </div>
+      ${D.kto==='tworca' ? '<p class="os-opis" style="margin-top:12px">Twórca widzi wszystkie zakładki i może dodawać, blokować i usuwać osoby.</p>'
+        : `<label style="display:block;font-size:12.5px;font-weight:600;color:var(--tekst-slaby);margin:14px 0 6px">Zakładki:</label>
+           <div class="chipy">${UPRAWNIENIA.map(u=>chipUpr(u, D.zakl[u.id], `data-dupr="${u.id}"`)).join('')}</div>`}
+      <div class="podpis" style="margin:12px 0">Hasło przekaż osobie osobiście. Po zalogowaniu może je zmienić sama (ⓘ → Zmień moje hasło).</div>
+      <button class="btn" id="dDodaj">+ Dodaj osobę</button>
+    </div>
+  </div>`;
+
+  // --- karty ---
+  w.querySelectorAll('select[data-upr]').forEach(el=> el.onchange = ()=> zmienUpr(el.dataset.uid, el.dataset.upr, el.value));
+  w.querySelectorAll('button[data-upr]').forEach(el=> el.onclick = ()=>{
+    const u = UPRAWNIENIA.find(x=>x.id===el.dataset.upr);
+    const ma = !!osoby[el.dataset.uid]?.zakl?.[u.id];
+    zmienUpr(el.dataset.uid, u.id, ma ? '' : (u.wartoscWl||'podglad'));
+  });
+  w.querySelectorAll('[data-akcja]').forEach(b=> b.onclick = ()=>{
+    const o = osoby[b.dataset.uid];
+    if(b.dataset.akcja==='mojeHaslo') return oknoMojeHaslo();
+    if(!o) return;
+    if(b.dataset.akcja==='blokuj') return przelaczBlokade(o);
+    if(b.dataset.akcja==='haslo') return oknoNoweHaslo(o);
+    if(b.dataset.akcja==='usun') return usunOsobe(o);
+  });
+
+  // --- formularz dodawania (stan trzymany poza DOM — przerysowanie niczego nie gubi) ---
+  const iI = w.querySelector('#dImie'), iL = w.querySelector('#dLogin'), iH = w.querySelector('#dHaslo');
+  iI.oninput = ()=>{ D.imie = iI.value; if(!D.loginReczny){ D.login = loginZ(iI.value); iL.value = D.login; } };
+  iL.oninput = ()=>{ D.login = iL.value; D.loginReczny = !!iL.value; };
+  iH.oninput = ()=>{ D.haslo = iH.value; };
+  w.querySelector('#dKto').onchange = e=>{
+    D.kto = e.target.value;
+    if(SZABLONY[D.kto]) D.zakl = klon(SZABLONY[D.kto].zakl);
+    render();
+  };
+  w.querySelectorAll('select[data-dupr]').forEach(el=> el.onchange = ()=>{
+    if(el.value) D.zakl[el.dataset.dupr] = el.value; else delete D.zakl[el.dataset.dupr];
+    render();
+  });
+  w.querySelectorAll('button[data-dupr]').forEach(el=> el.onclick = ()=>{
+    const u = UPRAWNIENIA.find(x=>x.id===el.dataset.dupr);
+    if(D.zakl[u.id]) delete D.zakl[u.id]; else D.zakl[u.id] = u.wartoscWl||'podglad';
+    render();
+  });
+  w.querySelector('#dDodaj').onclick = dodajOsobe;
+}
+
+/* Zmiana jednej zakładki — od razu w bazie */
+async function zmienUpr(uid, zid, wartosc){
+  const o = osoby[uid]; if(!o) return;
+  const zakl = {...(o.zakl||{})};
+  if(wartosc) zakl[zid] = wartosc; else delete zakl[zid];
+  osoby[uid] = {...o, zakl};              // od razu na ekranie
+  render();
+  try{
+    await FS.updateDoc(FS.doc(FS.db,'uzytkownicy',uid), {zakl, edycja:profilEdytuje(zakl), zmieniono:Date.now()});
+  }catch(e){ bladZapisu(e); }
+}
+
+async function przelaczBlokade(o){
+  const zablokuj = o.aktywny===true;
+  const wykonaj = async()=>{
+    try{
+      await FS.updateDoc(FS.doc(FS.db,'uzytkownicy',o.id), {aktywny:!zablokuj, zmieniono:Date.now()});
+      toast(zablokuj ? `${o.imie} — zablokowano. Zostanie wylogowany na swoich urządzeniach.` : `${o.imie} — odblokowano.`);
+    }catch(e){ bladZapisu(e); }
+  };
+  if(!zablokuj) return wykonaj();
+  potwierdz('Zablokować?', `${esc(o.imie)} straci dostęp od razu, także na urządzeniach, na których jest zalogowany.\nDane, które wpisał, zostają. Możesz go później odblokować.`, wykonaj, 'Zablokuj');
+}
+
+function usunOsobe(o){
+  potwierdz('Usunąć osobę?', `${esc(o.imie)} (login: ${esc(o.login)}) straci dostęp na stałe.\nDane, które wpisał, zostają w aplikacji.\n\nJeśli chcesz tylko czasowo odciąć dostęp — użyj „Zablokuj”.`, async()=>{
+    try{
+      const b = FS.writeBatch(FS.db);
+      b.delete(FS.doc(FS.db,'uzytkownicy',o.id));
+      const L = await FS.getDoc(FS.doc(FS.db,'loginy',o.login));
+      if(L.exists() && L.data().uid===o.id) b.delete(FS.doc(FS.db,'loginy',o.login));
+      await b.commit();
+      toast(`Usunięto: ${o.imie}.`);
+    }catch(e){ bladZapisu(e); }
+  });
+}
+
+/* Nowe konto Firebase bez wylogowywania Twórcy — przez osobną, tymczasową instancję */
+async function utworzKontoAuth(email, haslo){
+  const app2 = AUTH.appM.initializeApp(firebaseConfig, 'tworzenie-'+Date.now());
+  try{
+    const a2 = AUTH.m.initializeAuth(app2, {persistence: AUTH.m.inMemoryPersistence});
+    if(window.__EMULATOR__) AUTH.m.connectAuthEmulator(a2, 'http://127.0.0.1:'+window.__EMULATOR__.auth, {disableWarnings:true});
+    const c = await AUTH.m.createUserWithEmailAndPassword(a2, email, haslo);
+    await AUTH.m.signOut(a2);
+    return c.user.uid;
+  }finally{
+    AUTH.appM.deleteApp(app2).catch(()=>{});
+  }
+}
+
+async function dodajOsobe(){
+  const D = dodajStan;
+  const imie = D.imie.trim(), login = loginZ(D.login || D.imie), haslo = D.haslo;
+  if(!imie) return toast('Wpisz imię.', true);
+  if(!login) return toast('Wpisz login (litery i cyfry).', true);
+  if(haslo.length < 6) return toast('Hasło musi mieć co najmniej 6 znaków.', true);
+  const tworca = D.kto==='tworca';
+  if(!tworca && !Object.keys(D.zakl).length) return toast('Zaznacz przynajmniej jedną zakładkę.', true);
+  const btn = document.getElementById('dDodaj');
+  btn.disabled = true; btn.textContent = 'Dodawanie…';
+  try{
+    const L = await FS.getDoc(FS.doc(FS.db,'loginy',login));
+    if(L.exists()){ toast(`Login „${login}” jest już zajęty — wpisz inny.`, true); return; }
+    const email = emailTechniczny(login);
+    const uid = await utworzKontoAuth(email, haslo);
+    const zakl = tworca ? {} : klon(D.zakl);
+    const b = FS.writeBatch(FS.db);
+    b.set(FS.doc(FS.db,'uzytkownicy',uid), {imie, login, email, tworca, aktywny:true,
+      edycja: tworca || profilEdytuje(zakl), zakl, szablon: tworca ? null : D.kto,
+      utworzono:Date.now(), utworzyl:nazwaAkt()});
+    b.set(FS.doc(FS.db,'loginy',login), {email, uid});
+    await b.commit();
+    // Czyścimy tylko to, co właśnie wysłano — jeśli ktoś zaczął już wpisywać następną osobę, zostaje
+    if(D.imie.trim()===imie){ D.imie=''; if(!D.loginReczny) D.login=''; }
+    if(loginZ(D.login)===login){ D.login=''; D.loginReczny=false; }
+    if(D.haslo===haslo) D.haslo='';
+    render();
+    toast(`Dodano: ${imie}. Login: ${login}`);
+  }catch(e){
+    console.error(e);
+    toast(komunikatBledu(e), true);
+  }finally{
+    const b2 = document.getElementById('dDodaj');
+    if(b2){ b2.disabled = false; b2.textContent = '+ Dodaj osobę'; }
+  }
+}
+
+/* Nowe hasło dla innej osoby: nowe konto Firebase pod tym samym loginem, profil przenoszony.
+   Stare konto traci dostęp od razu (osoba zostaje wylogowana na swoich urządzeniach). */
+function oknoNoweHaslo(o){
+  modal({tytul:'Nowe hasło — '+o.imie,
+    tresc:`<div class="pole-grupa"><label>Nowe hasło (min. 6 znaków)</label>
+        <input id="nhHaslo" type="text" autocomplete="new-password" spellcheck="false"></div>
+      <div class="podpis">Login zostaje ten sam: <b>${esc(o.login)}</b>. ${esc(o.imie)} zostanie wylogowany na swoich urządzeniach
+      i zaloguje się nowym hasłem. Przekaż je osobiście.</div>`,
+    przyciski:[{tekst:'Anuluj'},{tekst:'Ustaw hasło', klasa:'', akcja:async(n)=>{
+      const haslo = n.querySelector('#nhHaslo').value;
+      if(haslo.length<6){ toast('Hasło musi mieć co najmniej 6 znaków.', true); return false; }
+      try{
+        const email = emailTechniczny(o.login);
+        const nowyUid = await utworzKontoAuth(email, haslo);
+        const {id, ...dane} = o;
+        const b = FS.writeBatch(FS.db);
+        b.set(FS.doc(FS.db,'uzytkownicy',nowyUid), {...dane, email, hasloZmienione:Date.now(), zmieniono:Date.now()});
+        b.delete(FS.doc(FS.db,'uzytkownicy',o.id));
+        b.set(FS.doc(FS.db,'loginy',o.login), {email, uid:nowyUid});
+        await b.commit();
+        toast(`Ustawiono nowe hasło: ${o.imie}.`);
+      }catch(e){ console.error(e); toast(komunikatBledu(e), true); return false; }
+    }}]});
+  setTimeout(()=>document.getElementById('nhHaslo')?.focus(), 50);
+}
+
+/* Zmiana własnego hasła — każda osoba może to zrobić sama */
+function oknoMojeHaslo(){
+  modal({tytul:'Zmień moje hasło',
+    tresc:`<div class="pole-grupa"><label>Obecne hasło</label><input id="mhStare" type="password" autocomplete="current-password"></div>
+      <div class="pole-grupa"><label>Nowe hasło (min. ${jestTworca()?8:6} znaków)</label><input id="mhNowe" type="password" autocomplete="new-password"></div>
+      <div class="pole-grupa"><label>Powtórz nowe hasło</label><input id="mhNowe2" type="password" autocomplete="new-password"></div>`,
+    przyciski:[{tekst:'Anuluj'},{tekst:'Zmień hasło', klasa:'', akcja:async(n)=>{
+      const stare = n.querySelector('#mhStare').value, nowe = n.querySelector('#mhNowe').value, nowe2 = n.querySelector('#mhNowe2').value;
+      const min = jestTworca() ? 8 : 6;
+      if(nowe.length<min){ toast(`Nowe hasło musi mieć co najmniej ${min} znaków.`, true); return false; }
+      if(nowe!==nowe2){ toast('Nowe hasła nie są takie same.', true); return false; }
+      try{
+        const u = AUTH.auth.currentUser;
+        await AUTH.m.reauthenticateWithCredential(u, AUTH.m.EmailAuthProvider.credential(u.email, stare));
+        await AUTH.m.updatePassword(u, nowe);
+        toast('Hasło zmienione.');
+      }catch(e){
+        console.warn(e);
+        toast(/invalid-credential|wrong-password/.test(e?.code||'') ? 'Obecne hasło jest nieprawidłowe.' : komunikatBledu(e), true);
+        return false;
+      }
+    }}]});
+  setTimeout(()=>document.getElementById('mhStare')?.focus(), 50);
 }
 
 /* ===================== KOPIA ZAPASOWA ===================================== */
@@ -5758,7 +6368,7 @@ function eksportBackup(){
 
 /* Twórca raz w tygodniu dostaje przypomnienie o pobraniu kopii zapasowej (.json) */
 function przypomnienieBackupu(){
-  if(rolaAkt!=='tworca') return;
+  if(!jestTworca()) return;
   const ost = store.config.settings?.ostatniBackup || null;
   const dni = ost ? Math.round((Date.parse(dzisiaj())-Date.parse(ost))/86400000) : null;
   if(dni!=null && dni<7) return;
@@ -5788,7 +6398,10 @@ function importBackup(dane){
       let n=0;
       for(const [kol, docs] of Object.entries(dane.kolekcje)){
         if(!KOLEKCJE.includes(kol)) continue;
-        for(const [id, d] of Object.entries(docs||{})){ await DB.zapisz(kol, id, d); n++; }
+        for(const [id, d] of Object.entries(docs||{})){
+          if(kol==='config' && ['passwords','app','uprawnienia'].includes(id)) continue;   // stare hasła i znacznik wersji — pomijamy
+          await DB.zapisz(kol, id, d); n++;
+        }
       }
       toast(`Wczytano ${n} dokumentów.`);
       render();
@@ -5797,38 +6410,40 @@ function importBackup(dane){
 
 /* ===================== INFO =============================================== */
 function oknoInfo(){
-  const r = ROLE[rolaAkt];
-  const zakl = ZAKLADKI.filter(z=>poziom(z.id))
+  const zakl = ZAKLADKI.filter(z=>z.id!=='dostep' && poziom(z.id))
     .map(z=>`<tr><td>${esc(z.etykieta)}</td><td><span class="plakietka">${poziom(z.id)==='pelny'?'pełny':poziom(z.id)==='wpis'?'tylko wpis kg':'podgląd'}</span></td></tr>`).join('');
   modal({
     tytul:'Informacje',
     tresc:`
       <p style="margin-top:0"><b>OHZ Lubiana — Żywienie</b><br>
       <span class="podpis">Wersja ${esc(WERSJA_APP)} · ${trybLokalny?'tryb lokalny (bez Firebase)':'Firestore'}</span></p>
-      <p>Zalogowano jako: <b>${esc(r.nazwa)}</b><br>
-      Lokalizacje: ${r.lokalizacje.map(l=>l==='nadarzyn'?'Nadarzyn':'Boguszyny').join(', ')}</p>
-      <table style="margin-top:10px">
+      <p>Zalogowano jako: <b>${esc(uzytkAkt?.imie||'—')}</b>${uzytkAkt?.login?` <span class="podpis">(login: ${esc(uzytkAkt.login)})</span>`:''}${jestTworca()?' · Twórca':''}<br>
+      Lokalizacje: ${lokDostepne().map(nazwaLokalizacji).join(', ')}</p>
+      ${!trybLokalny ? '<button class="btn szary" id="btnMojeHaslo">🔑 Zmień moje hasło</button>' : ''}
+      <table style="margin-top:12px">
         <thead><tr><th>Zakładka</th><th>Dostęp</th></tr></thead>
         <tbody>${zakl}</tbody>
       </table>
       <p class="podpis" style="margin-bottom:0">Dane: ${Object.keys(store.surowce).length} surowców · ${Object.keys(store.dawki).length} dawek · ${Object.keys(store.mieszanki).length} mieszanek</p>
-      ${rolaAkt==='tworca' ? '<hr style="border:none;border-top:1px solid var(--linia);margin:14px 0"><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn szary" id="btnZasiej">🌱 Surowce, mieszanki i dawki</button><button class="btn szary" id="btnZasiejGr">🏠 Grupy technologiczne</button></div><div class="podpis" style="margin-top:6px">Zasiew danych przykładowych. Nadpisuje dokumenty o tych samych ID, nie usuwa Twoich własnych wpisów.</div>' : ''}
+      ${jestTworca() ? '<hr style="border:none;border-top:1px solid var(--linia);margin:14px 0"><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn szary" id="btnZasiej">🌱 Surowce, mieszanki i dawki</button><button class="btn szary" id="btnZasiejGr">🏠 Grupy technologiczne</button></div><div class="podpis" style="margin-top:6px">Dodaje brakujące dane przykładowe. <b>Nigdy nie nadpisuje</b> istniejących wpisów.</div>' : ''}
       ${deferredPrompt ? '<hr style="border:none;border-top:1px solid var(--linia);margin:14px 0"><button class="btn" id="btnInstalujInfo">📲 Zainstaluj aplikację na tym urządzeniu</button>' : '<p class="podpis">Aby zainstalować jako aplikację: w Chrome kliknij menu ⋮ → „Zainstaluj aplikację" (komputer) lub „Dodaj do ekranu głównego" (Android).</p>'}`,
     przyciski:[{tekst:'Zamknij'}]
   });
+  const bMH = document.getElementById('btnMojeHaslo');
+  if(bMH) bMH.onclick = ()=>{ zamknijModal(); oknoMojeHaslo(); };
   const btnZ = document.getElementById('btnZasiej');
   if(btnZ) btnZ.onclick = async()=>{
     btnZ.disabled=true; btnZ.textContent='Trwa zasiewanie…';
     await zasiejPrzykladowe();
     zamknijModal(); render();
-    toast('Wgrano: 24 surowce, 8 mieszanek, 10 dawek, 31 grup.');
+    toast('Dodano brakujące dane przykładowe.');
   };
   const btnZG = document.getElementById('btnZasiejGr');
   if(btnZG) btnZG.onclick = async()=>{
     btnZG.disabled=true; btnZG.textContent='Trwa zasiewanie…';
     await zasiejGrupy();
     zamknijModal(); render();
-    toast('Wgrano grupy technologiczne: 17 Nadarzyn, 14 Boguszyny.');
+    toast('Dodano brakujące grupy technologiczne.');
   };
   const btnII = document.getElementById('btnInstalujInfo');
   if(btnII) btnII.onclick = ()=>{ zamknijModal(); document.getElementById('btnInstaluj').click(); };
@@ -5839,7 +6454,7 @@ document.getElementById('btnOdswiez').onclick   = ()=>{ render(); toast('Odświe
 document.getElementById('btnUstawienia').onclick= oknoUstawienia;
 document.getElementById('btnBackup').onclick    = oknoBackup;
 document.getElementById('btnInfo').onclick      = oknoInfo;
-document.getElementById('btnWyloguj').onclick   = ()=> potwierdz('Wylogować?','Wrócisz do ekranu logowania.', wyloguj, 'Wyloguj');
+document.getElementById('btnWyloguj').onclick   = ()=> potwierdz('Wylogować?','Wrócisz do ekranu logowania.', ()=>{ setTimeout(()=>wyloguj(),0); }, 'Wyloguj');
 
 /* ===================== INSTALACJA PWA ===================================== */
 let deferredPrompt = null;
@@ -5877,6 +6492,7 @@ document.getElementById('btnInstaluj').onclick = async () => {
 });
 nasluchuj('config', ()=>{
   if(!rolaAkt) return;
+  sprawdzWersje();
   document.getElementById('hNazwa').textContent = store.config.settings?.nazwaGospodarstwa || 'OHZ Lubiana';
   // Uprawnienia mogły się zmienić — pasek zakładek przebudowujemy TYLKO gdy faktycznie
   // zmienił się zestaw dostępnych zakładek (inaczej każdy zapis konfiguracji skakał na górę strony)
