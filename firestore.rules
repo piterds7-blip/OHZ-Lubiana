@@ -1,50 +1,94 @@
 rules_version = '2';
 
 // OHZ Lubiana — Żywienie
-// Etap 1: logowanie anonimowe (każde urządzenie z aplikacją = jeden anonimowy użytkownik).
-// Rola wynika z hasła po stronie aplikacji, więc reguły NIE rozróżniają jeszcze ról —
-// odcinamy natomiast cały ruch spoza aplikacji (boty, skanery, zapytania bez uwierzytelnienia).
-// Etap 2 (docelowo, po wpięciu Firebase Auth z custom claims): odkomentuj sekcje z lokalizacjami.
+// Każda osoba ma własne konto (login + hasło, Firebase Authentication → Email/Password).
+// Dostęp do danych ma TYLKO osoba, której profil jest w kolekcji `uzytkownicy`
+// i nie jest zablokowana. Profile zakłada i zmienia wyłącznie Twórca (zakładka „Dostęp”).
+//
+// Wklej całość w konsoli Firebase: Firestore Database → Reguły → Opublikuj.
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function zalogowany() {
-      return request.auth != null;
+    // ---------- kim jest pytający ----------
+    function kontoZHaslem() {
+      return request.auth != null
+          && request.auth.token.firebase.sign_in_provider == 'password';
+    }
+    function sciezkaProfilu() {
+      return /databases/$(database)/documents/uzytkownicy/$(request.auth.uid);
+    }
+    function aktywny() {
+      return kontoZHaslem()
+          && exists(sciezkaProfilu())
+          && get(sciezkaProfilu()).data.aktywny == true;
+    }
+    function tworca() {
+      return aktywny() && get(sciezkaProfilu()).data.tworca == true;
+    }
+    // „edycja” = osoba ma choć jedną zakładkę z prawem zmian (ustawia to Twórca)
+    function edytor() {
+      return aktywny()
+          && (get(sciezkaProfilu()).data.tworca == true
+              || get(sciezkaProfilu()).data.edycja == true);
     }
 
-    // --- docelowe funkcje pod custom claims (etap 2) ---
-    // function rola()        { return request.auth.token.rola; }
-    // function lokalizacje() { return request.auth.token.lokalizacje; }
-    // function maLokalizacje(lok) { return lokalizacje().hasAny([lok]); }
-    // function pelnyDostep() { return rola() in ['tworca','hodowca']; }
+    // ---------- pierwsze uruchomienie: założenie konta Twórcy ----------
+    // Działa tylko raz — dopóki nie istnieje dokument publiczne/start.
+    function zakladaPierwszegoTworce() {
+      return kontoZHaslem()
+          && !exists(/databases/$(database)/documents/publiczne/start)
+          && getAfter(/databases/$(database)/documents/publiczne/start).data.uid == request.auth.uid;
+    }
 
-    // Konfiguracja: hasła i ustawienia. Odczyt musi być możliwy PRZED zalogowaniem
-    // w aplikacji (splash wczytuje hasła), ale już po logowaniu anonimowym.
+    match /publiczne/start {
+      allow get: if true;   // ekran logowania sprawdza, czy Twórca już jest
+      allow create: if kontoZHaslem()
+                    && request.resource.data.uid == request.auth.uid
+                    && getAfter(/databases/$(database)/documents/uzytkownicy/$(request.auth.uid)).data.tworca == true;
+      allow update, delete: if false;
+    }
+
+    // ---------- konta ----------
+    match /uzytkownicy/{uid} {
+      // własny profil można odczytać zawsze (aplikacja pokaże wtedy „konto zablokowane”)
+      allow get:  if (kontoZHaslem() && uid == request.auth.uid) || tworca();
+      allow list: if tworca();
+      allow create: if tworca()
+                    || (zakladaPierwszegoTworce() && uid == request.auth.uid
+                        && request.resource.data.tworca == true
+                        && request.resource.data.aktywny == true);
+      allow update, delete: if tworca();
+    }
+
+    // login → konto. Pojedynczy odczyt jest publiczny (potrzebny do logowania),
+    // listy loginów nie da się pobrać bez konta Twórcy.
+    match /loginy/{login} {
+      allow get:  if true;
+      allow list: if tworca();
+      allow create: if tworca() || zakladaPierwszegoTworce();
+      allow update, delete: if tworca();
+    }
+
+    // ---------- konfiguracja ----------
     match /config/{dok} {
-      allow read:  if zalogowany();
-      allow write: if zalogowany();
-      // etap 2: allow write: if dok == 'passwords' ? rola() == 'tworca' : pelnyDostep();
+      allow read: if aktywny();
+      // stary dokument z hasłami (sprzed kont) — nie wolno go już tworzyć ani zmieniać
+      allow create, update: if edytor() && dok != 'passwords';
+      allow delete: if tworca();
     }
 
-    // Dane wspólne dla obu lokalizacji
-    match /surowce/{id}   { allow read, write: if zalogowany(); }
-    match /dawki/{id}     { allow read, write: if zalogowany(); }
-    match /mieszanki/{id} { allow read, write: if zalogowany(); }
-    match /produkcja/{id} { allow read, write: if zalogowany(); }
-    match /snapshoty/{id} { allow read, write: if zalogowany(); }
-
-    // Dane rozdzielone na lokalizacje — ścieżki gotowe pod etap 2
-    match /grupyTech/{lokalizacja}/grupy/{id} {
-      allow read, write: if zalogowany();
-      // etap 2: allow read:  if maLokalizacje(lokalizacja);
-      //         allow write: if maLokalizacje(lokalizacja) && rola() != 'operatorN' && rola() != 'operatorB';
-    }
-
-    match /zywienie/{lokalizacja}/dni/{data} {
-      allow read, write: if zalogowany();
-      // etap 2: allow read, write: if maLokalizacje(lokalizacja);
-    }
+    // ---------- dane ----------
+    match /surowce/{id}     { allow read: if aktywny(); allow write: if edytor(); }
+    match /dawki/{id}       { allow read: if aktywny(); allow write: if edytor(); }
+    match /mieszanki/{id}   { allow read: if aktywny(); allow write: if edytor(); }
+    match /produkcja/{id}   { allow read: if aktywny(); allow write: if edytor(); }
+    match /snapshoty/{id}   { allow read: if aktywny(); allow write: if edytor(); }
+    match /grupyTech/{id}   { allow read: if aktywny(); allow write: if edytor(); }
+    match /zywienie/{id}    { allow read: if aktywny(); allow write: if edytor(); }
+    match /zmianyDawek/{id} { allow read: if aktywny(); allow write: if edytor(); }
+    match /wersjeDawek/{id} { allow read: if aktywny(); allow write: if edytor(); }
+    match /paszowozy/{id}   { allow read: if aktywny(); allow write: if edytor(); }
 
     // Wszystko inne — zamknięte
     match /{document=**} {
